@@ -1,6 +1,6 @@
 from capstone.x86 import *
 
-from asm_types import *
+from lib.asm_types import *
 
 def parse_att_asm_line(line):
     src_inst = line.strip()

@@ -1,5 +1,5 @@
 from enum import Enum
-from utils import *
+from lib.utils import *
 import json
 
 class LblTy(Enum):

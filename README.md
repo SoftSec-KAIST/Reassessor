@@ -9,7 +9,6 @@ python3 merge.py /home/hskim/data/sok/reassessor/func  /home/hskim/data/sok/reas
 
 python3 match\_src\_to\_bin.py /data2/benchmark /home/hskim/data/sok/reassessor/func/func\_list.json /home/hskim/data/sok/reassessor/match
 
-python3 get\_nofunc.py /data2/benchmark /home/hskim/data/sok/reassessor/func/func\_list.json /home/hskim/data/sok/reassessor/nofunc
 
 
 # 2. pickle
@@ -39,5 +38,15 @@ python3 res\_pickle\_count.py /data2/benchmark /home/hskim/data/sok/reassessor/p
 python3 composite.py /data2/benchmark /home/hskim/data/sok/reassessor/pickles /home/hskim/data/sok/reassessor/triage3
 python3 res\_composite.py /data2/benchmark /home/hskim/data/sok/reassessor/triage3
 
+python3 get\_nofunc.py /data2/benchmark /home/hskim/data/sok/reassessor/func/func\_list.json /home/hskim/data/sok/reassessor/nofunc
 python3 run\_disasm.py /data2/benchmark /home/hskim/data/sok/reassessor/pickles /home/hskim/data/sok/reassessor/nofunc /home/hskim/data/sok/reassessor/disasm
 python3 res\_disasm\_err.py /data2/benchmark /home/hskim/data/sok/reassessor/disasm
+
+
+## Bug Report
+https://github.com/HexHive/retrowrite/issues/29
+https://github.com/angr/patcherex/issues/39
+https://github.com/GrammaTech/ddisasm/issues/41
+
+## Error
+https://b2r2.work/fnNZNCacTr2S7WxmyaI4XA?edit

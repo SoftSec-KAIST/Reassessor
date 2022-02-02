@@ -2,7 +2,7 @@ import os
 import glob
 import json
 import sys
-from utils import gen_options, RE_FUNC
+from lib.utils import gen_options, RE_FUNC
 import multiprocessing
 
 def get_src_paths(asmpath):
@@ -47,6 +47,27 @@ def run(arg):
     with open(json_path, 'w') as fp:
         json.dump(result, fp)
 
+
+def collect_loc_candidates(bench_dir, asm_root):
+
+    srcs = get_src_paths(asm_root)
+    result = {}
+
+
+    for src in srcs:
+        cnt = 0
+        for line in open(src, errors='ignore'):
+            cnt += 1
+            line = str(line)
+            if RE_FUNC.match(line):
+                path = src[len(bench_dir):]
+                #print(path)
+                fname = line.split(":")[0]
+                if fname not in result.keys():
+                    result[fname] = []
+                result[fname].append([path, "line@%d" % cnt])
+
+    return result
 
 
 def main(bench_dir, json_dir):

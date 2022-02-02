@@ -35,30 +35,6 @@ def go(args):
             cmd = './compile_script/compile_%s.sh %s %s >> %s 2>&1 '%(script, asm_path, bin_path, log_path)
             #print(cmd)
             os.system(cmd)
-    '''
-    cmd = [
-        "python3",
-        "save_prog.py",
-        bench_dir, #"/data2/benchmark/",
-        #"/home/bbbig/tmp/matched2/",
-        match_dir, #"/home/hskim/data/sok/reassessor/matched/",
-        pickle_dir, #"/home/hskim/data/sok/reassessor/pickles/",
-        mode,
-        options[0],
-        options[1],
-        options[2],
-        options[3],
-        options[4],
-        composite_path,
-        reassem_dir, #"/home/hskim/data/sok/reassem/result/",
-        ">>",
-        "log/res_new_%s_%s" % (mode, "_".join(options))
-    ]
-
-    cmd = " ".join(cmd)
-    print(cmd)
-    os.system(cmd)
-    '''
 
 def main(path_list):
     options = []

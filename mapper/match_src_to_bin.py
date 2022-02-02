@@ -5,7 +5,7 @@ import json
 import os
 import glob
 import sys
-from utils import gen_options, RE_FUNC, RE_INST
+from lib.utils import gen_options, RE_FUNC, RE_INST
 import re
 import multiprocessing
 
@@ -446,3 +446,100 @@ if __name__ == '__main__':
     result_dir = sys.argv[3]
     # Assume these parameters are always valid
     main(bench_dir, func_path, result_dir)
+
+
+def match_src_to_bin(bench_dir, func_dict, bin_path):
+
+    debug_loc_paths = {}
+    src_files = {}
+
+    result = {}
+
+    f = open(bin_path, 'rb')
+    elf = ELFFile(f)
+
+    text = elf.get_section_by_name(".text")
+    text_base = text.header["sh_addr"]
+
+    if "x64" in bin_path.split('/'):
+        cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+    else:
+        cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+
+    cs.syntax = capstone.CS_OPT_SYNTAX_ATT
+    disassembly = cs.disasm(text.data(), text_base)
+
+    instructions = {}  # address : instruction
+    for instruction in disassembly:
+        instructions[instruction.address] = instruction
+
+    instruction_addrs = list(instructions.keys())
+    instruction_addrs.sort()
+    dwarf_loc = get_dwarf_loc(bin_path)
+    funcs = []   # [funcname, address, size] list
+
+    temp_file = bin_path.replace('/','_')
+    os.system("objdump -t -f %s | grep \"F .text\" | sort > /tmp/xx%s" % (bin_path, temp_file))
+
+    for line in open("/tmp/xx" + temp_file):
+        l = line.split()
+        fname = l[-1]
+        faddress = int(l[0], 16)
+        fsize = int(l[4], 16)
+        try:
+            loc_candidates = func_dict[fname]
+            if len(loc_candidates) and fsize > 0:
+                funcs.append([fname, faddress, fsize, loc_candidates])
+        except:
+            pass
+
+    for func in funcs:
+        fname, faddress, fsize, loc_candidates = func
+        if "spec_cpu2006" in bin_path.split('/'):
+            bin_name = os.path.basename(bin_path)
+            loc_candidates = triage_spec_candidates(bin_name, loc_candidates)
+        src_files = get_src_files(bench_dir, src_files, loc_candidates)
+        debug_loc_paths = get_loc_by_file_id(src_files, debug_loc_paths, loc_candidates)
+
+        '''
+        Handle weird padding bytes
+        '''
+        if faddress not in instructions:
+            f_offset = faddress - text_base
+            f_end_offset = f_offset + fsize
+            d = cs.disasm(text.data()[f_offset:f_end_offset], faddress)
+            for inst in d:
+                if inst.address in instructions:
+                    break
+                instructions[inst.address] = inst
+                instruction_addrs.append(inst.address)
+            instruction_addrs.sort()
+
+        #DEBUG
+        #loc_candidates = [['binutils-2.31.1/x64/icc/nopie/o3-bfd/asm/binutils/addr2line.s', 'line@21']]
+
+
+        func_code = get_func_code(instructions, instruction_addrs, faddress, fsize)
+        res = find_match_func(src_files, loc_candidates, func_code)
+        if not res:
+            #HSKIM: intrinsic functions might not have debug info
+            if '__x86.get_pc_thunk' in fname:
+                continue
+
+            print("No candidate. Impossible", file=sys.stderr)
+            print(binpath, hex(faddress), fname, loc_candidates, file=sys.stderr)
+            break
+        else:
+            if len(res) > 1:
+                candidate = select_src_candidate(dwarf_loc, faddress, src_files, res, debug_loc_paths)
+                if not candidate:
+                    #print("No match debug path: ", fname, res)
+                    res = [res[0]]
+                else:
+                    res = [candidate]
+            res = get_end_of_func(src_files, res)
+            result[faddress] = [fname, fsize] + res
+    #print(result)
+
+    return result
+
