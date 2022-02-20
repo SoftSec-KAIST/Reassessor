@@ -5,7 +5,7 @@ import sys
 import os
 
 from lib.asm_types import *
-from lib.parser import *
+#from lib.parser import *
 from lib.utils import *
 import glob, json
 from elftools.elf.descriptions import describe_reloc_type
