@@ -25,24 +25,39 @@ def has_label(term, relocs):
     return re.search('^(\$*[\._a-zA-Z])', term) is not None
 
 def parse_att_asm_line(line):
-    src_inst = line.strip()
-    if src_inst.lower().startswith("nop"):
+    if line.lower().startswith("nop"):
         return []
-    if " " in src_inst:
-        src_inst = src_inst.split(" ", 1)
-        if src_inst[0].startswith("rep"):
-            s = src_inst[1].split(" ", 1)
-            src_inst[0] += " " + s[0]
-            if len(s) > 1:
-                src_inst[1] = s[1]
-            else:
-                src_inst[1] = ''
-        src_inst[1] = src_inst[1].split(",")
-    else:
-        src_inst = [src_inst, []]
-    for i in range(len(src_inst[1])):
-        src_inst[1][i] = src_inst[1][i].strip()
-    return src_inst
+
+    prev = line.split(',')[0]
+    opcode_len = 1
+    if prev.split()[0].lower().startswith('rep'):
+        opcode_len = 2
+    opcode = ' '.join(prev.split()[:opcode_len])
+    arg_str = ' '.join(line.split()[opcode_len:])
+    ret = [opcode, []]
+
+    token = ''
+    lpar = False
+    for char in arg_str:
+        if lpar:
+            token += char
+            if char == ')':
+                lpar = False
+            continue
+        if char == ',':
+            ret[1].append(token)
+            token = ''
+            continue
+        if char == ' ':
+            continue
+
+        token += char
+        if char == '(':
+            lpar = True
+    if token:
+        ret[1].append(token)
+
+    return ret
 
 class Factor:
     def __init__(self, op, data):
@@ -117,7 +132,10 @@ class FactorList:
                 addr = self.label_to_addr(label.split('@GOTOFF')[0])
                 label_type = LblTy.GOTOFF
             else:
-                addr = self.label_to_addr(label)
+                if label[0] == '-':
+                    addr = self.label_to_addr(label[1:])
+                else:
+                    addr = self.label_to_addr(label)
                 label_type = LblTy.LABEL
 
             if addr == 0:
@@ -168,6 +186,46 @@ class ExParser:
     @abstractmethod
     def _factor(self):
         pass
+
+class ATTExParser(ExParser):
+    def _strip(self, expr):
+        if re.search('.*\(.*\)', expr):
+            expr = re.findall('(.*)\(.*\)', expr)[0]
+        elif expr[0] == '%':
+            return ''
+        elif re.search ('%fs:.*', expr):
+            return ''
+        #remove offset directive
+        return expr.replace('$','')
+
+    def _exp(self):
+        result = []
+        factor = self._factor()
+        if factor.data:
+            result.append(factor)
+
+        while self._is_next(r'[-+]'):
+            op = self.current
+            factor = self._factor()
+            if factor.data:
+                result.append(Factor(op, factor.data))
+
+        return result
+
+    def _term(self):
+        pass
+
+    def _factor(self):
+        if self._is_next(r'[_.a-zA-Z0-9@]*'):
+            return Factor('+', self.current)
+
+        elif self._is_next(r'-'):
+            factor = self._factor()
+            if factor.op == '+':
+                return Factor('-', factor.data)
+
+        raise SyntaxError('Unexpect syntax' + self.line)
+
 
 class IntelExParser(ExParser):
     def _strip(self, expr):
@@ -324,9 +382,6 @@ class NormalizeTool:
                 next_addr, _, _ = self.addressed_asms[i+1]
                 if addr == next_addr:
                     continue
-                #if addr in [0x402481]:
-                #    import pdb
-                #    pdb.set_trace()
                 inst = self.prog.disasm(self.cs, addr, next_addr - addr)
 
             components = self.parse_components(inst, tokens)
@@ -365,133 +420,3 @@ class NormalizeTool:
         pass
 
 
-'''
-class NormalizeATTSyntax(NormalizeTool):
-    def parse_data_expr(self, s, v):
-        token = ''
-        tokens = []
-        # Parsing
-        for c in s:
-            if is_operator(c):
-                if len(token) > 0:
-                    tokens.append(token)
-                tokens.append(c)
-                token = ''
-            elif c in '()':
-                if len(token) > 0 and not token.split()[0].startswith('%'):
-                    tokens.append(token)
-                token = ''
-            else:
-                token += c
-
-        tokens.append(token)
-
-        tokens, const = reduce_const_term(tokens, self.relocs)
-        terms = []
-
-        for token in tokens:
-            if not is_operator(token):
-                lbl = self.parse_label(token, v)
-                terms.append(lbl)
-
-        if const != 0:
-            terms.append(const)
-
-        return terms
-
-    def get_label_expr(self, s):
-        digits = "-0123456789"
-        if s == "*":
-            # e.g. *(%rsp)
-            return None
-        elif s[0] == "%":
-            # e.g. %fs:40
-            return None
-        elif s[0] in digits:
-            if has_non_digits(s):
-                return s
-            return None
-        elif s[0] in "$*":
-            if s[1] in digits:
-                return None
-            else:
-                return s[1:]
-        else:
-            return s
-
-
-
-class NormalizeIntelSyntax(NormalizeTool):
-
-    def get_label_expr(self, s):
-        if re.search('.* PTR \[.*\]', s):
-            expr = re.findall('.* PTR \[(.*)\]', s)[0]
-
-        elif re.search('OFFSET .*', s):
-            expr = re.findall('OFFSET (.*)', s)[0]
-        elif re.search ('.* PTR fs:.*', s):
-            return ''
-        elif len(s.split()) == 1:
-            expr = s
-        else:
-            assert 0
-
-        #return refine(expr)
-        return expr
-
-
-def has_non_digits(s):
-    digits = "0123456789+-"
-    for c in s:
-        if c not in digits:
-            return True
-    return False
-
-def is_gotoff(s):
-    return '@GOTOFF' in s
-
-def get_const_term(tokens, relocs):
-    expr = ''
-    for token in tokens:
-        if has_label(token, relocs):
-            expr += '0'
-        else:
-            expr += token
-    return eval(expr)
-
-def is_operator(c):
-    return c == '+' or c == '-'
-
-def reduce_const_term(tokens, relocs):
-    const = get_const_term(tokens, relocs)
-    tokens_ = []
-    i = 0
-    while i < len(tokens):
-        if has_label(tokens[i], relocs):
-            tokens_.append(tokens[i])
-        i += 1
-    return tokens_, const
-
-def get_data_size(line):
-    directive = line.split()[0]
-    if directive.startswith('.byte'):
-        return 1
-    elif directive.startswith('.short'):
-        return 2
-    elif directive.startswith('.long'):
-        return 4
-    elif directive.startswith('.quad'):
-        return 8
-    elif directive.startswith('.zero'):
-        n = int(line.split()[1])
-        return n
-    elif directive.startswith('.string') or directive.startswith('.asciz'):
-        token = '"'.join(line.split('"')[1:])[:-1]
-        return len(token) + 1
-    elif directive.startswith('.ascii'):
-        token = '"'.join(line.split('"')[1:])[:-1]
-        return len(token)
-
-    print(line)
-    sys.exit(-1)
-'''

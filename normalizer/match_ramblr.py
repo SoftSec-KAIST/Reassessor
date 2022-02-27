@@ -7,8 +7,8 @@ import sys
 
 from lib.asm_types import *
 from lib.utils import *
-#from lib.parser import parse_att_components
-from normalizer.match_tool import NormalizeTool, get_data_size, DATA_DIRECTIVE, SKIP_DIRECTIVE
+from normalizer.match_tool import NormalizeTool, parse_att_asm_line
+from normalizer.match_tool import DATA_DIRECTIVE, SKIP_DIRECTIVE
 import pickle
 
 RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')
@@ -18,28 +18,6 @@ RE_FUNC = re.compile('[A-Za-z_][0-9A-Za-z_]+[:]')
 class NormalizeRamblr(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
         super().__init__(bin_path, reassem_path, ramblr_map_func, ramblr_label_to_addr, capstone.CS_OPT_SYNTAX_ATT)
-    '''
-    def parse_label(self, s, v):
-        if is_gotoff(s):
-            print('Ramblr cannot support x86 PIE')
-            print(s)
-            #sys.exit(-1)
-        else:
-            if s in self.relocs:
-                v = self.relocs[s]
-                return Label(s, LblTy.LABEL, v)
-            elif s.startswith('.label') or s.startswith('label') or s.startswith('sub'):
-                v = int(s.split('_')[1], 16)
-                return Label(s, LblTy.LABEL, v)
-            else:
-                #import pdb
-                #pdb.set_trace()
-                return Label(s, LblTy.LABEL, v)
-    def has_label(self, s):
-        if s:
-             return (s in self.relocs) or s.startswith('.label') or s.startswith('label') or s.startswith('sub')
-        return False
-    '''
 
 def ramblr_mapper(reassem_path):
 
@@ -57,10 +35,6 @@ def ramblr_mapper(reassem_path):
                 if addr_ is not None:
                     addr = addr_
                 continue
-
-            #if addr in [0x8049d82]:
-            #    import pdb
-            #    pdb.set_trace()
 
             token = line.split()[0]
 
@@ -93,7 +67,7 @@ def ramblr_mapper(reassem_path):
     return result
 
 def ramblr_map_func(reassem_path):
-    addressed_lines = mapper(reassem_path)
+    addressed_lines = ramblr_mapper(reassem_path)
 
     addressed_asms = []
     addressed_data = []
@@ -116,7 +90,7 @@ def ramblr_map_func(reassem_path):
                         print(line)
                         print('exit 3')
         else:
-            tokens = parse_ramblr_asm_line(line)
+            tokens = parse_att_asm_line(line)
             if len(tokens) > 0:
                 addressed_asms.append((addr, tokens, idx))
 
@@ -144,19 +118,28 @@ def do_comment(line):
         print('exit 1')
         #sys.exit(-1)
 
+def get_data_size(line):
+    directive = line.split()[0]
+    if directive.startswith('.byte'):
+        return 1
+    elif directive.startswith('.short'):
+        return 2
+    elif directive.startswith('.long'):
+        return 4
+    elif directive.startswith('.quad'):
+        return 8
+    elif directive.startswith('.zero'):
+        n = int(line.split()[1])
+        return n
+    elif directive.startswith('.string') or directive.startswith('.asciz'):
+        token = '"'.join(line.split('"')[1:])[:-1]
+        return len(token) + 1
+    elif directive.startswith('.ascii'):
+        token = '"'.join(line.split('"')[1:])[:-1]
+        return len(token)
 
-def parse_ramblr_asm_line(line):
-    src_inst = line
-    if src_inst.startswith('nop'):
-        return []
-    if '\t' in src_inst:
-        src_inst = src_inst.split('\t', 1)
-        src_inst[1] = src_inst[1].split(',')
-    else:
-        src_inst = [src_inst, []]
-    for i in range(len(src_inst[1])):
-        src_inst[1][i] = src_inst[1][i].strip()
-    return src_inst
+    print(line)
+    sys.exit(-1)
 
 
 if __name__ == '__main__':

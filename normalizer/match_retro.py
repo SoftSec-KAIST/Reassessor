@@ -3,6 +3,7 @@ import capstone
 from capstone.x86 import *
 import sys
 import os
+import pickle
 
 # FIXME: clean up later
 RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')
@@ -15,30 +16,9 @@ class NormalizeRetro(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
         super().__init__(bin_path, reassem_path, retro_map_func, retro_label_to_addr, capstone.CS_OPT_SYNTAX_ATT)
 
-    '''
-    # RetroWrite-specific
-    def parse_label(self, s, v):
-        if is_gotoff(s):
-            print('RetroWrite cannot support x86')
-            print(s)
-            #sys.exit(-1)
-        else:
-            if s in self.relocs:
-                v = self.relocs[s]
-                return Label(s, LblTy.LABEL, v)
-            elif s.startswith('.LC'):
-                v = int(s[3:], 16)
-                return Label(s, LblTy.LABEL, v)
-            elif s.startswith('.L'):
-                v = int(s[2:], 16)
-                return Label(s, LblTy.LABEL, v)
-            else:
-                return Label(s, LblTy.LABEL, v)
-    '''
 def retro_label_to_addr(label):
     if label.startswith('.LC'):
         addr = int(label[3:], 16)
-        return Label(s, LblTy.LABEL, v)
     elif label.startswith('.L'):
         addr = int(label[2:], 16)
     else:
