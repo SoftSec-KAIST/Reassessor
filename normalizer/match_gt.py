@@ -3,6 +3,7 @@ import capstone
 from capstone.x86 import *
 import sys
 import os
+import pickle
 
 from lib.asm_types import *
 #from lib.parser import *
@@ -631,7 +632,6 @@ def main(bench_dir, bin_path, match_path, composite_path):
         insts, src_code = delete_nop(insts, src_code)
 
         if len(insts) != len(src_code):
-            ''' Debug '''
             print(len(insts), len(src_code))
             print('\n'.join([bin_path, fname, os.path.join(bench_dir, spath), str(sline)]), '\n')
             raise
@@ -659,25 +659,22 @@ def print_instrs(prog):
             prog.Instrs[key].Components
         print("")
 
-def print_tables(prog):
-    for key in prog.Tables:
-        table = prog.Tables[key]
-        print(hex(key), end=', ')
-        print("Len : %d, EntrySize : %d" % (len(table.Entries), table.EntrySize))
-        print("")
-
-def print_prog(prog):
-    print_instrs(prog)
-    print_tables(prog)
 
 if __name__ == '__main__':
     bench_dir = sys.argv[1]
     bin_path = sys.argv[2]
     match_path = sys.argv[3]
     composite_path = sys.argv[4]
-    # Assume these parameters are always valid
+    pickle_path = sys.argv[5]
     prog = main(bench_dir, bin_path, match_path, composite_path)
-    #print_prog(prog)
+
+    import pdb
+    pdb.set_trace()
+    with open(pickle_path, 'wb') as f:
+        pickle.dump(prog, f)
+
+
+'''
 
 def normalize_gt(bench_dir, bin_path, bin2src_dict, composite_path):
     prog, elf, cs = gen_prog(bin_path)
@@ -716,7 +713,6 @@ def normalize_gt(bench_dir, bin_path, bin2src_dict, composite_path):
         insts, src_code = delete_nop(insts, src_code)
 
         if len(insts) != len(src_code):
-            ''' Debug '''
             print(len(insts), len(src_code))
             print('\n'.join([bin_path, fname, os.path.join(bench_dir, src_path), str(sline)]), '\n')
             raise
@@ -729,4 +725,4 @@ def normalize_gt(bench_dir, bin_path, bin2src_dict, composite_path):
     get_datas(prog, elf, relocs, symbs, visible, hidden)
     return prog
 
-
+'''

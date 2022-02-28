@@ -1,12 +1,12 @@
 import os, sys
 from enum import Enum
 from functools import reduce
-from utils import *
-from asm_types import *
-import match_retro
-import match_ramblr
-import match_ddisasm
-import match_gt
+from lib.utils import *
+from lib.asm_types import *
+import normalizer.match_retro
+import normalizer.match_ramblr
+import normalizer.match_ddisasm
+import normalizer.match_gt
 import pickle
 import multiprocessing
 import json
@@ -179,8 +179,9 @@ class Report:
         self.warnings.append((addr, msg))
 
     # FIXME: Dump to file?
-    def report(self, package, arch, compiler, pie, opt, name, tool):
-        print('Testing.. [%s / %s / %s / %s / %s / %s] vs %s' % (package, arch, compiler, pie, opt, name, tool), file = self.out_file)
+    #def report(self, package, arch, compiler, pie, opt, name, tool):
+    def report(self):
+        #print('Testing.. [%s / %s / %s / %s / %s / %s] vs %s' % (package, arch, compiler, pie, opt, name, tool), file = self.out_file)
         if len(self.type1) > 0:
             print('Type I', file = self.out_file)
             for addr, i in self.type1:
@@ -698,91 +699,71 @@ def compare(prog_c, prog_r, out_file, pr_file, json_file):
 TOOLS = ['retro_sym', 'ramblr', 'ddisasm']
 #TOOLS = ['ddisasm']
 
-def get_available_tools(pickle_dir, bin_name):
-    tools = []
-    for tool in TOOLS:
-        tool_path = os.path.join(pickle_dir, tool, bin_name + '.p3')
-        print(tool_path)
-        if not os.path.exists(tool_path):
-            print(tool, 'Not Exists')
-            continue
-        tools.append(tool)
-    return tools
+def open_fd(dir_name, file_name, option='w'):
+    if not os.path.exists(dir_name):
+        os.system("mkdir -p %s" % dir_name)
+    file_path = os.path.join(dir_name, file_name)
+    fd = open(file_path, option)
+    return file_path, fd
 
-def test(args): # TODO: give appropriate parameters
-    bench_dir, pickle_dir, result_dir, pr_dir, json_dir, options = args
-    package, arch, compiler, pie, opt = options
-    print(package, arch, compiler, pie, opt)
 
-    base_dir = os.path.join(bench_dir, package, arch, compiler, pie, opt)
-    strip_dir = os.path.join(base_dir, 'stripbin')
-    pickle_base_dir = os.path.join(pickle_dir, package, arch, compiler, pie, opt)
+def main(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
+    out_dir = os.path.join(save_dir, 'out')
+    pr_dir = os.path.join(save_dir, 'pr')
+    json_dir = os.path.join(save_dir, 'json')
 
-    for bin_name in os.listdir(strip_dir):
-        bin_path = os.path.join(strip_dir, bin_name)
-        #print(bin_name)
-        available_tools = get_available_tools(pickle_base_dir, bin_name)
-        if len(available_tools) > 0:
-            # Load GT
-            pickle_gt_path = os.path.join(pickle_base_dir, 'gt', bin_name + '.p3')
-            if not os.path.exists(pickle_gt_path):
-                print('No gt ' + pickle_gt_path)
-                continue
+    bin_name = os.path.basename(bin_path)
 
-            pickle_gt_f = open(pickle_gt_path, 'rb')
-            prog_c = pickle.load(pickle_gt_f)
+    # Load GT
+    if not os.path.exists(pickle_gt_path):
+        print('No gt ' + pickle_gt_path)
+        return
 
-            for tool in available_tools:
-                out_file_dir = os.path.join(result_dir, package, arch, compiler, pie, opt, tool)
-                pr_file_dir = os.path.join(pr_dir, package, arch, compiler, pie, opt, tool)
-                json_file_dir = os.path.join(json_dir, package, arch, compiler, pie, opt, tool)
-                if not os.path.exists(out_file_dir):
-                    os.system("mkdir -p %s" % out_file_dir)
-                if not os.path.exists(pr_file_dir):
-                    os.system("mkdir -p %s" % pr_file_dir)
-                if not os.path.exists(json_file_dir):
-                    os.system("mkdir -p %s" % json_file_dir)
-                out_file_path = os.path.join(out_file_dir, bin_name)
-                pr_file_path = os.path.join(pr_file_dir, bin_name)
-                json_file_path = os.path.join(json_file_dir, bin_name)
-                if os.path.exists(out_file_path):
-                    continue
-                out_file = open(out_file_path, 'w')
-                pr_file = open(pr_file_path, 'w')
-                json_file = open(json_file_path, 'w')
-                print(out_file_path)
-                print(pr_file_path)
-                print(json_file_path)
-                pickle_tool_path = os.path.join(pickle_base_dir, tool, bin_name + '.p3')
-                pickle_tool_f = open(pickle_tool_path, 'rb')
-                prog_r = pickle.load(pickle_tool_f)
-                print('Compare GT vs', tool)
-                report = compare(prog_c, prog_r, out_file, pr_file, json_file)
-                report.report(package, arch, compiler, pie, opt, bin_name, tool)
-                pickle_tool_f.close()
-                out_file.close()
-                pr_file.close()
-                json_file.close()
-            pickle_gt_f.close()
+    pickle_gt_f = open(pickle_gt_path, 'rb')
+    prog_c = pickle.load(pickle_gt_f)
 
-def main(bench_dir, pickle_dir, result_dir, pr_dir, json_dir):
-    args = []
-    for package, arch, compiler, pie, opt in gen_options():
-        args.append((bench_dir, pickle_dir, result_dir, pr_dir, json_dir, [package, arch, compiler, pie, opt]))
-    p = multiprocessing.Pool(84)
-    p.map(test, args)
-    #test(args[0])
-    #test((bench_dir, pickle_dir, result_dir, pr_dir, json_dir, [package, 'x86', 'clang', 'nopie', 'ofast-gold']))
+    for tool, pickle_tool_path in pickle_tool_list.items():
+        out_file_path, out_file = open_fd(os.path.join(out_dir, tool), bin_name, 'w')
+        #if os.path.exists(out_file_path):
+        #    out_file.close()
+        #    continue
+
+        _, pr_file = open_fd(os.path.join(pr_dir, tool), bin_name, 'w')
+        _, json_file = open_fd(os.path.join(json_dir, tool), bin_name, 'w')
+
+        pickle_tool_f = open(pickle_tool_path, 'rb')
+        prog_r = pickle.load(pickle_tool_f)
+
+        report = compare(prog_c, prog_r, out_file, pr_file, json_file)
+        report.report()
+        pickle_tool_f.close()
+        out_file.close()
+        pr_file.close()
+        json_file.close()
+
+    pickle_gt_f.close()
+
+
+import argparse
 
 if __name__ == '__main__':
-    bench_dir = sys.argv[1]
-    #bench_dir = '/data2/benchmark'
-    pickle_dir = sys.argv[2]
-    #pickle_dir = '/home/bbbig/tmp/pickles4'
-    result_dir = sys.argv[3]
-    #result_dir = '/home/soomink/res5'
-    pr_dir = sys.argv[4]
-    #pr_dir = '/home/soomink/pr5'
-    json_dir = sys.argv[5]
-    #json_dir = '/home/soomink/json5'
-    main(bench_dir, pickle_dir, result_dir, pr_dir, json_dir)
+    parser = argparse.ArgumentParser(description='differ')
+    parser.add_argument('bin_path', type=str)
+    parser.add_argument('pickle_gt_path', type=str)
+    parser.add_argument('save_dir', type=str)
+    parser.add_argument('--ddisasm', type=str)
+    parser.add_argument('--ramblr', type=str)
+    parser.add_argument('--retro', type=str)
+    args = parser.parse_args()
+
+    pickle_tool_list = dict()
+    if args.ddisasm:
+        pickle_tool_list['ddisasm'] = args.ddisasm
+    if args.ramblr:
+        pickle_tool_list['ramblr'] = args.ramblr
+    if args.retro:
+        pickle_tool_list['retro_sym'] = args.retro
+
+    if pickle_tool_list:
+        main(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir)
+
