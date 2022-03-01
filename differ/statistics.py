@@ -81,5 +81,12 @@ class Statistics:
 
         with my_open(file_path) as fd:
             fd.write('%d,%d,%d\n' % tuple(self.disasm))
+            #self.debug(fd, tp, 'TP')
+            self.debug(fd, fp, 'FP', prog_r)
+            self.debug(fd, fn, 'FN', self.prog_c)
 
-
+    def debug(self, fd, addr_set, label, prog):
+        if addr_set:
+            fd.write('%s\n'%label)
+            fd.write(','.join(hex(addr) for addr in sorted(addr_set)))
+            fd.write('\n')

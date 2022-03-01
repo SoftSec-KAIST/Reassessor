@@ -8,7 +8,7 @@ from differ.statistics import Statistics
 from differ.ereport import Report
 
 
-def main(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
+def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
     bin_name = os.path.basename(bin_path)
     save_dir = os.path.join(save_dir, bin_name)
 
@@ -84,5 +84,5 @@ if __name__ == '__main__':
         pickle_tool_list['retro_sym'] = args.retro
 
     if pickle_tool_list:
-        main(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir)
+        diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir)
 

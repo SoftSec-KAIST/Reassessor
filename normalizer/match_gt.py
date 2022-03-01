@@ -10,6 +10,7 @@ from lib.asm_types import *
 from lib.utils import *
 import glob, json
 from elftools.elf.descriptions import describe_reloc_type
+from mapper.match_src_to_bin import get_dwarf_loc, find_match_func, select_src_candidate, get_end_of_func, get_loc_by_file_id
 
 def is_semantically_nop_str(inst_str):
     try:
@@ -421,7 +422,7 @@ def addressing_labels(_labels, src_code, insts):
             code_idx += 1
     return labels
 
-def get_instrs(prog, elf, src_code, bin_code, infos, spath):
+def get_instrs(prog, elf, src_code, bin_code, infos, spath, nop_insts):
     for i in range(len(bin_code)):
         inst = bin_code[i]
         addr = inst.address
@@ -432,6 +433,8 @@ def get_instrs(prog, elf, src_code, bin_code, infos, spath):
             if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                 c.Value += prog.get_got_addr(elf)
         prog.Instrs[addr] = Instr(addr, components, spath, line)
+    for item in nop_insts:
+        prog.Instrs[item.address] = Instr(item.address, [], spath, 0)
     return prog, infos
 
 def get_entry_size(elf, ty):
@@ -530,119 +533,290 @@ def get_composite_ms(path):
 
     return visible_composites, hidden_composites
 
-def get_datas(prog, elf, reloc, symbs, visible, hidden):
-    def get_composite_datas(prog, exprs, addr):
-        for spath, expr in exprs:
-            ty = expr[0]
-            if ty == ".long":
-                sz = 4
-            elif ty == ".quad":
-                sz = 8
-            elif ty == ".zero":
-                sz = int(expr[1])
-            else:   # .byte
-                sz = 1
-
-            if "+" not in expr[1]:
-                addr += sz
-            else:
-                value = get_int(elf, addr, sz)
-                terms, _ = parse_expr(expr[1], value, None, None, None)
-                component = Component(terms, value)
-                path = spath.split(":")[0]
-                line = int(spath.split(":")[1])
-                prog.Data[addr] = Data(addr, component, path, line)
-
-    for label in visible:
-        if label not in symbs:
-            continue
-        for base in symbs[label]:
-            get_composite_datas(prog, visible[label], base)
-
-    for label in hidden:
-        for base in hidden[label][0][1]:
-            get_composite_datas(prog, hidden[label][1:], base)
-
-    got_addr = elf.get_section_by_name('.got.plt')['sh_addr']
-    for addr in reloc:
-        if addr in prog.Data:
-            # composite ms || already processed
-            continue
-        sz, is_got = reloc[addr]
-        value = get_int(elf, addr, sz)
-        if is_got:
-            value += got_addr
-            lbl = get_label("Label_blah@GOTOFF", value)
-        else:
-            lbl = get_label("Label_blah", value)
-        component = Component([lbl], value)
-        # If we already have addr, it means it should be a jump table
-        if addr not in prog.Data:
-            prog.Data[addr] = Data(addr, component, '', 0)
-
-def delete_nop(insts, src_code):
+def separate_nop(insts, src_code):
     new_insts = []
     new_src_code = []
 
+    nop_insts = []
     for inst in insts:
         if not is_semantically_nop(inst):
             new_insts.append(inst)
+        else:
+            nop_insts.append(inst)
     for code in src_code:
         if not is_semantically_nop_token(code):
             new_src_code.append(code)
 
-    return new_insts, new_src_code
+    return new_insts, new_src_code, nop_insts
+
+class NormalizeGT:
+    def __init__(self, bin_path, asm_dir, composite_dir, work_dir='/data2/benchmark'):
+        self.bin_path = bin_path
+        self.asm_dir = asm_dir
+        self.composite_dir = composite_dir
+        self.work_dir = work_dir
+
+        self.func_dict = self.collect_loc_candidates()
+        with open(self.bin_path, 'rb') as f:
+            elf = ELFFile(f)
+
+            self.text = elf.get_section_by_name(".text")
+            self.text_base = self.text.header["sh_addr"]
+
+            if "x64" in self.bin_path.split('/'):
+                self.cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+            else:
+                self.cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+
+            self.cs.detail = True
+            self.cs.syntax = capstone.CS_OPT_SYNTAX_ATT
+            disassembly = self.cs.disasm(self.text.data(), self.text_base)
+
+            self.instructions = {}  # address : instruction
+            for instruction in disassembly:
+                self.instructions[instruction.address] = instruction
+
+            self.instruction_addrs = list(self.instructions.keys())
+            self.instruction_addrs.sort()
+
+        self.bin2src_dict = self.match_src_to_bin()
+
+        self.elf = load_elf(bin_path)
+        self.prog = Program(self.elf, self.cs)
+
+        self.got_addr = self.elf.get_section_by_name('.got.plt')['sh_addr']
+        self.relocs = get_reloc(self.elf)
+        self.symbs = get_reloc_symbs(self.elf)
+
+        self.visible, self.hidden = get_composite_ms(self.composite_dir)
+
+    def get_objdump(self):
+        temp_file = self.bin_path.replace('/','_')
+        os.system("objdump -t -f %s | grep \"F .text\" | sort > /tmp/xx%s" % (self.bin_path, temp_file))
+
+        funcs = []
+        for line in open("/tmp/xx" + temp_file):
+            l = line.split()
+            fname = l[-1]
+            faddress = int(l[0], 16)
+            fsize = int(l[4], 16)
+            try:
+                loc_candidates = self.func_dict[fname]
+                if len(loc_candidates) and fsize > 0:
+                    funcs.append([fname, faddress, fsize, loc_candidates])
+            except:
+                pass
+        return funcs
 
 
-def main(bench_dir, bin_path, match_path, composite_path):
-    match_info = json.load(open(match_path, "rb"))
-    prog, elf, cs = gen_prog(bin_path)
-    got_addr = elf.get_section_by_name('.got.plt')['sh_addr']
+    def update_instr(self, faddress, fsize):
+        f_offset = faddress - self.text_base
+        f_end_offset = f_offset + fsize
+        dump = self.cs.disasm(self.text.data()[f_offset:f_end_offset], faddress)
+        for inst in dump:
+            if inst.address in self.instructions:
+                break
+            self.instructions[inst.address] = inst
+            self.instruction_addrs.append(inst.address)
+        instruction_addrs.sort()
 
-    src_files = {}
-    tables = []
 
-    relocs = get_reloc(elf)
-    symbs = get_reloc_symbs(elf)
+    def match_src_to_bin(self):
 
-    visible, hidden = get_composite_ms(composite_path)
+        debug_loc_paths = {}
+        src_files = {}
 
-    for faddress in match_info:
-        fname, fsize, loc = match_info[faddress]
-        spath, sline, eline = loc
-        faddr = int(faddress)
-        insts = disasm(prog, cs, faddr, fsize)
-        if spath not in src_files:
-            spath_full = os.path.join(bench_dir, spath[1:])
-            f = open(spath_full, errors='ignore').read()
-            src_files[spath] = f
+        result = {}
+        dwarf_loc = get_dwarf_loc(self.bin_path)
 
-        src_file = src_files[spath]
+        funcs = self.get_objdump()   # [funcname, address, size] list
+        for func in funcs:
+            fname, faddress, fsize, loc_candidates = func
+            src_files = self.get_src_files(src_files, loc_candidates)
+            debug_loc_paths = get_loc_by_file_id(src_files, debug_loc_paths, loc_candidates)
 
-        src_code, tbl, _labels = get_src_code(src_file, sline, eline)
-        labels = addressing_labels(_labels, src_code, insts)
+            '''
+            Handle weird padding bytes
+            '''
+            if faddress not in self.instructions:
+                self.update_instr(faddress, fsize)
 
-        for label, _ in _labels:
-            for lname in label:
-                if lname not in labels:
-                    # This only happens in '-os' optimization
-                    # except .Lfunc_end*
-                    labels[lname] = faddr + fsize
+            func_code = self.get_func_code(faddress, fsize)
+            res = find_match_func(src_files, loc_candidates, func_code)
 
-        insts, src_code = delete_nop(insts, src_code)
+            if not res:
+                #HSKIM: intrinsic functions might not have debug info
+                if '__x86.get_pc_thunk' in fname:
+                    continue
 
-        if len(insts) != len(src_code):
-            print(len(insts), len(src_code))
-            print('\n'.join([bin_path, fname, os.path.join(bench_dir, spath), str(sline)]), '\n')
-            raise
+                print("No candidate. Impossible", file=sys.stderr)
+                print(binpath, hex(faddress), fname, loc_candidates, file=sys.stderr)
+                break
+            else:
+                if len(res) > 1:
+                    candidate = select_src_candidate(dwarf_loc, faddress, src_files, res, debug_loc_paths)
+                    if not candidate:
+                        res = [res[0]]
+                    else:
+                        res = [candidate]
+                res = get_end_of_func(src_files, res)
+                result[faddress] = [fname, fsize] + res
 
-        infos = (src_file, got_addr, tbl, labels, hidden)
-        spath_full = os.path.join(bench_dir, spath)
-        prog, infos = get_instrs(prog, elf, src_code, insts, infos, spath_full)
-        prog = get_tables(prog, elf, infos, spath_full)
+        return result
 
-    get_datas(prog, elf, relocs, symbs, visible, hidden)
-    return prog
+    def get_func_code(self, address, size):
+        try:
+            result = []
+            idx = self.instruction_addrs.index(address)
+            curr = address
+            while True:
+                if curr >= address + size:
+                    break
+                inst = self.instructions[curr]
+                result.append(inst)
+                curr += inst.size
+            return result
+        except:
+            print("Disassembly failed. Impossible")
+            exit()
+
+
+
+    def get_src_files(self, src_files, loc_candidates):
+        for loc_path, _ in loc_candidates:
+            if loc_path not in src_files.keys():
+                loc_path_full = os.path.join(self.work_dir, loc_path[1:])
+                f = open(loc_path_full, errors='ignore')
+                src_files[loc_path] = f.read()
+        return src_files
+
+
+    def get_src_paths(self):
+        srcs = []
+        for i in range(20):
+            t = "*/" * i
+            srcs += glob.glob(self.asm_dir + t + "*.s")
+        return srcs
+
+    def collect_loc_candidates(self):
+
+        srcs = self.get_src_paths()
+        result = {}
+
+        for src in srcs:
+            cnt = 0
+            for line in open(src, errors='ignore'):
+                cnt += 1
+                line = str(line)
+                if RE_FUNC.match(line):
+                    path = src[len(self.work_dir):]
+
+                    #if 'spec_cpu2006' in self.asm_dir:
+                    #    bin_name = os.path.basename(self.bin_path)
+                    #    if '/asm/%s/'%(self.bin_name) not in path:
+                    #        continue
+
+                    #print(path)
+                    fname = line.split(":")[0]
+                    if fname not in result.keys():
+                        result[fname] = []
+                    result[fname].append([path, "line@%d" % cnt])
+
+        return result
+
+
+
+    def normalize_inst(self):
+        src_files = {}
+        tables = []
+
+        for faddress, (fname, fsize, loc) in self.bin2src_dict.items():
+
+            #fname, fsize, loc = match_info[faddress]
+            spath, sline, eline = loc
+            faddr = int(faddress)
+            insts = disasm(self.prog, self.cs, faddr, fsize)
+            if spath not in src_files:
+                spath_full = os.path.join(self.work_dir, spath[1:])
+                f = open(spath_full, errors='ignore').read()
+                src_files[spath] = f
+
+            src_file = src_files[spath]
+
+            src_code, tbl, _labels = get_src_code(src_file, sline, eline)
+            labels = addressing_labels(_labels, src_code, insts)
+
+            for label, _ in _labels:
+                for lname in label:
+                    if lname not in labels:
+                        # This only happens in '-os' optimization
+                        # except .Lfunc_end*
+                        labels[lname] = faddr + fsize
+
+            insts, src_code, nop_insts = separate_nop(insts, src_code)
+
+            if len(insts) != len(src_code):
+                print(len(insts), len(src_code))
+                print('\n'.join([self.bin_path, fname, os.path.join(self.work_dir, spath), str(sline)]), '\n')
+                raise
+
+            infos = (src_file, self.got_addr, tbl, labels, self.hidden)
+            spath_full = os.path.join(self.work_dir, spath)
+            self.prog, infos = get_instrs(self.prog, self.elf, src_code, insts, infos, spath_full, nop_insts)
+            self.prog = get_tables(self.prog, self.elf, infos, spath_full)
+
+
+    def normalize_data(self):
+        def get_composite_datas(exprs, addr):
+            for spath, expr in exprs:
+                ty = expr[0]
+                if ty == ".long":
+                    sz = 4
+                elif ty == ".quad":
+                    sz = 8
+                elif ty == ".zero":
+                    sz = int(expr[1])
+                else:   # .byte
+                    sz = 1
+
+                if "+" not in expr[1]:
+                    addr += sz
+                else:
+                    value = get_int(elf, addr, sz)
+                    terms, _ = parse_expr(expr[1], value, None, None, None)
+                    component = Component(terms, value)
+                    path = spath.split(":")[0]
+                    line = int(spath.split(":")[1])
+                    self.prog.Data[addr] = Data(addr, component, path, line)
+
+        for label in self.visible:
+            if label not in self.symbs:
+                continue
+            for base in self.symbs[label]:
+                get_composite_datas(self.visible[label], base)
+
+        for label in self.hidden:
+            for base in self.hidden[label][0][1]:
+                get_composite_datas(self.hidden[label][1:], base)
+
+        for addr in self.relocs:
+            if addr in self.prog.Data:
+                # composite ms || already processed
+                continue
+            sz, is_got = self.relocs[addr]
+            value = get_int(self.elf, addr, sz)
+            if is_got:
+                value += self.got_addr
+                lbl = get_label("Label_blah@GOTOFF", value)
+            else:
+                lbl = get_label("Label_blah", value)
+            component = Component([lbl], value)
+            # If we already have addr, it means it should be a jump table
+            if addr not in self.prog.Data:
+                self.prog.Data[addr] = Data(addr, component, '', 0)
+
+
+
 
 def print_instrs(prog):
     for key in prog.Instrs:
@@ -660,69 +834,19 @@ def print_instrs(prog):
         print("")
 
 
+import argparse
 if __name__ == '__main__':
-    bench_dir = sys.argv[1]
-    bin_path = sys.argv[2]
-    match_path = sys.argv[3]
-    composite_path = sys.argv[4]
-    pickle_path = sys.argv[5]
-    prog = main(bench_dir, bin_path, match_path, composite_path)
+    parser = argparse.ArgumentParser(description='normalize_gt')
+    parser.add_argument('bin_path', type=str)
+    parser.add_argument('asm_dir', type=str)
+    parser.add_argument('composite_dir', type=str)
+    parser.add_argument('save_file', type=str)
+    args = parser.parse_args()
 
-    import pdb
-    pdb.set_trace()
-    with open(pickle_path, 'wb') as f:
-        pickle.dump(prog, f)
+    gt = NormalizeGT(args.bin_path, args.asm_dir, args.composite_dir)
+    gt.normalize_inst()
+    gt.normalize_data()
 
+    with open(args.save_file, 'wb') as f:
+        pickle.dump(gt.prog, f)
 
-'''
-
-def normalize_gt(bench_dir, bin_path, bin2src_dict, composite_path):
-    prog, elf, cs = gen_prog(bin_path)
-    got_addr = elf.get_section_by_name('.got.plt')['sh_addr']
-
-    src_files = {}
-    tables = []
-
-    relocs = get_reloc(elf)
-    symbs = get_reloc_symbs(elf)
-
-    visible, hidden = get_composite_ms(composite_path)
-
-    for faddress in bin2src_dict:
-        fname, fsize, loc = bin2src_dict[faddress]
-        src_path, sline, eline = loc
-        faddr = int(faddress)
-        insts = disasm(prog, cs, faddr, fsize)
-        if src_path not in src_files:
-            src_path_full = bench_dir + src_path
-            f = open(src_path_full, errors='ignore')
-            src_files[src_path] = f.read()
-
-        src_file = src_files[src_path]
-
-        src_code, tbl, _labels = get_src_code(src_file, sline, eline)
-        labels = addressing_labels(_labels, src_code, insts)
-
-        for label, _ in _labels:
-            for lname in label:
-                if lname not in labels:
-                    # This only happens in '-os' optimization
-                    # except .Lfunc_end*
-                    labels[lname] = faddr + fsize
-
-        insts, src_code = delete_nop(insts, src_code)
-
-        if len(insts) != len(src_code):
-            print(len(insts), len(src_code))
-            print('\n'.join([bin_path, fname, os.path.join(bench_dir, src_path), str(sline)]), '\n')
-            raise
-
-        infos = (src_file, got_addr, tbl, labels, hidden)
-        src_path_full = os.path.join(bench_dir, src_path)
-        prog, infos = get_instrs(prog, elf, src_code, insts, infos, src_path_full)
-        prog = get_tables(prog, elf, infos, src_path_full)
-
-    get_datas(prog, elf, relocs, symbs, visible, hidden)
-    return prog
-
-'''
