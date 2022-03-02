@@ -56,8 +56,7 @@ def ddisasm_map_func(reassem_path):
                         assert 0
         else:
             tokens = parse_ddisasm_asm_line(line)
-            if len(tokens) > 0:
-                addressed_asms.append((addr, tokens, idx))
+            addressed_asms.append((addr, tokens, idx))
 
     return addressed_asms, addressed_data
 
@@ -132,7 +131,7 @@ def parse_ddisasm_asm_line(line):
     if line in ['nop']:
         opcode = 'nop'
         arg1 = ''
-        return []
+        return ['nop', []]
     elif prev.split()[0] in ['rep', 'repe', 'repz', 'repne', 'repnz']:
         opcode = ' '.join(prev.split()[:2])
         arg1 = ' '.join(prev.split()[2:])

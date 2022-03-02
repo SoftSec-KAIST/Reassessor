@@ -370,7 +370,11 @@ class NormalizeTool:
         text_start = self.prog.text_base
         text_end = self.prog.text_base + len(self.prog.text_data)
 
+        skip = -1
         for i, (addr, tokens, line) in enumerate(self.addressed_asms):
+            if i <= skip:
+                continue
+
             if addr < text_start:
                 continue
             elif addr >= text_end:
@@ -382,7 +386,20 @@ class NormalizeTool:
                 next_addr, _, _ = self.addressed_asms[i+1]
                 if addr == next_addr:
                     continue
-                inst = self.prog.disasm(self.cs, addr, next_addr - addr)
+                try:
+                    inst = self.prog.disasm(self.cs, addr, next_addr - addr)
+                except IndexError:
+                    #handle ddisasm: 'nopw   %cs:0x0(%rax,%rax,1)' -> 'nop'
+                    if tokens[0] == 'nop':
+                        for j in range(i+1, i+16):
+                            next_addr = self.addressed_asms[j][0]
+                            if self.addressed_asms[j][1][0] != 'nop':
+                                break
+                            else:
+                                skip = j
+                        inst =self.prog.disasm(self.cs, addr, next_addr - addr)
+                    else:
+                        raise SyntaxError('Unexpected byte code')
 
             components = self.parse_components(inst, tokens)
 
@@ -391,6 +408,12 @@ class NormalizeTool:
                 if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                     c.Value += self.got_addr
             self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, line)
+
+            if tokens[0] == 'nop':
+                self.prog.nops.add(addr)
+
+
+
             #print('Inst:', hex(addr))
 
     def normalize_data(self):

@@ -195,6 +195,9 @@ class Program:
             sec_name = section.name
             self.sections.append((sec_addr, sec_size, sec_name))
 
+        self.unknown_func = {}
+        self.nops = set()
+
     def get_section(self, addr):
         for section in self.sections:
             sec_addr, sec_size, sec_name = section
