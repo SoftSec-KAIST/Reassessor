@@ -116,7 +116,7 @@ class FactorList:
         self.value = value
         self.label_to_addr = label_to_addr
         for factor in factors:
-            if factor.data.isdigit():
+            if factor.data.isdigit() or '0x' in factor.data:
                 self.num += eval(factor.get_str())
             else:
                 self.labels.append(factor.get_str())
@@ -216,13 +216,13 @@ class ATTExParser(ExParser):
         pass
 
     def _factor(self):
-        if self._is_next(r'[_.a-zA-Z0-9@]*'):
-            return Factor('+', self.current)
-
-        elif self._is_next(r'-'):
+        if self._is_next(r'-'):
             factor = self._factor()
             if factor.op == '+':
                 return Factor('-', factor.data)
+        elif self._is_next(r'[_.a-zA-Z0-9@]*'):
+            return Factor('+', self.current)
+
 
         raise SyntaxError('Unexpect syntax' + self.line)
 
@@ -372,6 +372,9 @@ class NormalizeTool:
 
         skip = -1
         for i, (addr, tokens, line) in enumerate(self.addressed_asms):
+            if addr in [0x80001, 0x8001e]:
+                import pdb
+                pdb.set_trace()
             if i <= skip:
                 continue
 
@@ -408,11 +411,6 @@ class NormalizeTool:
                 if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                     c.Value += self.got_addr
             self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, line)
-
-            if tokens[0] == 'nop':
-                self.prog.nops.add(addr)
-
-
 
             #print('Inst:', hex(addr))
 

@@ -58,42 +58,115 @@ class Info:
             return {}
 
     def get_err_type(self, cls, err):
-        if cls == 1 and err == 'FP':
-            return 'E1FP'
-        elif cls == 1 and err == 'FN':
-            return 'E1FN'
-        elif cls == 2 and err == 'FP':
-            return 'E2FP'
-        elif cls == 2 and err == 'FN':
-            return 'E2FN'
-        elif cls == 3 and err == 'FP':
-            return 'E3FP'
-        elif cls == 3 and err == 'FN':
-            return 'E3FN'
-        elif cls == 4 and err == 'FP':
-            return 'E4FP'
-        elif cls == 4 and err == 'FN':
-            return 'E4FN'
-        elif cls == 5 and err == 'FP':
-            return 'E5FP'
-        elif cls == 5 and err == 'FN':
-            return 'E5FN'
-        elif cls == 6 and err == 'FP':
-            return 'E6FP'
-        elif cls == 6 and err == 'FN':
-            return 'E6FN'
-        elif cls == 7 and err == 'FP':
-            return 'E7FP'
-        elif cls == 7 and err == 'FN':
-            return 'E7FN'
+        if 1 <= cls and cls <= 7:
+            return 'E%d%s'%(cls, err)
         else:
             return 'E8FP'
+
+class Record:
+    def __init__(self, stype, etype, region):
+        self.stype = stype      #1-8
+        self.etype = etype      #FP/FN
+        self.region = region    #Ins/Data
+
+        self.jdata = []
+        self.adata = []
+
+    def report(self, gt, tool=None, idx=-1):
+        if gt:
+            address = gt.Address
+            src_gt      = gt.Path,    gt.Line
+        else:
+            address = tool.Address
+            src_gt      = None
+
+        if tool:
+            src_tool    = tool.Path,  tool.Line
+        else:
+            src_tool    = None
+
+        info = Info(self.stype, address, self.region, self.etype, gt,  tool, src_gt, src_tool, idx)
+
+        self.jdata.append(info.to_json())
+        self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
+
+
+class RecE:
+    def __init__(self, stype, etype):
+        self.stype = stype
+        self.etype = etype
+        self.ins = Record(stype, etype, 'Ins')
+        self.data = Record(stype, etype, 'Data')
+
+    def length(self):
+        return len(self.ins.adata) + len(self.data.adata)
+
+
+class RecS:
+    def __init__(self, stype):
+        self.stype = stype
+        self.fp = RecE(stype, 'FP')
+        self.fn = RecE(stype, 'FN')
+        self.tp = 0
+
+    def report(self, out_file):
+        if 0 == self.fp.length() + self.fn.length():
+            return
+
+        print('Type %d'%(self.stype), file = out_file)
+        for (addr, ty, res, src_c, src_r, idx) in self.fp.ins.adata:
+            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+        for (addr, ty, res, src_c, src_r, idx) in self.fp.data.adata:
+            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+        for (addr, ty, res, src_c, src_r, idx) in self.fn.ins.adata:
+            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+        for (addr, ty, res, src_c, src_r, idx) in self.fn.data.adata:
+            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+
+    def get_json(self):
+        res = []
+        res.extend(self.fp.ins.jdata)
+        res.extend(self.fp.data.jdata)
+        res.extend(self.fn.ins.jdata)
+        res.extend(self.fn.data.jdata)
+        return res
 
 class Report:
     def __init__(self, prog_c):
         self.prog_c = prog_c
-        self.reset()
+        #self.reset()
+        self.gt = 0
+        '''
+        self.e1tp = 0
+        self.e1fp = 0
+        self.e1fn = 0
+        self.e2tp = 0
+        self.e2fp = 0
+        self.e2fn = 0
+        self.e3tp = 0
+        self.e3fp = 0
+        self.e3fn = 0
+        self.e4tp = 0
+        self.e4fp = 0
+        self.e4fn = 0
+        self.e5tp = 0
+        self.e5fp = 0
+        self.e5fn = 0
+        self.e6tp = 0
+        self.e6fp = 0
+        self.e6fn = 0
+        self.e7tp = 0
+        self.e7fp = 0
+        self.e7fn = 0
+        self.e8fp = 0
+        self.e8fp_7 = 0
+        '''
 
+        self.rec = dict()
+        for stype in range(1, 9):
+            self.rec[stype] = RecS(stype)
+
+    '''
     def reset(self):
         self.type1 = {}
         self.type2 = {}
@@ -137,9 +210,9 @@ class Report:
 
         self.ins_len = 0
         self.data_len = 0
-
+    '''
     def compare(self, prog_r):
-        self.reset()
+        #self.reset()
         self.compare_ins_errors(prog_r)
         self.compare_data_errors(prog_r)
 
@@ -161,8 +234,9 @@ class Report:
                 self.check_data_error(data_c, None)
             elif addr in prog_r.Data: # FP
                 data_r = prog_r.Data[addr]
-                self.report_T0_FP_Data(data_r)
-                self.e8fp += 1
+                #self.report_T0_FP_Data(data_r)
+                self.rec[8].fp.data.report(None, data_r)
+                #self.e8fp += 1
 
 
     def compare_ins_errors(self, prog_r):
@@ -181,7 +255,7 @@ class Report:
             for idx in cmpts:
                 self.check_ins_error(ins_c, ins_r, idx)
 
-
+    '''
     def report_info(self, info):
         self.infos.append(info.to_json())
 
@@ -214,8 +288,10 @@ class Report:
     def report_type0_7(self, addr, ty, res, src_c, src_r, idx=-1):
         self.type0_7[(addr, idx)] = (ty, res, src_c, src_r, idx)
 
-    def warning(self, addr, msg):
-        self.warnings.append((addr, msg))
+    '''
+
+    #def warning(self, addr, msg):
+    #    self.warnings.append((addr, msg))
 
     def save_file(self, file_path, option='default'):
         with my_open(file_path, 'w') as fd:
@@ -231,6 +307,16 @@ class Report:
     def save_ascii_file(self, out_file):
         print('# Instrs to check:', self.ins_len, file = out_file)
         print('# Data to check:', self.data_len, file = out_file)
+        self.rec[1].report(out_file)
+        self.rec[2].report(out_file)
+        self.rec[3].report(out_file)
+        self.rec[4].report(out_file)
+        self.rec[5].report(out_file)
+        self.rec[6].report(out_file)
+        self.rec[7].report(out_file)
+        self.rec[8].report(out_file)
+
+        '''
         if len(self.type1) > 0:
             print('Type I', file = out_file)
             for addr, i in self.type1:
@@ -284,22 +370,31 @@ class Report:
             for addr, i in self.type0_7:
                 ty, res, src_c, src_r, idx = self.type0_7[(addr, i)]
                 print('T9', hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+        '''
 
     def save_default_file(self, pr_file):
-        print('%d,%d,%d' % (self.e1tp, self.e1fp, self.e1fn), file = pr_file)
-        print('%d,%d,%d' % (self.e2tp, self.e2fp, self.e2fn), file = pr_file)
-        print('%d,%d,%d' % (self.e3tp, self.e3fp, self.e3fn), file = pr_file)
-        print('%d,%d,%d' % (self.e4tp, self.e4fp, self.e4fn), file = pr_file)
-        print('%d,%d,%d' % (self.e5tp, self.e5fp, self.e5fn), file = pr_file)
-        print('%d,%d,%d' % (self.e6tp, self.e6fp, self.e6fn), file = pr_file)
-        print('%d,%d,%d' % (self.e7tp, self.e7fp, self.e7fn), file = pr_file)
-        print('%d' % self.e8fp, file = pr_file)
+        for stype in range(1,9):
+            print('%d,%d,%d' % (self.rec[stype].tp, self.rec[stype].fp.length(), self.rec[stype].fn.length()), file = pr_file)
+        #print('%d,%d,%d' % (self.e1tp, self.e1fp, self.e1fn), file = pr_file)
+        #print('%d,%d,%d' % (self.e2tp, self.e2fp, self.e2fn), file = pr_file)
+        #print('%d,%d,%d' % (self.e3tp, self.e3fp, self.e3fn), file = pr_file)
+        #print('%d,%d,%d' % (self.e4tp, self.e4fp, self.e4fn), file = pr_file)
+        #print('%d,%d,%d' % (self.e5tp, self.e5fp, self.e5fn), file = pr_file)
+        #print('%d,%d,%d' % (self.e6tp, self.e6fp, self.e6fn), file = pr_file)
+        #print('%d,%d,%d' % (self.e7tp, self.e7fp, self.e7fn), file = pr_file)
+        #print('%d' % self.e8fp, file = pr_file)
         print('%d' % self.gt, file = pr_file)
-        print('%d' % self.e8fp_7, file = pr_file)
+        #print('%d' % self.e8fp_7, file = pr_file)
 
     def save_json_file(self, j_file):
-        print(json.dumps(self.infos, indent=2), file = j_file)
+        res = []
+        for stype in range(1,9):
+            res.extend(self.rec[stype].get_json())
 
+        print(json.dumps(res, indent=2), file = j_file)
+        #print(json.dumps(self.infos, indent=2), file = j_file)
+
+    '''
     def report_T0_FP_Ins(self, ins_c, ins_r, idx = -1):
         src_c = ins_c.Path, ins_c.Line
         src_r = ins_r.Path, ins_r.Line
@@ -509,6 +604,7 @@ class Report:
         i = Info(7, data_c.Address, 'Data', 'FN', data_c, None, src_c, None, -1)
         self.report_info(i)
         self.report_type7(data_c.Address, 'Data', 'FN', src_c, None)
+    '''
 
     def check_ins_error(self, ins_c, ins_r, idx):
         cmpt_c = ins_c.Components[idx]
@@ -519,59 +615,75 @@ class Report:
             if cmpt_c.is_composite(): # Type II, IV, VI, VII
                 if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type II
                     if not cmpt_r.is_ms():
-                        self.report_T2_FN_Ins(ins_c, ins_r, idx)
-                        self.e2fn += 1
+                        #self.report_T2_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[2].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e2fn += 1
                     else:
                         if cmpt_c != cmpt_r:
-                            self.report_T2_FP_Ins(ins_c, ins_r, idx)
-                            self.e2fp += 1
+                            #self.report_T2_FP_Ins(ins_c, ins_r, idx)
+                            self.rec[2].fp.ins.report(ins_c, ins_r, idx)
+                            #self.e2fp += 1
                         else:
-                            self.e2tp += 1
+                            #self.e2tp += 1
+                            self.rec[2].tp += 1
                 elif cmpt_c.Ty == CmptTy.PCREL: # Type IV
                     if not cmpt_r.is_ms():
-                        self.report_T4_FN_Ins(ins_c, ins_r, idx)
-                        self.e4fn += 1
+                        #self.report_T4_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[4].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e4fn += 1
                     else:
                         if cmpt_c != cmpt_r:
-                            self.report_T4_FP_Ins(ins_c, ins_r, idx)
-                            self.e4fp += 1
+                            #self.report_T4_FP_Ins(ins_c, ins_r, idx)
+                            self.rec[4].fp.ins.report(ins_c, ins_r, idx)
+                            #self.e4fp += 1
                         else:
-                            self.e4tp += 1
+                            #self.e4tp += 1
+                            self.rec[4].tp += 1
                 elif cmpt_c.Ty == CmptTy.GOTOFF: # Type VI
                     if not cmpt_r.is_ms():
-                        self.report_T6_FN_Ins(ins_c, ins_r, idx)
-                        self.e6fn += 1
+                        #self.report_T6_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[6].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e6fn += 1
                     else:
                         if cmpt_c != cmpt_r:
-                            self.report_T6_FP_Ins(ins_c, ins_r, idx)
-                            self.e6fp += 1
+                            #self.report_T6_FP_Ins(ins_c, ins_r, idx)
+                            self.rec[6].fp.ins.report(ins_c, ins_r, idx)
+                            #self.e6fp += 1
                         else:
-                            report.e6tp += 1
+                            #report.e6tp += 1
+                            self.rec[6].tp += 1
                 elif cmpt_c.Ty == CmptTy.OBJREL: # Type VII
                     if not cmpt_r.is_ms():
-                        self.report_T7_FN_Ins(ins_c, ins_r, idx)
-                        self.e7fn += 1
+                        #self.report_T7_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[7].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e7fn += 1
                     else:
                         if cmpt_c != cmpt_r:
-                            self.report_T7_FP_Ins(ins_c, ins_r, idx)
-                            self.e7fp += 1
+                            #self.report_T7_FP_Ins(ins_c, ins_r, idx)
+                            self.rec[7].fp.ins.report(ins_c, ins_r, idx)
+                            #self.e7fp += 1
                         else:
-                            self.e7tp += 1
+                            #self.e7tp += 1
+                            self.rec[7].tp += 1
             else: # Type I, III, V
                 if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type I
                     if not cmpt_r.is_ms():
-                        self.report_T1_FN_Ins(ins_c, ins_r, idx)
-                        self.e1fn += 1
+                        #self.report_T1_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[1].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e1fn += 1
                     else:
                         if cmpt_c != cmpt_r:
-                            self.report_T1_FP_Ins(ins_c, ins_r, idx)
-                            self.e1fp += 1
+                            #self.report_T1_FP_Ins(ins_c, ins_r, idx)
+                            self.rec[1].fp.ins.report(ins_c, ins_r, idx)
+                            #self.e1fp += 1
                         else:
-                            self.e1tp += 1
+                            #self.e1tp += 1
+                            self.rec[1].tp += 1
                 elif cmpt_c.Ty == CmptTy.PCREL: # Type III
                     if not cmpt_r.is_ms():
-                        self.report_T3_FN_Ins(ins_c, ins_r, idx)
-                        self.e3fn += 1
+                        #self.report_T3_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[3].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e3fn += 1
                     else:
                         if cmpt_c != cmpt_r:
                             # HSKIM: TO DO
@@ -579,31 +691,42 @@ class Report:
                                 addr_c = cmpt_c.Terms[0].Address
                                 addr_r = cmpt_r.Terms[0].Address
                                 if (addr_r + 0x10) & 0xfffffff0 == addr_c:
-                                    self.e3tp += 1
+                                    #self.e3tp += 1
+                                    self.rec[3].tp += 1
                                 else:
-                                    self.report_T3_FP_Ins(ins_c, ins_r, idx)
-                                    self.e3fp += 1
+                                    #self.report_T3_FP_Ins(ins_c, ins_r, idx)
+                                    self.rec[3].fp.ins.report(ins_c, ins_r, idx)
+                                    #self.e3fp += 1
                             else:
-                                self.report_T3_FP_Ins(ins_c, ins_r, idx)
-                                self.e3fp += 1
+                                #self.report_T3_FP_Ins(ins_c, ins_r, idx)
+                                self.rec[3].fp.ins.report(ins_c, ins_r, idx)
+                                #self.e3fp += 1
                         else:
-                            self.e3tp += 1
+                            #self.e3tp += 1
+                            self.rec[3].tp += 1
                 elif cmpt_c.Ty == CmptTy.GOTOFF: # Type V
                     if not cmpt_r.is_ms():
-                        self.report_T5_FN_Ins(ins_c, ins_r, idx)
-                        self.e5fn += 1
+                        #self.report_T5_FN_Ins(ins_c, ins_r, idx)
+                        self.rec[5].fn.ins.report(ins_c, ins_r, idx)
+                        #self.e5fn += 1
                     else:
                         if cmpt_c != cmpt_r:
-                            self.report_T5_FP_Ins(ins_c, ins_r, idx)
-                            self.e5fp += 1
+                            #self.report_T5_FP_Ins(ins_c, ins_r, idx)
+                            self.rec[5].fp.ins.report(ins_c, ins_r, idx)
+                            #self.e5fp += 1
                         else:
-                            self.e5tp += 1
+                            #self.e5tp += 1
+                            self.rec[5].tp += 1
         elif cmpt_r.is_ms(): # FP
-            self.report_T0_FP_Ins(ins_c, ins_r, idx)
-            self.e8fp += 1
+            #self.report_T0_FP_Ins(ins_c, ins_r, idx)
+            self.rec[8].fp.ins.report(ins_c, ins_r, idx)
+            #self.e8fp += 1
+            '''
             if cmpt_r.Ty == CmptTy.OBJREL: # Type VII
                 self.e8fp_7 += 1
+                #self.report_T0_FP_7_Ins(ins_c, ins_r, idx)
                 self.report_T0_FP_7_Ins(ins_c, ins_r, idx)
+            '''
 
     def check_data_error(self, data_c, data_r):
         self.gt += 1
@@ -612,82 +735,102 @@ class Report:
         if cmpt_c.is_composite(): # Type II, IV, VI, VII
             if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type II
                 if data_r is None:
-                    self.report_T2_FN_Data(data_c)
-                    self.e2fn += 1
+                    #self.report_T2_FN_Data(data_c)
+                    self.rec[2].fn.data.report(data_c)
+                    #self.e2fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T2_FP_Data(data_c, data_r)
-                        self.e2fp += 1
+                        #self.report_T2_FP_Data(data_c, data_r)
+                        self.rec[2].fp.data.report(data_c, data_r)
+                        #self.e2fp += 1
                     else:
-                        self.e2tp += 1
+                        #self.e2tp += 1
+                        self.rec[2].tp += 1
             elif cmpt_c.Ty == CmptTy.PCREL: # Type IV
                 if data_r is None:
-                    self.report_T4_FN_Data(data_c)
-                    self.e4fn += 1
+                    #self.report_T4_FN_Data(data_c)
+                    self.rec[4].fn.data.report(data_c)
+                    #self.e4fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T4_FP_Data(data_c, data_r)
-                        self.e4fp += 1
+                        #self.report_T4_FP_Data(data_c, data_r)
+                        self.rec[4].fp.data.report(data_c, data_r)
+                        #self.e4fp += 1
                     else:
-                        self.e4tp += 1
+                        #self.e4tp += 1
+                        self.rec[4].tp += 1
             elif cmpt_c.Ty == CmptTy.GOTOFF: # Type VI
                 if data_r is None:
-                    self.report_T6_FN_Data(data_c)
-                    self.e6fn += 1
+                    #self.report_T6_FN_Data(data_c)
+                    self.rec[6].fn.data.report(data_c)
+                    #self.e6fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T6_FP_Data(data_c, data_r)
-                        sefl.e6fp += 1
+                        #self.report_T6_FP_Data(data_c, data_r)
+                        self.rec[6].fp.data.report(data_c, data_r)
+                        #sefl.e6fp += 1
                     else:
-                        self.e6tp += 1
+                        #self.e6tp += 1
+                        self.rec[6].tp += 1
             elif cmpt_c.Ty == CmptTy.OBJREL: # Type VII
                 if data_r is None:
-                    self.report_T7_FN_Data(data_c)
-                    self.e7fn += 1
+                    #self.report_T7_FN_Data(data_c)
+                    self.rec[7].fn.data.report(data_c)
+                    #self.e7fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T7_FP_Data(data_c, data_r)
-                        self.e7fp += 1
+                        #self.report_T7_FP_Data(data_c, data_r)
+                        self.rec[7].fp.data.report(data_c, data_r)
+                        #self.e7fp += 1
                     else:
-                        self.e7tp += 1
+                        self.rec[7].tp += 1
         else: # Type I, III, V
             if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type I
                 if data_r is None:
-                    self.report_T1_FN_Data(data_c)
-                    self.e1fn += 1
+                    #self.report_T1_FN_Data(data_c)
+                    self.rec[1].fn.data.report(data_c)
+                    #self.e1fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T1_FP_Data(data_c, data_r)
-                        self.e1fp += 1
+                        #self.report_T1_FP_Data(data_c, data_r)
+                        self.rec[1].fp.data.report(data_c, data_r)
+                        #self.e1fp += 1
                     else:
-                        self.e1tp += 1
+                        #self.e1tp += 1
+                        self.rec[1].tp += 1
             elif cmpt_c.Ty == CmptTy.PCREL: # Type III
                 if data_r is None:
-                    self.report_T3_FN_Data(data_c)
-                    self.e3fn += 1
+                    #self.report_T3_FN_Data(data_c)
+                    self.rec[3].fn.data.report(data_c)
+                    #self.e3fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T3_FP_Data(data_c, data_r)
-                        self.e3fp += 1
+                        #self.report_T3_FP_Data(data_c, data_r)
+                        self.rec[3].fp.data.report(data_c, data_r)
+                        #self.e3fp += 1
                     else:
-                        self.e3tp += 1
+                        #self.e3tp += 1
+                        self.rec[3].tp += 1
             elif cmpt_c.Ty == CmptTy.GOTOFF: # Type V
                 if data_r is None:
-                    self.report_T5_FN_Data(data_c)
-                    self.e5fn += 1
+                    #self.report_T5_FN_Data(data_c)
+                    self.rec[5].fn.data.report(data_c)
+                    #self.e5fn += 1
                 else:
                     cmpt_r = data_r.Component
                     if cmpt_c != cmpt_r:
-                        self.report_T5_FP_Data(data_c, data_r)
-                        self.e5fp += 1
+                        #self.report_T5_FP_Data(data_c, data_r)
+                        self.rec[4].fp.data.report(data_c, data_r)
+                        #self.e5fp += 1
                     else:
-                        self.e5tp += 1
+                        #self.e5tp += 1
+                        self.rec[5].tp += 1
 
 def get_cmpt_list(ins_c, ins_r):
     cmpt_c = ins_c.get_components()

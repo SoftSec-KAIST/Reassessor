@@ -72,20 +72,8 @@ class Statistics:
         addrs_c = set(self.prog_c.Instrs.keys())
         addrs_r = set(prog_r.Instrs.keys())
 
-        addrs_x = set(self.prog_c.unknown_funcs.keys())
-        addrs_c_unknown = set()
-        for start in addrs_x:
-            fname, fstart, fsize = self.prog_c.unknown_funcs[start]
-            if fsize == 0 and fstart > 0:
-                candidate1 = min([addr for addr in addrs_c if addr > fstart])
-                candidate2 = min([addr for addr in addrs_x if addr > fstart])
-                candidate = min(candidate1, candidate2)
-                addrs_c_unknown.update(addr for addr in range(fstart, candidate))
-            else:
-                addrs_c_unknown.update(addr for addr in range(fstart, fstart+fsize))
-
         tp = addrs_c.intersection(addrs_r)
-        fp = addrs_r - addrs_c - addrs_c_unknown - prog_r.nops
+        fp = addrs_r - addrs_c - self.prog_c.unknown_region
         fn = addrs_c - addrs_r
 
         self.disasm[0] += len(tp)

@@ -579,7 +579,7 @@ class NormalizeGT:
             self.instruction_addrs = list(self.instructions.keys())
             self.instruction_addrs.sort()
 
-        self.bin2src_dict, self.unknown_funcs = self.match_src_to_bin()
+        self.bin2src_dict = self.match_src_to_bin()
 
         self.elf = load_elf(bin_path)
         self.prog = Program(self.elf, self.cs)
@@ -595,7 +595,6 @@ class NormalizeGT:
         os.system("objdump -t -f %s | grep \"F .text\" | sort > /tmp/xx%s" % (self.bin_path, temp_file))
 
         funcs = []
-        unknown_funcs = dict()
         for line in open("/tmp/xx" + temp_file):
             l = line.split()
             fname = l[-1]
@@ -607,8 +606,8 @@ class NormalizeGT:
                 if len(loc_candidates) and fsize > 0:
                     funcs.append([fname, faddress, fsize, loc_candidates])
             except:
-                unknown_funcs[faddress] = [fname, faddress, fsize]
-        return funcs, unknown_funcs
+                pass
+        return funcs
 
 
     def update_instr(self, faddress, fsize):
@@ -631,7 +630,7 @@ class NormalizeGT:
         result = {}
         dwarf_loc = get_dwarf_loc(self.bin_path)
 
-        funcs, unknown_funcs = self.get_objdump()   # [funcname, address, size] list
+        funcs = self.get_objdump()   # [funcname, address, size] list
         for func in funcs:
             fname, faddress, fsize, loc_candidates = func
             src_files = self.get_src_files(src_files, loc_candidates)
@@ -664,7 +663,7 @@ class NormalizeGT:
                 res = get_end_of_func(src_files, res)
                 result[faddress] = [fname, fsize] + res
 
-        return result, unknown_funcs
+        return result
 
     def get_func_code(self, address, size):
         try:
@@ -766,8 +765,15 @@ class NormalizeGT:
             spath_full = os.path.join(self.work_dir, spath)
             self.prog, infos = get_instrs(self.prog, self.elf, src_code, insts, infos, spath_full, nop_insts)
             self.prog = get_tables(self.prog, self.elf, infos, spath_full)
-            self.prog.unknown_funcs = self.unknown_funcs
 
+        text_end = self.text.data_size + self.text_base
+        prev_end = self.text_base
+        unknown_region = set()
+        for faddress in sorted(self.bin2src_dict.keys()):
+            unknown_region.update(range(prev_end, faddress))
+            prev_end = faddress + self.bin2src_dict[faddress][1]
+        unknown_region.update(range(prev_end, text_end))
+        self.prog.unknown_region = unknown_region
 
     def normalize_data(self):
         def get_composite_datas(exprs, addr):
