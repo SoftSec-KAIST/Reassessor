@@ -110,11 +110,12 @@ def get_addr_from_label(label, ):
 
 
 class FactorList:
-    def __init__(self, factors, value, label_to_addr):
+    def __init__(self, factors, value, _label_to_addr=None, gotoff=0):
         self.labels = []
         self.num = 0
         self.value = value
-        self.label_to_addr = label_to_addr
+        self._label_to_addr = _label_to_addr
+        self.gotoff = gotoff
         for factor in factors:
             if factor.data.isdigit() or '0x' in factor.data:
                 self.num += eval(factor.get_str())
@@ -124,11 +125,36 @@ class FactorList:
     def has_label(self):
         return len(self.labels) > 0
 
+    def get_str(self):
+        ret = ''
+        for label in self.labels:
+            if ret and label[0] != '-':
+                ret += '+'
+            ret += label
+        if self.num > 0:
+            ret += '+%s'%(hex(self.num))
+        elif self.num < 0:
+            ret += '%s'%(hex(self.num))
+
+        return ret
+
+    def label_to_addr(self, label):
+        if self._label_to_addr is None:
+            return 0
+        if isinstance(self._label_to_addr, dict):
+            if label in self._label_to_addr:
+                return self._label_to_addr[label]
+            else:
+                return 0
+        return self._label_to_addr(label)
+
     def get_terms(self):
         result = []
 
         for label in self.labels:
-            if '@GOTOFF' in label:
+            if '_GLOBAL_OFFSET_TABLE_' in label:
+                addr = self.gotoff
+            elif '@GOTOFF' in label:
                 addr = self.label_to_addr(label.split('@GOTOFF')[0])
                 label_type = LblTy.GOTOFF
             else:
@@ -327,38 +353,42 @@ class NormalizeTool:
             op_str = tokens[1][idx]
             if operand.type == X86_OP_REG:
                 components.append(Component())
+                continue
             elif operand.type == X86_OP_IMM:
                 is_pcrel = False
                 if insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL):
                     is_pcrel = True
 
                 value = operand.imm
-                if '@GOTOFF' in op_str:
-                    value += self.got_addr
-                res = FactorList(parser.parse(op_str), value, self.label_to_addr)
-
-                if res.has_label():
-                    components.append(Component(res.get_terms(), value, is_pcrel))
-                else:
-                    components.append(Component())
 
             elif operand.type == X86_OP_MEM:
+                is_pcrel = False
                 if operand.mem.base == X86_REG_RIP:
                     value = insn.address + insn.size + operand.mem.disp
                     is_pcrel = True
                 else:
                     value = operand.mem.disp
-                    if '@GOTOFF' in op_str:
-                        value += self.got_addr
-                    is_pcrel = False
 
-                res = FactorList(parser.parse(op_str), value, self.label_to_addr)
-                if res.has_label():
-                    components.append(Component(res.get_terms(), value, is_pcrel))
-                else:
-                    components.append(Component())
             else:
-                pass
+                continue
+
+
+            if '@GOTOFF' in op_str:
+                value += self.got_addr
+
+            if '_GLOBAL_OFFSET_TABLE_' in op_str:
+                gotoff = self.got_addr - insn.address
+            else:
+                gotoff = 0
+
+            factors = FactorList(parser.parse(op_str), value, self.label_to_addr, gotoff)
+
+            if factors.has_label():
+                components.append(Component(factors.get_terms(), value, is_pcrel, factors.get_str()))
+            else:
+                components.append(Component())
+
+
 
         if self.cs.syntax == capstone.CS_OPT_SYNTAX_INTEL:
             components.reverse()
@@ -372,9 +402,6 @@ class NormalizeTool:
 
         skip = -1
         for i, (addr, tokens, line) in enumerate(self.addressed_asms):
-            if addr in [0x80001, 0x8001e]:
-                import pdb
-                pdb.set_trace()
             if i <= skip:
                 continue
 
@@ -417,8 +444,12 @@ class NormalizeTool:
     def normalize_data(self):
         for addr, token, size, line in self.addressed_data:
             #print(token)
-            terms = self.parse_data_expr(token.strip())
-            component = Component(terms)
+
+            factors = self.parse_data_expr(token.strip())
+
+            #factors = FactorList(parser.parse(op_str), value, self.label_to_addr)
+
+            component = Component(factors.get_terms(), reloc_sym = factors.get_str())
             self.prog.Data[addr] = Data(addr, component, self.reassem_path, line)
             #print('Data:', hex(addr))
 
@@ -432,7 +463,7 @@ class NormalizeTool:
         value = 0
         result = FactorList(parser.parse(op_str), value, self.label_to_addr)
 
-        return result.get_terms()
+        return result
 
 
 

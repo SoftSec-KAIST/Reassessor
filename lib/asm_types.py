@@ -59,9 +59,10 @@ class Label:
         return 'Label ' + hex(addr) + ' ' + s
 
 class Component:
-    def __init__(self, terms=[], value=0, is_pcrel=False):
+    def __init__(self, terms=[], value=0, is_pcrel=False, reloc_sym=''):
         self.Terms = terms
         self.Value = value
+        self.reloc_sym = reloc_sym
         if is_pcrel:
             self.Ty = CmptTy.PCREL
         else:
@@ -116,6 +117,15 @@ class Component:
                 'Type': ty
                 }
         return j
+
+    def to_string(self):
+        ret = ''
+        for term in self.Terms:
+            if isinstance(term, Label):
+                ret += term.get_name()
+            else:
+                ret += '%s'%(hex(term))
+        return ret
 
 class Table:
     def __init__(self, name, addr, entries, entrySize):
