@@ -117,7 +117,7 @@ class FactorList:
         self._label_to_addr = _label_to_addr
         self.gotoff = gotoff
         for factor in factors:
-            if factor.data.isdigit() or '0x' in factor.data:
+            if factor.data.isdigit() or factor.data.startswith('0x'):
                 self.num += eval(factor.get_str())
             else:
                 self.labels.append(factor.get_str())
@@ -148,7 +148,7 @@ class FactorList:
                 return 0
         return self._label_to_addr(label)
 
-    def get_terms(self, mask = False):
+    def get_terms(self):
         result = []
 
         for label in self.labels:
@@ -168,15 +168,24 @@ class FactorList:
                 if len(self.labels) > 1:
                     raise SyntaxError('Unsolved label')
                 addr = self.value - self.num
-                if mask:
-                    addr = addr & 0xffffffff
-                #print('unknown %s + %d: %s'%(label, self.num, hex(addr)))
 
             lbl = Label(label, label_type, addr)
             result.append(lbl)
         if self.num:
             return result + [self.num]
         return result
+
+    def get_table_terms(self, base_label):
+
+        assert len(self.labels) == 2, 'This is not type 7'
+        assert self.num == 0, 'This is not type 7'
+        assert self.labels[1][1:] == base_label.label, 'This is incorrect jump table base'
+
+        addr1 = (self.value + base_label.addr) & 0xffffffff
+        lbl1 = Label(self.labels[0], LblTy.LABEL, addr1)
+        lbl2 = Label(self.labels[1], LblTy.LABEL, base_label.addr)
+
+        return [lbl1, lbl2]
 
 
 class ExParser:

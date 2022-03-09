@@ -25,6 +25,7 @@ class AsmFileInfo:
         self.jmp_dict = dict()
         self.debug_loc_paths = dict()
         self.section = 'none'
+        self.visited_func = set()
 
     def get_line(self):
         return self.lines[self.idx].split('#')[0]

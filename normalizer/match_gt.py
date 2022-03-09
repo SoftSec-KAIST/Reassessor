@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from lib.asm_types import *
 from lib.utils import *
-from mapper.match_src_to_bin import get_dwarf_loc, select_src_candidate
+from mapper.match_src_to_bin import select_src_candidate
 from normalizer.match_tool import ATTExParser, FactorList
 from mapper.asmfile import AsmFileInfo, LocInfo, AsmInst
 
@@ -45,6 +45,54 @@ class FuncInst:
         self.inst_list = inst_list
         self.name, self.addr, self.size = func_info
         self.asm_path = asm_path
+
+def get_dwarf_loc(filename):
+    dwarf_loc_map = {}
+
+    def process_file(filename):
+        with open(filename, 'rb') as f:
+            elffile = ELFFile(f)
+
+            if not elffile.has_dwarf_info():
+                print('  file has no DWARF info')
+                return
+
+            dwarfinfo = elffile.get_dwarf_info()
+            for CU in dwarfinfo.iter_CUs():
+                line_program = dwarfinfo.line_program_for_CU(CU)
+                if line_program is None:
+                    continue
+                line_entry_mapping(line_program)
+
+    def line_entry_mapping(line_program):
+        lp_entries = line_program.get_entries()
+        for lpe in lp_entries:
+            if not lpe.state or lpe.state.file == 0:
+                continue
+
+            filename = lpe_filename(line_program, lpe.state.file)
+            if lpe.state.address not in dwarf_loc_map.keys():
+                dwarf_loc_map[lpe.state.address] = set()
+            dwarf_loc_map[lpe.state.address].add('%s:%d'%(filename, lpe.state.line))
+
+    def lpe_filename(line_program, file_index):
+        lp_header = line_program.header
+        file_entries = lp_header["file_entry"]
+
+        file_entry = file_entries[file_index - 1]
+        dir_index = file_entry["dir_index"]
+
+        if dir_index == 0:
+            return file_entry.name.decode()
+
+        directory = lp_header["include_directory"][dir_index - 1]
+        return os.path.join(directory, file_entry.name).decode()
+
+    process_file(filename)
+    return dwarf_loc_map
+
+
+
 
 def disasm(prog, cs, addr, length):
     offset = addr - prog.text_base
@@ -165,7 +213,6 @@ class NormalizeGT:
 
         asm_operands = asm_info.operands
 
-        label_dict = dict()
         for idx, operand in enumerate(operands):
 
             if len(asm_operands) <= idx:
@@ -209,7 +256,7 @@ class NormalizeGT:
             else:
                 continue
 
-            if is_pcrel:
+            if is_pcrel and not (insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL)):
                 value += insn.address + insn.size
             elif '@GOTOFF' in op_str:
                 value += self.got_addr
@@ -219,7 +266,7 @@ class NormalizeGT:
             else:
                 gotoff = 0
 
-            factors = FactorList(parser.parse(op_str), value, label_dict, gotoff)
+            factors = FactorList(parser.parse(op_str), value, gotoff=gotoff)
 
             if factors.has_label():
                 components.append(Component(factors.get_terms(), value, is_pcrel, factors.get_str()))
@@ -243,15 +290,10 @@ class NormalizeGT:
             else:
                 assert False, 'Unsupported jump table entries'
 
-            [label1, label2] = line.split()[1].split('-')
-            assert label2 == comp_data.label
-            op_str = '%s-%d'%(label1, comp_data.addr)
-
             value = get_int(self.elf, addr, sz)
 
-            factors = FactorList(parser.parse(op_str), value)
-
-            component = Component(factors.get_terms(mask=True), value,  False, self.got_addr)
+            factors = FactorList(parser.parse(line.split()[1]), value)
+            component = Component(factors.get_table_terms(comp_data), value,  False, self.got_addr)
             self.prog.Data[addr] = Data(addr, component, asm_path, idx+1)
 
             addr += sz
@@ -348,7 +390,7 @@ class NormalizeGT:
         src_files = {}
 
         #result = {}
-        dwarf_loc = get_dwarf_loc(self.bin_path)
+        self.dwarf_loc = get_dwarf_loc(self.bin_path)
 
         funcs = self.get_objdump()   # [funcname, address, size] list
         for func_info in funcs:
@@ -459,6 +501,25 @@ class NormalizeGT:
         for bin_asm in func_code:
             asm = asm_list[idx]
 
+            if bin_asm.address in self.dwarf_loc:
+                dwarf_set1 = self.dwarf_loc[bin_asm.address]
+                dwarf_set2 = set()
+                while isinstance(asm, LocInfo):
+                    dwarf_set2.add( '%s:%d'%(asm.path, asm.idx))
+                    idx += 1
+                    asm = asm_list[idx]
+                #give exception for a first debug info since some debug info is related to prev func
+                #in case of weak symbols, multiple debug info could be merged.
+                #ex) {'xercesc/dom/DOMNodeImpl.hpp:271', './xercesc/dom/impl/DOMNodeImpl.hpp:271'}
+                if dwarf_set2 - dwarf_set1:
+                    #if 0 == len(addressed_asm_list) and 0 == len(dwarf_set2 - dwarf_set1):
+                    #    pass
+                    #else:
+                    return []
+
+            if isinstance(asm, LocInfo):
+                return []
+
             if asm.opcode == bin_asm.mnemonic:
                 addressed_asm_list.append((bin_asm.address, bin_asm, asm))
             elif self.is_semantically_same(bin_asm, asm):
@@ -501,9 +562,9 @@ class NormalizeGT:
         candidate_len = len(candidate_list)
         for asm_file in candidate_list:
 
-            asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
-
-            addressed_asm_list = self.assem_addr_map(func_code, asm_inst_list, candidate_len)
+            #asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
+            #addressed_asm_list = self.assem_addr_map(func_code, asm_inst_list, candidate_len)
+            addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len)
 
             if not addressed_asm_list:
                 continue
@@ -513,14 +574,15 @@ class NormalizeGT:
         if not ret:
             import pdb
             pdb.set_trace()
+            for asm_file in candidate_list:
+                addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len)
             assert False, 'No matched assembly code'
-        if len(ret) == 1:
-            return ret[0]
 
-        import pdb
-        pdb.set_trace()
 
-        matched_locs = []
+        asm_file, addressed_asm_list = ret[0]
+        asm_file.visited_func.add(fname)
+
+        return asm_file, addressed_asm_list
 
     def get_func_code(self, address, size):
         try:
@@ -560,7 +622,13 @@ class NormalizeGT:
     def get_assem_file(self, func_name):
         ret = []
         for asm_path in self._func_map[func_name]:
-            ret.append(self.asm_file_dict[asm_path])
+            #ignored referred assembly file
+            #since local function can be defined twice???
+            # _Z41__static_initialization in 483.xalancbmk
+            if func_name in self.asm_file_dict[asm_path].visited_func:
+                pass
+            else:
+                ret.append(self.asm_file_dict[asm_path])
         return ret
 
     def collect_loc_candidates(self):
@@ -593,8 +661,8 @@ class NormalizeGT:
                     if label in self.symbs and len(self.symbs[label]) == 1 and label not in visited_label:
                         self.update_data(self.symbs[label][0], comp_data, asm_path)
                         visited_label.append(label)
-                    else:
-                        print('unknown comp data %s:%s'%(asm_path, label))
+                    #else:
+                    #    print('unknown comp data %s:%s'%(asm_path, label))
 
         comp_set = set(self.prog.Data.keys())
         reloc_set = set(self.relocs)
@@ -625,21 +693,6 @@ class NormalizeGT:
             # If we already have addr, it means it should be a jump table
             if addr not in self.prog.Data:
                 self.prog.Data[addr] = Data(addr, component, '', 0)
-
-def print_instrs(prog):
-    for key in prog.Instrs:
-        print(hex(key), end='\t')
-        inst = prog.Instrs[key]
-        for component in inst.Components:
-            sys.stdout.write("[ ")
-            for term in component.Terms:
-                if isinstance(term, Label):
-                    print("(%s : %x), " % (term.get_type(), term.get_value()), end='')
-                else:
-                    print("(int : %x), " % (term))
-            sys.stdout.write(" ], ")
-            prog.Instrs[key].Components
-        print("")
 
 
 import argparse
