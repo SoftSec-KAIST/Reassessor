@@ -71,8 +71,10 @@ class Record:
 
         self.jdata = []
         self.adata = []
+        self.rec = []
 
     def report(self, gt, tool=None, idx=-1):
+
         if gt:
             address = gt.Address
             src_gt      = gt.Path,    gt.Line
@@ -89,6 +91,7 @@ class Record:
 
         self.jdata.append(info.to_json())
         self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
+        self.rec.append((address, gt, tool))
 
     def dump(self, out_file):
         for (addr, ty, res, src_c, src_r, idx) in self.adata:

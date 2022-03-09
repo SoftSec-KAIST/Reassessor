@@ -31,7 +31,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
     prog_c = pickle.load(pickle_gt_f)
 
     stat = Statistics(prog_c)
-    report = Report(prog_c)
 
     gt_type_file_path = '%s/%s'%(type_dir, 'gt')
     stat.count_symbols(prog_c, gt_type_file_path)
@@ -47,6 +46,7 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
         disasm_file_path = '%s/%s'%(disasm_dir, tool)
         type_file_path = '%s/%s'%(type_dir, tool)
 
+        report = Report(prog_c)
         report.compare(prog_r)
         report.save_file(json_file_path, option='json')
         report.save_file(out_file_path, option='ascii')
