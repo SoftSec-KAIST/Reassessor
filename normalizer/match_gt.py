@@ -725,6 +725,7 @@ class NormalizeGT:
 
             if len(asm_operands) <= idx:
                 # sarl $1, %eax     vs. salr %eax
+                # salw $1, -6(%rbp) vs. salw -6(%rbp)
                 # shrq $1, %rax     vs. shrq %rax
                 # shll $1, -0x3b4(%rbp) vs sall -948(%rbp)
                 # shrl $1, -0x3b0(%rbp) vs shrl -944(%rbp)
@@ -734,9 +735,10 @@ class NormalizeGT:
                 # shrw $1, -0x106(%rbp) vs. shrw -262(%rbp)
                 # shrb $1, %al          vs. shrb %al
                 # repne scasb (%rdi), %al vs. repnz scasb
-                if asm_info.opcode in ['salq', 'shrq', 'sarq', 'shll', 'sall', 'shrw', 'shrl', 'sarl', 'shrb']:
+                # rep movsq (%rsi), (%rdi) vs. rep movsq
+                if asm_info.opcode in ['salq', 'salw', 'shrq', 'sarq', 'shll', 'sall', 'shrw', 'shrl', 'sarl', 'shrb']:
                     pass
-                elif asm_info.opcode in ['repnz scasb', 'rep stosq']:
+                elif asm_info.opcode in ['repnz scasb', 'rep stosq', 'rep movsq']:
                     pass
                 else:
                     print(insn)
@@ -809,10 +811,37 @@ class NormalizeGT:
 
             if factors.has_label():
                 self.update_labels(func_info, factors, asm_file)
-                #self.update_labels(label_dict, jmptbl, factors, insn, src_file)
-                #self.update_hidden(factors, src_file)
 
         return components
+
+
+    def update_table(self, addr, comp_data, asm_path):
+        parser = ATTExParser()
+        for line, idx in comp_data.members:
+            directive = line.split()[0]
+            if directive in ['.long']:
+                sz = 4
+            elif directive in ['.quad']:
+                sz = 1
+            else:
+                assert False, 'Unsupported jump table entries'
+
+            [label1, label2] = line.split()[1].split('-')
+            assert label2 == comp_data.label
+            op_str = '%s-%d'%(label1, comp_data.addr)
+
+            value = get_int(self.elf, addr, sz)
+
+            factors = FactorList(parser.parse(op_str), value)
+
+            #import pdb
+            #pdb.set_trace()
+
+            component = Component(factors.get_terms(mask=True), value,  False, self.got_addr)
+            self.prog.Data[addr] = Data(addr, component, asm_path, idx+1)
+            #print('jmp table: %s - %s'%(hex(factors.get_terms(mask=True)[0].get_value()), hex(comp_data.addr)))
+
+            addr += sz
 
 
     def update_data(self, addr, comp_data, asm_path):
@@ -827,6 +856,8 @@ class NormalizeGT:
                 sz = 2
             elif directive in ['.byte']:
                 sz = 1
+            elif directive in ['.zero']:
+                sz = int(line.split()[1])
             else:
                 print(line)
                 assert False, "unknown data type"
@@ -848,23 +879,20 @@ class NormalizeGT:
 
     def update_labels(self, func_info, factors, asm_file): #label_dict, jmptbls, factors):
         target_addr = factors.value - factors.num
-        #print('update labels')
         for label in factors.labels:
             if label == '_GLOBAL_OFFSET_TABLE_':
                 continue
-            #elif not label.startswith('.L'):
-            #    continue
 
             if '@GOT' in label and '@GOTPCREL' not in label:
                 label = label.split('@')[0]
 
-            if label in asm_file.composite_data:
-                #self.composite_data[func_info.asm_path][label].set_addr(value)
-                self.update_data(target_addr, asm_file.composite_data[label], asm_file.file_path)
+            if label in asm_file.composite_data and not asm_file.composite_data[label].addr:
+                asm_file.composite_data[label].set_addr(target_addr)
             if label in asm_file.jmp_dict:
-                import pdb
-                pdb.set_trace()
-                self.update_data(target_addr, asm_file.composite_data[label], asm_file.file_path)
+                asm_file.jmp_dict[label].set_addr(target_addr)
+                #import pdb
+                #pdb.set_trace()
+                #self.update_data(target_addr, asm_file.composite_data[label], asm_file.file_path)
                 #self.jmp_table_dict[func_info.asm_path][label].set_addr(value)
                 #self.prog.Data[addr] = Data(value, component, asm_file.file_path, line)
             '''
@@ -943,7 +971,7 @@ class NormalizeGT:
 
             try:
                 #if len(loc_candidates) and fsize > 0:
-                if fname in self.func_dict and fsize > 0:
+                if self.has_func_assem_file(fname) and fsize > 0:
                     funcs.append([fname, faddress, fsize])
             except:
                 pass
@@ -1112,10 +1140,10 @@ class NormalizeGT:
                     addressed_asm_list.append((bin_asm.address, bin_asm, ''))
                     continue
             else:
-                print(bin_asm)
-                print('%s %s'%(asm.opcode, ' '.join(asm.operands)))
                 if candidate_len > 1:
                     return []
+                print(bin_asm)
+                print('%s %s'%(asm.opcode, ' '.join(asm.operands)))
                 import pdb
                 pdb.set_trace()
                 addressed_asm_list.append((bin_asm.address, bin_asm, asm))
@@ -1132,7 +1160,7 @@ class NormalizeGT:
     def find_match_func(self, func_code, func_info):
 
         fname, faddress, fsize = func_info
-        if fname not in self.func_dict:
+        if not self.has_func_assem_file(fname):
             return None
 
         #if len(self.func_dict[fname]) == 1:
@@ -1145,9 +1173,10 @@ class NormalizeGT:
         '''
         #import pdb
         #pdb.set_trace()
-        candidate = []
-        candidate_len = len(self.func_dict[fname])
-        for asm_file in self.func_dict[fname]:
+        ret = []
+        candidate_list = self.get_assem_file(fname)
+        candidate_len = len(candidate_list)
+        for asm_file in candidate_list:
 
             asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
 
@@ -1155,15 +1184,15 @@ class NormalizeGT:
 
             if not addressed_asm_list:
                 continue
-            candidate.append((asm_file, addressed_asm_list))
+            ret.append((asm_file, addressed_asm_list))
 
 
-        if not candidate:
+        if not ret:
             import pdb
             pdb.set_trace()
-            assert False, 'No candidate'
-        if len(candidate) == 1:
-            return candidate[0]
+            assert False, 'No matched assembly code'
+        if len(ret) == 1:
+            return ret[0]
 
         import pdb
         pdb.set_trace()
@@ -1281,18 +1310,31 @@ class NormalizeGT:
             srcs += glob.glob(self.asm_dir + t + "*.s")
         return srcs
 
+    def has_func_assem_file(self, func_name):
+        return func_name in self._func_map
+
+    def get_assem_file(self, func_name):
+        ret = []
+        for asm_path in self._func_map[func_name]:
+            ret.append(self.asm_file_dict[asm_path])
+        return ret
+
+
+
     def collect_loc_candidates(self):
 
         srcs = self.get_src_paths()
         #result = {}
 
-        self.func_dict = defaultdict(list)
+        self._func_map = defaultdict(list)
+        self.asm_file_dict = dict()
+
         for src in srcs:
             asm_file = AsmFileInfo(src)
             asm_file.scan()
-
+            self.asm_file_dict[src] = asm_file
             for func_name in asm_file.func_dict.keys():
-                self.func_dict[func_name].append(asm_file)
+                self._func_map[func_name].append(src)
 
             '''
             cnt = 0
@@ -1413,12 +1455,41 @@ class NormalizeGT:
             for base in self.hidden[label][0][1]:
                 get_composite_datas(self.hidden[label][1:], base)
         '''
+
+        visited_label = []
+        for asm_path, asm_file in self.asm_file_dict.items():
+            for label, comp_data in asm_file.composite_data.items():
+                if comp_data.addr:
+                    self.update_data(comp_data.addr, comp_data, asm_path)
+                    visited_label.append(label)
+
+        for asm_path, asm_file in self.asm_file_dict.items():
+            for label, comp_data in asm_file.composite_data.items():
+                if not comp_data.addr:
+                    if label in self.symbs and len(self.symbs[label]) == 1 and label not in visited_label:
+                        self.update_data(self.symbs[label][0], comp_data, asm_path)
+                        visited_label.append(label)
+                    else:
+                        print('unknown comp data %s:%s'%(asm_path, label))
+
+
+
         comp_set = set(self.prog.Data.keys())
         reloc_set = set(self.relocs)
+
+        #import pdb
+        #pdb.set_trace()
         if comp_set - reloc_set:
             import pdb
             pdb.set_trace()
             print(comp_set - reloc_set)
+
+        for asm_path, asm_file in self.asm_file_dict.items():
+            for label, comp_data in asm_file.jmp_dict.items():
+                if comp_data.addr:
+                    self.update_table(comp_data.addr, comp_data, asm_path)
+                    visited_label.append(label)
+
 
 
         for addr in self.relocs:

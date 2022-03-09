@@ -1,6 +1,6 @@
 import re
 from collections import namedtuple
-DATA_DIRECTIVE = ['.byte', '.asciz', '.quad', '.ascii', '.long', '.short']
+DATA_DIRECTIVE = ['.byte', '.asciz', '.quad', '.ascii', '.long', '.short', '.zero']
 
 AsmInst = namedtuple('AsmInst', ['opcode', 'operands', 'idx'])
 LocInfo = namedtuple('LocInfo', ['path', 'idx'])
@@ -101,22 +101,23 @@ class AsmFileInfo:
         while self.mov_next():
             terms = self.get_line().split()
             if terms[0] in DATA_DIRECTIVE:
-                members.append((self.get_line(), self.idx))
                 if terms[0] in ['.long', '.quad']:
+                    # if it has label-label patterns, it would be jump table
+                    if not members and re.search('-\.L', terms[1]):
+                        self.mov_prev()
+                        self.get_jmp_table(label)
+                        return
+
                     if re.search('.[+|-]', terms[1]):
                         bHasComposite =  True
+                members.append((self.get_line(), self.idx))
             else:
+                self.mov_prev()
                 break
-            #if self.is_section_directive(terms):
-            #    break
-        if bHasComposite:
-            #print(label)
-            #for mem in members:
-            #    print(mem)
 
+        if bHasComposite:
             self.composite_data[label] = CompositeData(label, members)
 
-        return {}
 
     def is_func_label(self, terms):
         if self.section in ['text']:
@@ -124,25 +125,19 @@ class AsmFileInfo:
                 return True
         return False
 
-    def getJmpEntries(self):
-        label = ''
+    def get_jmp_table(self, label):
         jmp_entries = []
-        while self.mov_next():
-            terms = self.get_line().split()
-            if re.search('.L.*:', terms[0]):
-                label = terms[0][:-1]
-                break
 
         while self.mov_next():
             terms = self.get_line().split()
             if terms[0] not in ['.long', '.quad']:
+                self.mov_prev()
                 break
-            jmp_entries.append(self.get_line())
+            jmp_entries.append((self.get_line(), self.idx))
 
         if jmp_entries:
             self.jmp_dict[label] = CompositeData(label, jmp_entries)
 
-        return {}
 
     def parse_inst(self, inst_str, idx, rep_str=''):
         inst_str_list = inst_str.split(';')
@@ -200,9 +195,9 @@ class AsmFileInfo:
 
 
 
-
     def get_insts(self, func_name):
         inst_list = []
+        label = ''
         while self.mov_next():
             terms = self.get_line().split()
 
@@ -212,11 +207,29 @@ class AsmFileInfo:
                     break
 
             if self.is_section_directive(terms) and self.section in ['data']:
-                continue
+                pass
             elif re.search('^[a-zA-Z]', terms[0]):
                 inst_list.extend(self.parse_inst(self.get_line(), self.idx))
             elif terms[0] in ['.loc']:
                 inst_list.append(self.get_loc_info(terms))
+            elif re.search('^\.L.*:$', terms[0]):
+                label = terms[0][:-1]
+                continue
+            elif terms[0] in ['.long', '.quad'] and label:
+                '''
+                if re.search('-\.L', terms[1]):
+                    self.mov_prev()
+                    self.get_jmp_table(label)
+                else:
+                    self.mov_prev()
+                    self.get_cmposite_data(label)
+                '''
+                self.mov_prev()
+                self.get_composite_data(label)
+            else:
+                continue
+
+            label = ''
 
         self.func_dict[func_name] = inst_list
 

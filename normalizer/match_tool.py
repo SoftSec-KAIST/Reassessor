@@ -148,7 +148,7 @@ class FactorList:
                 return 0
         return self._label_to_addr(label)
 
-    def get_terms(self):
+    def get_terms(self, mask = False):
         result = []
 
         for label in self.labels:
@@ -168,6 +168,8 @@ class FactorList:
                 if len(self.labels) > 1:
                     raise SyntaxError('Unsolved label')
                 addr = self.value - self.num
+                if mask:
+                    addr = addr & 0xffffffff
                 #print('unknown %s + %d: %s'%(label, self.num, hex(addr)))
 
             lbl = Label(label, label_type, addr)
