@@ -149,11 +149,12 @@ class Table:
         self.EntrySize = entrySize
 
 class Instr:
-    def __init__(self, addr, components, path, line):
+    def __init__(self, addr, components, path, asm):
         self.Address = addr
         self.Components = components
         self.Path = path
-        self.Line = line
+        self.Line = asm.idx
+        self.asm = asm.opcode + ' ' + ' '.join(asm.operand_list)
 
     def get_components(self):
         res = []
@@ -194,11 +195,12 @@ class Instr:
         return s
 
 class Data:
-    def __init__(self, addr, component, path, line):
+    def __init__(self, addr, component, path, line, asm):
         self.Address = addr
         self.Component = component
         self.Path = path
         self.Line = line
+        self.asm = asm
 
 class Program:
     def __init__(self, elf, cs):

@@ -3,7 +3,7 @@ import capstone
 import pickle
 
 from lib.parser import DATA_DIRECTIVE, SKIP_DIRECTIVE
-from normalizer.tool_base import NormalizeTool, AddrAsm
+from normalizer.tool_base import NormalizeTool
 
 
 RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')

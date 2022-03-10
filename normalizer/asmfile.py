@@ -2,7 +2,7 @@ import re
 from collections import namedtuple
 DATA_DIRECTIVE = ['.byte', '.asciz', '.quad', '.ascii', '.long', '.short', '.zero']
 
-AsmInst = namedtuple('AsmInst', ['opcode', 'operands', 'idx'])
+AsmInst = namedtuple('AsmInst', ['opcode', 'operand_list', 'idx'])
 LocInfo = namedtuple('LocInfo', ['path', 'idx'])
 
 class CompositeData:

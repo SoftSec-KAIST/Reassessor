@@ -73,29 +73,37 @@ class Record:
         self.adata = []
         self.rec = []
 
-    def report(self, gt, tool=None, idx=-1):
-
+    def add(self, gt, tool=None, idx=-1):
         if gt:
             address     = gt.Address
             src_gt      = gt.Path,    gt.Line
+            gt_asm      = gt.asm
         else:
             address     = tool.Address
             src_gt      = None
+            gt_asm      = None
 
         if tool:
             src_tool    = tool.Path,  tool.Line
+            tool_asm    = tool.asm
         else:
             src_tool    = None
+            tool_asm    = None
 
         info = Info(self.stype, address, self.region, self.etype, gt,  tool, src_gt, src_tool, idx)
 
         self.jdata.append(info.to_json())
-        self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
+        #self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
+        self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx, gt_asm, tool_asm))
         self.rec.append((address, gt, tool))
 
     def dump(self, out_file):
-        for (addr, ty, res, src_c, src_r, idx) in self.adata:
+        for (addr, ty, res, src_c, src_r, idx, gt_asm, tool_asm) in self.adata:
             print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+            if src_c:
+                print('\tGT:   %s'%(gt_asm), file=out_file)
+            if src_r:
+                print('\tTOOL: %s'%(tool_asm), file=out_file)
 
 class RecE:
     def __init__(self, stype, etype):
@@ -168,7 +176,7 @@ class Report:
                 self.check_data_error(data_c, None)
             elif addr in prog_r.Data: # FP
                 data_r = prog_r.Data[addr]
-                self.rec[8].fp.data.report(None, data_r)
+                self.rec[8].fp.data.add(None, data_r)
 
 
     def compare_ins_errors(self, prog_r):
@@ -226,9 +234,9 @@ class Report:
         if c_type == r_type:
             self.rec[2].tp += 1
         elif r_type == 8:
-            self.rec[c_type].fn.ins.report(ins_c, ins_r, idx)
+            self.rec[c_type].fn.ins.add(ins_c, ins_r, idx)
         else:
-            self.rec[c_type].fp.ins.report(ins_c, ins_r, idx)
+            self.rec[c_type].fp.ins.add(ins_c, ins_r, idx)
 
 
     def check_data_error(self, data_c, data_r):
@@ -237,7 +245,7 @@ class Report:
         cmpt_c = data_c.Component
         c_type = cmpt_c.get_type()
         if data_r is None:
-            self.rec[c_type].fn.data.report(data_c)
+            self.rec[c_type].fn.data.add(data_c)
         else:
             cmpt_r = data_r.Component
             r_type = cmpt_r.get_type()
@@ -245,7 +253,7 @@ class Report:
             if c_type == r_type:
                 self.rec[c_type].tp += 1
             else:
-                self.rec[c_type].fp.data.report(data_c, data_r)
+                self.rec[c_type].fp.data.add(data_c, data_r)
 
 def get_cmpt_list(ins_c, ins_r):
     cmpt_c = ins_c.get_components()

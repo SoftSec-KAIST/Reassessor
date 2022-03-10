@@ -191,7 +191,7 @@ class NormalizeGT:
             operand_list = inst.op_str.split(', ')
         elif isinstance(inst, AsmInst):
             mnemonic = inst.opcode
-            operand_list = inst.operands
+            operand_list = inst.operand_list
 
         try:
             if mnemonic.startswith("nop"):
@@ -210,7 +210,7 @@ class NormalizeGT:
         components = []
 
 
-        asm_operands = asm_info.operands
+        asm_operands = asm_info.operand_list
 
         for idx, operand in enumerate(operands):
 
@@ -233,7 +233,7 @@ class NormalizeGT:
                     pass
                 else:
                     print(insn)
-                    print('%s %s'%(asm_info.opcode, ' '.join(asm_info.operands)))
+                    print('%s %s'%(asm_info.opcode, ' '.join(asm_info.operand_list)))
                 break
 
             op_str = asm_operands[idx]
@@ -284,7 +284,7 @@ class NormalizeGT:
             if directive in ['.long']:
                 sz = 4
             elif directive in ['.quad']:
-                sz = 1
+                sz = 8
             else:
                 assert False, 'Unsupported jump table entries'
 
@@ -292,7 +292,7 @@ class NormalizeGT:
 
             factors = FactorList(self.ex_parser.parse(line.split()[1]), value)
             component = Component(factors.get_table_terms(comp_data), value,  False, self.got_addr)
-            self.prog.Data[addr] = Data(addr, component, asm_path, idx+1)
+            self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, line)
 
             addr += sz
 
@@ -314,16 +314,16 @@ class NormalizeGT:
                 print(line)
                 assert False, "unknown data type"
 
-            op_str = ' '.join(line.split()[1:])
-            if sz in [4,8] and re.search('.[+|-]', op_str):
+            expr = ' '.join(line.split()[1:])
+            if sz in [4,8] and re.search('.[+|-]', expr):
                 value = get_int(self.elf, addr, sz)
-                factors = FactorList(self.ex_parser.parse(op_str), value)
+                factors = FactorList(self.ex_parser.parse(expr), value)
 
                 if '@GOTOFF' in line:
                     value += self.got_addr
 
                 component = Component(factors.get_terms(), value,  False, self.got_addr)
-                self.prog.Data[addr] = Data(addr, component, asm_path, idx+1)
+                self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, directive+' '+ expr)
 
             addr += sz
 
@@ -416,7 +416,7 @@ class NormalizeGT:
                     if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                         com.Value += self.got_address
 
-                self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm.idx+1)
+                self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm)
 
 
         text_end = self.text.data_size + self.text_base
@@ -478,7 +478,7 @@ class NormalizeGT:
                     return True
 
             if insn.mnemonic in ['addq'] and asm.opcode in ['subq']:
-                if asm.operands[0].startswith('$-'):
+                if asm.operand_list[0].startswith('$-'):
                     return True
 
             capstone_bugs = [
@@ -531,7 +531,7 @@ class NormalizeGT:
                 if candidate_len > 1:
                     return []
                 print(bin_asm)
-                print('%s %s'%(asm.opcode, ' '.join(asm.operands)))
+                print('%s %s'%(asm.opcode, ' '.join(asm.operand_list)))
                 import pdb
                 pdb.set_trace()
                 addressed_asm_list.append((bin_asm.address, bin_asm, asm))
@@ -683,13 +683,21 @@ class NormalizeGT:
             value = get_int(self.elf, addr, sz)
             if is_got:
                 value += self.got_addr
-                lbl = Label("L%s@GOTOFF"%(hex(value)), LblTy.GOTOFF, value)
+                lbl = Label("L%X@GOTOFF"%(value), LblTy.GOTOFF, value)
             else:
-                lbl = Label("L%s"%(hex(value)), LblTy.LABEL, value)
+                lbl = Label("L%X"%(value), LblTy.LABEL, value)
+
+            if sz == 4:
+                directive = '.long'
+            elif sz == 8:
+                directive = '.quad'
+            else:
+                directive = None
+
             component = Component([lbl], value)
             # If we already have addr, it means it should be a jump table
             if addr not in self.prog.Data:
-                self.prog.Data[addr] = Data(addr, component, '', 0)
+                self.prog.Data[addr] = Data(addr, component, '', 0, directive + ' ' + lbl.Name)
 
 
 import argparse

@@ -8,8 +8,6 @@ from lib.utils import load_elf, get_disassembler, get_arch
 from lib.parser import FactorList, ATTExParser, IntelExParser, AsmTokenizer, ReasmInst, ReasmData
 
 
-AddrAsm = namedtuple('AddrAsm', ['addr', 'asm_line', 'idx', 'type'])
-
 class NormalizeTool:
     def __init__(self, bin_path, reassem_path, map_func, label_to_addr_func, syntax = capstone.CS_OPT_SYNTAX_ATT):
         self.bin_path = bin_path
@@ -154,7 +152,7 @@ class NormalizeTool:
                 lbls = c.get_labels()
                 if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                     c.Value += self.got_addr
-            self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, asm_token.idx)
+            self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, asm_token)
 
 
     def normalize_data(self):
@@ -163,7 +161,7 @@ class NormalizeTool:
             factors = self.parse_data_expr(reasm_data.expr)
 
             component = Component(factors.get_terms(), reloc_sym = factors.get_str())
-            self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.asm_line)
+            self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.idx, reasm_data.asm_line)
 
     def parse_data_expr(self, op_str):
 
