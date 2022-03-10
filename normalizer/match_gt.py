@@ -10,9 +10,9 @@ from elftools.elf.descriptions import describe_reloc_type
 from collections import defaultdict
 
 from lib.asm_types import *
-from lib.utils import *
+#from lib.utils import *
 from mapper.match_src_to_bin import select_src_candidate
-from normalizer.match_tool import ATTExParser, FactorList
+from lib.parser import ATTExParser, FactorList
 from mapper.asmfile import AsmFileInfo, LocInfo, AsmInst
 
 
@@ -697,7 +697,7 @@ class NormalizeGT:
 
 import argparse
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='normalize_gt')
+    parser = argparse.ArgumentParser(description='normalize_retro')
     parser.add_argument('bin_path', type=str)
     parser.add_argument('asm_dir', type=str)
     parser.add_argument('save_file', type=str)

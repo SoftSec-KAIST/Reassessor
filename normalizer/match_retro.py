@@ -1,20 +1,16 @@
 import re
 import capstone
-from capstone.x86 import *
-import sys
-import os
 import pickle
 
 # FIXME: clean up later
-RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')
-RE_FUNC = re.compile('[A-Za-z_][0-9A-Za-z_]+[:]')
+#RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')
 
-from lib.asm_types import *
-from normalizer.match_tool import NormalizeTool, parse_att_asm_line
+from normalizer.match_tool import NormalizeTool
+from lib.parser import parse_att_asm_line, ReasmLabel
 
 class NormalizeRetro(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, retro_map_func, retro_label_to_addr, capstone.CS_OPT_SYNTAX_ATT)
+        super().__init__(bin_path, reassem_path, retro_mapper, retro_label_to_addr, capstone.CS_OPT_SYNTAX_ATT)
 
 def retro_label_to_addr(label):
     if label.startswith('.LC'):
@@ -25,44 +21,49 @@ def retro_label_to_addr(label):
         addr = 0
     return addr
 
-def retro_map_func(reassem_path):
+def retro_mapper(reassem_path, tokenizer):
+    result = []
+    addr = -1
     with open(reassem_path) as f:
-        addressed_asms = []
-        addressed_data = []
-        addr = -1
         for idx, line in enumerate(f):
-            line = line.rstrip()
-            if line.startswith('.L') and line.endswith(':'):
-                line = line.split(':')[0]
-                if line.startswith('.LC'):
-                    addr = int(line[3:], 16)
-                elif line.startswith('.L'):
-                    addr = int(line[2:], 16)
-            elif RE_INST.match(line):
-                tokens = parse_att_asm_line(line)
-                if len(tokens) > 0:
-                    addressed_asms.append((addr, tokens, idx))
-            elif line.strip().startswith('.long'):
-                token = line.split('.long')[1]
-                addressed_data.append((addr, token, 4, idx))
-            elif line.strip().startswith('.quad'):
-                token = line.split('.quad')[1]
-                addressed_data.append((addr, token, 8, idx))
+            terms = line.split('#')[0].split()
+            if len(terms) == 0:
+                continue
+            if re.search('^.*:$', terms[0]):
+                xaddr = retro_label_to_addr(terms[0][:-1])
+                if xaddr > 0:
+                    addr = xaddr
+                elif addr > 0:
+                    result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
+                continue
+            elif terms[0] in ['.long', '.quad']:
+                expr = ''.join(terms[1:])
+                if re.search('.[+|-]', expr):
+                    result.append(tokenizer.parse_data(terms[0] + ' ' + expr, addr, idx+1))
+            elif re.search('^[a-zA-Z].*', terms[0]):
+                asm_line = ' '.join(terms)
+                result.append(tokenizer.parse(asm_line, addr, idx+1))
+            else:
+                continue
+            addr = -1
+    return result
 
-    return addressed_asms, addressed_data
 
+
+
+import argparse
 
 if __name__ == '__main__':
-    bin_path = sys.argv[1]
-    reassem_path = sys.argv[2]
-    pickle_path = sys.argv[3]
+    parser = argparse.ArgumentParser(description='normalize_gt')
+    parser.add_argument('bin_path', type=str)
+    parser.add_argument('reassem_path', type=str)
+    parser.add_argument('save_file', type=str)
+    args = parser.parse_args()
 
-    retro = NormalizeRetro(bin_path, reassem_path)
+    retro = NormalizeRetro(args.bin_path, args.reassem_path)
     retro.normalize_inst()
     retro.normalize_data()
 
-    with open(pickle_path, 'wb') as f:
+    with open(args.save_file, 'wb') as f:
         pickle.dump(retro.prog, f)
-
-
 
