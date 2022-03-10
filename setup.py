@@ -4,5 +4,5 @@ setup(
    name='reassessor',
    version='0.1',
    description='Reassessor',
-   packages=['lib', 'mapper', 'normalizer', 'reporter'],
+   packages=['lib', 'mapper', 'normalizer', 'differ'],
 )

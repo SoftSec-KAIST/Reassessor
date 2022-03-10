@@ -3,7 +3,7 @@ import pickle
 import re
 
 from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel
-from normalizer.match_tool import NormalizeTool
+from normalizer.tool_base import NormalizeTool
 
 SYM_BLK = ['__rela_iplt_end']
 

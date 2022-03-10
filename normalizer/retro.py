@@ -2,10 +2,7 @@ import re
 import capstone
 import pickle
 
-# FIXME: clean up later
-#RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')
-
-from normalizer.match_tool import NormalizeTool
+from normalizer.tool_base import NormalizeTool
 from lib.parser import parse_att_asm_line, ReasmLabel
 
 class NormalizeRetro(NormalizeTool):

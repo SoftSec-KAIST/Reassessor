@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from lib.asm_types import Program, Component, Instr, Data, LblTy, Label
 from lib.parser import ATTExParser, FactorList
-from mapper.asmfile import AsmFileInfo, LocInfo, AsmInst
+from normalizer.asmfile import AsmFileInfo, LocInfo, AsmInst
 from lib.utils import load_elf, get_int
 
 class JumpTable:
