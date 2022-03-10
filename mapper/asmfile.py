@@ -217,14 +217,6 @@ class AsmFileInfo:
                 label = terms[0][:-1]
                 continue
             elif terms[0] in ['.long', '.quad'] and label:
-                '''
-                if re.search('-\.L', terms[1]):
-                    self.mov_prev()
-                    self.get_jmp_table(label)
-                else:
-                    self.mov_prev()
-                    self.get_cmposite_data(label)
-                '''
                 self.mov_prev()
                 self.get_composite_data(label)
             else:
@@ -249,78 +241,6 @@ class AsmFileInfo:
 
             elif self.is_data_label(terms):
                 self.get_composite_data(terms[0][:-1])
-
-    def xxx(self):
-        for i in range(100):
-            if line.startswith(".L"):
-                have_label = True
-                label_name.append(line.split(":")[0])
-            elif RE_INST.match(line):
-                if have_label:
-                    #if not is_semantically_nop_str(line):
-                    labels.append((label_name, idx + base_idx))
-                    label_name = []
-                    have_label = False
-                    #else:
-                    #    print(line.strip(), file = sys.stderr)
-                if is_rep:
-                    '''
-                    From:
-                        rep(e)
-                        stosb ...
-                    To:
-                        rep(e) stosb ...
-                    '''
-                    is_rep = False
-                    inst_split = line.split("# ")[0].strip().split("\t")
-                    opcode += " " + inst_split[0]
-                    if len(inst_split) > 1:
-                        operands = inst_split[1].split(", ")
-                    else:
-                        operands = []
-                    result.append([opcode, operands, idx - 1 + base_idx])
-                    continue
-                #if is_semantically_nop_str(line):
-                #    continue
-                if "cld; rep" in line:
-                    '''
-                    From:
-                        cld; rep; movsb
-                    To:
-                        cld
-                        rep movsb
-                    '''
-                    result.append(["cld", [], idx + base_idx])
-                    result.append(["rep " + line.split("; ")[-1], [], idx + base_idx])
-                    continue
-
-                inst_split = line.split("# ")[0].strip().split("\t")
-                opcode = inst_split[0]
-                if len(inst_split) > 1:
-                    operands = inst_split[1].split(", ")
-                else:
-                    operands = []
-                    if opcode.startswith("rep;") or opcode.startswith("repe;"):
-                        '''
-                        rep;stosb\x20...
-                        rep;movsb\x20...
-                        '''
-                        inst_split = opcode.split(" ", 1)
-                        opcode = inst_split[0]
-                        if len(inst_split) > 1:
-                            operands = inst_split[1].split(", ")
-                        else:
-                            operands = []
-                    elif opcode.startswith("rep") and " " in opcode.strip():
-                        operands = []
-                    elif opcode.startswith("rep"):
-                        is_rep = True
-                        continue
-                if is_gcc_switch(opcode, operands, lines[idx+1]):
-                    lname, entries = get_switch_entries(lines[idx+2:], idx + 3 + base_idx)
-                    jmptbl[lname] = JumpTable(entries)
-                result.append([opcode, operands, idx + base_idx])
-
 
 
 
