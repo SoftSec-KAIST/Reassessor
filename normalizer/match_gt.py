@@ -1,20 +1,19 @@
 import re
 import capstone
-from capstone.x86 import *
+from capstone.x86 import X86_OP_REG, X86_OP_MEM, X86_OP_IMM, X86_REG_RIP
 import sys
 import os
 import pickle
-
 import glob, json
+from elftools.elf.elffile import ELFFile
 from elftools.elf.descriptions import describe_reloc_type
+from elftools.elf.relocation import RelocationSection
 from collections import defaultdict
 
-from lib.asm_types import *
-#from lib.utils import *
-from mapper.match_src_to_bin import select_src_candidate
+from lib.asm_types import Program, Component, Instr, Data, LblTy, Label
 from lib.parser import ATTExParser, FactorList
 from mapper.asmfile import AsmFileInfo, LocInfo, AsmInst
-
+from lib.utils import load_elf, get_int
 
 class JumpTable:
     def __init__(self, entries):
@@ -149,6 +148,7 @@ class NormalizeGT:
         self.bin_path = bin_path
         self.asm_dir = asm_dir
         self.work_dir = work_dir
+        self.ex_parser = ATTExParser()
 
         self.collect_loc_candidates()
         with open(self.bin_path, 'rb') as f:
@@ -209,7 +209,6 @@ class NormalizeGT:
         operands = insn.operands
         components = []
 
-        parser = ATTExParser()
 
         asm_operands = asm_info.operands
 
@@ -266,7 +265,7 @@ class NormalizeGT:
             else:
                 gotoff = 0
 
-            factors = FactorList(parser.parse(op_str), value, gotoff=gotoff)
+            factors = FactorList(self.ex_parser.parse(op_str), value, gotoff=gotoff)
 
             if factors.has_label():
                 components.append(Component(factors.get_terms(), value, is_pcrel, factors.get_str()))
@@ -280,7 +279,6 @@ class NormalizeGT:
 
 
     def update_table(self, addr, comp_data, asm_path):
-        parser = ATTExParser()
         for line, idx in comp_data.members:
             directive = line.split()[0]
             if directive in ['.long']:
@@ -292,7 +290,7 @@ class NormalizeGT:
 
             value = get_int(self.elf, addr, sz)
 
-            factors = FactorList(parser.parse(line.split()[1]), value)
+            factors = FactorList(self.ex_parser.parse(line.split()[1]), value)
             component = Component(factors.get_table_terms(comp_data), value,  False, self.got_addr)
             self.prog.Data[addr] = Data(addr, component, asm_path, idx+1)
 
@@ -300,7 +298,6 @@ class NormalizeGT:
 
 
     def update_data(self, addr, comp_data, asm_path):
-        parser = ATTExParser()
         for line, idx in comp_data.members:
             directive = line.split()[0]
             if directive in ['.long']:
@@ -320,7 +317,7 @@ class NormalizeGT:
             op_str = ' '.join(line.split()[1:])
             if sz in [4,8] and re.search('.[+|-]', op_str):
                 value = get_int(self.elf, addr, sz)
-                factors = FactorList(parser.parse(op_str), value)
+                factors = FactorList(self.ex_parser.parse(op_str), value)
 
                 if '@GOTOFF' in line:
                     value += self.got_addr

@@ -17,6 +17,13 @@ class NormalizeTool:
 
         self.elf = load_elf(self.bin_path)
 
+
+        if syntax == capstone.CS_OPT_SYNTAX_ATT:
+            self.ex_parser = ATTExParser()
+        elif syntax == capstone.CS_OPT_SYNTAX_INTEL:
+            self.ex_parser = IntelExParser()
+
+
         self.cs = get_disassembler(get_arch(self.elf))
         self.cs.detail = True
         self.cs.syntax = syntax
@@ -37,34 +44,6 @@ class NormalizeTool:
 
         self.addressed_asms = [asm for asm in addressed_lines if isinstance(asm, ReasmInst)]
         self.addressed_data = [asm for asm in addressed_lines if isinstance(asm, ReasmData)]
-        '''
-        for addr_asm in addressed_lines:
-
-            if addr_asm.type == 'data':
-                if addr_asm.asm_line.startswith('.quad'):
-                    sz = 8
-                elif addr_asm.asm_line.startswith('.long'):
-                    sz = 4
-                else:
-                    raise
-                self.addressed_data.append((addr_asm.addr, addr_asm.asm_line, sz, addr_asm.idx))
-            elif addr_asm.type == 'text':
-                asm_token = tokenizer.parse(addr_asm.asm_line, addr_asm.addr, addr_asm.idx)
-                self.addressed_asms.append(asm_token)
-                #tokens = tokenzer.
-                #if self.cs.syntax == capstone.CS_OPT_SYNTAX_ATT:
-                #    tokens = parse_att_asm_line(addr_asm.asm_line)
-                #else:
-                #    tokens = parse_intel_asm_line(addr_asm.asm_line)
-
-                #if tokens:
-                #    addressed_asms.append((addr_asm.addr, tokens, addr_asm.idx))
-
-            else:
-                pass
-
-        '''
-
 
     def get_reloc_symbs(self):
         names = {}
@@ -77,11 +56,6 @@ class NormalizeTool:
     def parse_components(self, insn, asm_token):
         operands = insn.operands
         components = []
-        if self.cs.syntax == capstone.CS_OPT_SYNTAX_ATT:
-            parser = ATTExParser()
-        elif self.cs.syntax == capstone.CS_OPT_SYNTAX_INTEL:
-            parser = IntelExParser()
-
 
         if asm_token.opcode.startswith('nop'):
             components.append(Component())
@@ -123,7 +97,7 @@ class NormalizeTool:
             else:
                 gotoff = 0
 
-            factors = FactorList(parser.parse(op_str), value, self.label_to_addr, gotoff)
+            factors = FactorList(self.ex_parser.parse(op_str), value, self.label_to_addr, gotoff)
 
             if factors.has_label():
                 components.append(Component(factors.get_terms(), value, is_pcrel, factors.get_str()))
@@ -143,7 +117,6 @@ class NormalizeTool:
         text_end = self.prog.text_base + len(self.prog.text_data)
 
         skip = -1
-        #for i, (addr, tokens, line) in enumerate(self.addressed_asms):
         for idx, asm_token in enumerate(self.addressed_asms):
             if idx <= skip:
                 continue
@@ -182,33 +155,21 @@ class NormalizeTool:
                     c.Value += self.got_addr
             self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, asm_token.idx)
 
-            #print('Inst:', hex(addr))
 
     def normalize_data(self):
-        #for addr, token, size, line in self.addressed_data:
         for reasm_data in self.addressed_data:
-            #print(token)
 
             factors = self.parse_data_expr(reasm_data.expr)
 
-            #factors = FactorList(parser.parse(op_str), value, self.label_to_addr)
-
             component = Component(factors.get_terms(), reloc_sym = factors.get_str())
             self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.asm_line)
-            #print('Data:', hex(addr))
 
     def parse_data_expr(self, op_str):
 
-        if self.cs.syntax == capstone.CS_OPT_SYNTAX_ATT:
-            parser = ATTExParser()
-        elif self.cs.syntax == capstone.CS_OPT_SYNTAX_INTEL:
-            parser = IntelExParser()
-
         value = 0
-        result = FactorList(parser.parse(op_str), value, self.label_to_addr)
+        result = FactorList(self.ex_parser.parse(op_str), value, self.label_to_addr)
 
         return result
-
 
 
     @abstractmethod
