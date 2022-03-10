@@ -60,12 +60,12 @@ def ddisasm_mapper(reassem_path, tokenizer):
                 pass
             else:
                 addr = int(re.search('^([0-9a-f]*)', terms[0][:-1])[0],16)
-
                 if terms[1] in DATA_DIRECTIVE:
                     if terms[1] in ['.long', '.quad']:
-                        op_str = ''.join(terms[2:])
-                        if re.search('.[+|-]', op_str):
-                            result.append(tokenizer.parse_data(terms[1] + ' ' + op_str, addr, idx+1))
+                        expr = ''.join(terms[2:])
+                        #if re.search('.[+|-]', expr):
+                        if [term for term in re.split('[+|-]', expr) if re.match('[._a-zA-Z]', term) ]:
+                            result.append(tokenizer.parse_data(terms[1] + ' ' + expr, addr, idx+1))
                 else:
                     asm_line = ' '.join(terms[1:])
                     result.append(tokenizer.parse(asm_line, addr, idx+1))

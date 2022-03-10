@@ -52,7 +52,7 @@ def ramblr_mapper(reassem_path, tokenizer):
                 if xaddr > 0:
                     addr = xaddr
                 elif addr > 0:
-                    result.append(ReasmLabel(terms[0][:-1], addr, idx+1)
+                    result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
                 continue
 
             assert addr > 0
@@ -60,7 +60,8 @@ def ramblr_mapper(reassem_path, tokenizer):
             if terms[0] in DATA_DIRECTIVE:
                 if terms[0] in ['.long', '.quad']:
                     expr = ''.join(terms[1:])
-                    if re.search('.[+|-]', expr):
+                    #if re.search('.[+|-]', expr):
+                    if [term for term in re.split('[+|-]', expr) if re.match('[._a-zA-Z]', term) ]:
                         result.append(tokenizer.parse_data(terms[0] + ' ' + expr, addr, idx+1))
                 addr += get_data_size(line)
             else:

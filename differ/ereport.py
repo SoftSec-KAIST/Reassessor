@@ -76,10 +76,10 @@ class Record:
     def report(self, gt, tool=None, idx=-1):
 
         if gt:
-            address = gt.Address
+            address     = gt.Address
             src_gt      = gt.Path,    gt.Line
         else:
-            address = tool.Address
+            address     = tool.Address
             src_gt      = None
 
         if tool:
@@ -221,147 +221,31 @@ class Report:
         cmpt_c = ins_c.Components[idx]
         cmpt_r = ins_r.Components[idx]
 
-        if cmpt_c.is_ms():
-            self.gt += 1
-            if cmpt_c.is_composite(): # Type II, IV, VI, VII
-                if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type II
-                    if not cmpt_r.is_ms():
-                        self.rec[2].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            self.rec[2].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[2].tp += 1
-                elif cmpt_c.Ty == CmptTy.PCREL: # Type IV
-                    if not cmpt_r.is_ms():
-                        self.rec[4].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            self.rec[4].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[4].tp += 1
-                elif cmpt_c.Ty == CmptTy.GOTOFF: # Type VI
-                    if not cmpt_r.is_ms():
-                        self.rec[6].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            self.rec[6].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[6].tp += 1
-                elif cmpt_c.Ty == CmptTy.OBJREL: # Type VII
-                    if not cmpt_r.is_ms():
-                        self.rec[7].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            self.rec[7].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[7].tp += 1
-            else: # Type I, III, V
-                if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type I
-                    if not cmpt_r.is_ms():
-                        self.rec[1].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            self.rec[1].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[1].tp += 1
-                elif cmpt_c.Ty == CmptTy.PCREL: # Type III
-                    if not cmpt_r.is_ms():
-                        self.rec[3].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            # HSKIM: TO DO
-                            if not cmpt_r.is_composite():
-                                addr_c = cmpt_c.Terms[0].Address
-                                addr_r = cmpt_r.Terms[0].Address
-                                if (addr_r + 0x10) & 0xfffffff0 == addr_c:
-                                    self.rec[3].tp += 1
-                                else:
-                                    self.rec[3].fp.ins.report(ins_c, ins_r, idx)
-                            else:
-                                self.rec[3].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[3].tp += 1
-                elif cmpt_c.Ty == CmptTy.GOTOFF: # Type V
-                    if not cmpt_r.is_ms():
-                        self.rec[5].fn.ins.report(ins_c, ins_r, idx)
-                    else:
-                        if cmpt_c != cmpt_r:
-                            self.rec[5].fp.ins.report(ins_c, ins_r, idx)
-                        else:
-                            self.rec[5].tp += 1
-        elif cmpt_r.is_ms(): # FP
-            self.rec[8].fp.ins.report(ins_c, ins_r, idx)
+        c_type = cmpt_c.get_type()
+        r_type = cmpt_r.get_type()
+        if c_type == r_type:
+            self.rec[2].tp += 1
+        elif r_type == 8:
+            self.rec[c_type].fn.ins.report(ins_c, ins_r, idx)
+        else:
+            self.rec[c_type].fp.ins.report(ins_c, ins_r, idx)
+
 
     def check_data_error(self, data_c, data_r):
         self.gt += 1
-        cmpt_c = data_c.Component
 
-        if cmpt_c.is_composite(): # Type II, IV, VI, VII
-            if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type II
-                if data_r is None:
-                    self.rec[2].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[2].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[2].tp += 1
-            elif cmpt_c.Ty == CmptTy.PCREL: # Type IV
-                if data_r is None:
-                    self.rec[4].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[4].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[4].tp += 1
-            elif cmpt_c.Ty == CmptTy.GOTOFF: # Type VI
-                if data_r is None:
-                    self.rec[6].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[6].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[6].tp += 1
-            elif cmpt_c.Ty == CmptTy.OBJREL: # Type VII
-                if data_r is None:
-                    self.rec[7].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[7].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[7].tp += 1
-        else: # Type I, III, V
-            if cmpt_c.Ty == CmptTy.ABSOLUTE: # Type I
-                if data_r is None:
-                    self.rec[1].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[1].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[1].tp += 1
-            elif cmpt_c.Ty == CmptTy.PCREL: # Type III
-                if data_r is None:
-                    self.rec[3].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[3].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[3].tp += 1
-            elif cmpt_c.Ty == CmptTy.GOTOFF: # Type V
-                if data_r is None:
-                    self.rec[5].fn.data.report(data_c)
-                else:
-                    cmpt_r = data_r.Component
-                    if cmpt_c != cmpt_r:
-                        self.rec[4].fp.data.report(data_c, data_r)
-                    else:
-                        self.rec[5].tp += 1
+        cmpt_c = data_c.Component
+        c_type = cmpt_c.get_type()
+        if data_r is None:
+            self.rec[c_type].fn.data.report(data_c)
+        else:
+            cmpt_r = data_r.Component
+            r_type = cmpt_r.get_type()
+
+            if c_type == r_type:
+                self.rec[c_type].tp += 1
+            else:
+                self.rec[c_type].fp.data.report(data_c, data_r)
 
 def get_cmpt_list(ins_c, ins_r):
     cmpt_c = ins_c.get_components()

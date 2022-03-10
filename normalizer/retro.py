@@ -35,7 +35,8 @@ def retro_mapper(reassem_path, tokenizer):
                 continue
             elif terms[0] in ['.long', '.quad']:
                 expr = ''.join(terms[1:])
-                if re.search('.[+|-]', expr):
+                #if re.search('.[+|-]', expr):
+                if [term for term in re.split('[+|-]', expr) if re.match('[._a-zA-Z]', term) ]:
                     result.append(tokenizer.parse_data(terms[0] + ' ' + expr, addr, idx+1))
             elif re.search('^[a-zA-Z].*', terms[0]):
                 asm_line = ' '.join(terms)

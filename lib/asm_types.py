@@ -82,6 +82,20 @@ class Component:
             else:
                 self.Ty = CmptTy.NONE
 
+    def get_type(self):
+        if self.Ty == CmptTy.ABSOLUTE:
+            if not self.is_composite(): return 1
+            return 2
+        elif self.Ty == CmptTy.PCREL:
+            if not self.is_composite(): return 3
+            return 4
+        elif self.Ty == CmptTy.GOTOFF:
+            if not self.is_composite(): return 5
+            return 6
+        elif self.Ty == CmptTy.OBJREL:
+            return 7
+        return 8
+
     def is_ms(self):
         return len(self.Terms) > 0
 

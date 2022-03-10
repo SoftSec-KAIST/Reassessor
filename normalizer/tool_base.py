@@ -37,6 +37,7 @@ class NormalizeTool:
         self.label_to_addr = label_to_addr_func
 
         self.got_addr = self.elf.get_section_by_name('.got.plt')['sh_addr']
+
     def mapper(self, map_func):
 
         tokenizer = AsmTokenizer(self.cs.syntax)

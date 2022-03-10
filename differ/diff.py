@@ -1,9 +1,9 @@
 import os
 import pickle
-import normalizer.match_retro
-import normalizer.match_ramblr
-import normalizer.match_ddisasm
-import normalizer.match_gt
+import normalizer.retro
+import normalizer.ramblr
+import normalizer.ddisasm
+import normalizer.gt
 from differ.statistics import Statistics
 from differ.ereport import Report
 
