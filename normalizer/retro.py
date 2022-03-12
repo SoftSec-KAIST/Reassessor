@@ -13,7 +13,10 @@ def retro_label_to_addr(label):
     if label.startswith('.LC'):
         addr = int(label[3:], 16)
     elif label.startswith('.L'):
-        addr = int(label[2:], 16)
+        if '_' in label:
+            addr = int(label.split('_')[-1],16)
+        else:
+            addr = int(label[2:], 16)
     else:
         addr = 0
     return addr
@@ -21,7 +24,7 @@ def retro_label_to_addr(label):
 def retro_mapper(reassem_path, tokenizer):
     result = []
     addr = -1
-    with open(reassem_path) as f:
+    with open(reassem_path, errors='ignore') as f:
         for idx, line in enumerate(f):
             terms = line.split('#')[0].split()
             if len(terms) == 0:

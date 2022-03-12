@@ -17,7 +17,7 @@ class CompositeData:
 class AsmFileInfo:
     def __init__(self, file_path):
         self.file_path = file_path
-        with open(self.file_path) as fp:
+        with open(self.file_path, errors='ignore') as fp:
             self.lines = fp.readlines()
         self.idx = -1
         self.func_dict = dict()
@@ -43,8 +43,7 @@ class AsmFileInfo:
             data = self.get_line().strip()
             if len(data) == 0:
                 continue
-
-            if data.startswith('.file '):
+            if data.startswith('.file'):
                 terms = data.split()
                 if terms[1].isdigit():
                     fid = int(terms[1])
@@ -81,6 +80,9 @@ class AsmFileInfo:
         assert terms[0] in ['.loc']
         fid = int(terms[1])
         no = int(terms[2])
+        if fid not in self.debug_loc_paths:
+            import pdb
+            pdb.set_trace()
         path = self.debug_loc_paths[fid]
         return LocInfo(path, no)
 

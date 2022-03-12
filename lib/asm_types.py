@@ -149,12 +149,16 @@ class Table:
         self.EntrySize = entrySize
 
 class Instr:
-    def __init__(self, addr, components, path, asm):
+    def __init__(self, addr, components, path, asm=None):
         self.Address = addr
         self.Components = components
         self.Path = path
-        self.Line = asm.idx
-        self.asm = asm.opcode + ' ' + ' '.join(asm.operand_list)
+        if asm:
+            self.Line = asm.idx
+            self.asm = asm.opcode + ' ' + ' '.join(asm.operand_list)
+        else:
+            self.Line = 0
+            self.asm = 'nop'
 
     def get_components(self):
         res = []
