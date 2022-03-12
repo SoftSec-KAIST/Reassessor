@@ -1,6 +1,10 @@
+from collections import namedtuple
+import pickle
 import os
 import json
 from lib.asm_types import CmptTy
+
+ERec = namedtuple('ERec', ['record', 'gt'])
 
 class Info:
     def __init__(self, cls, addr, ty, res, obj_c, obj_r, src_c, src_r, idx):
@@ -71,7 +75,6 @@ class Record:
 
         self.jdata = []
         self.adata = []
-        self.rec = []
 
     def add(self, gt, tool=None, idx=-1):
         if gt:
@@ -95,7 +98,6 @@ class Record:
         self.jdata.append(info.to_json())
         #self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
         self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx, gt_asm, tool_asm))
-        self.rec.append((address, gt, tool))
 
     def dump(self, out_file):
         for (addr, ty, res, src_c, src_r, idx, gt_asm, tool_asm) in self.adata:
@@ -146,7 +148,6 @@ class RecS:
 class Report:
     def __init__(self, prog_c):
         self.prog_c = prog_c
-        #self.reset()
         self.gt = 0
 
         self.rec = dict()
@@ -188,12 +189,18 @@ class Report:
         self.ins_len = len(ins_addrs)
 
         for addr in ins_addrs:
+
             ins_c = self.prog_c.Instrs[addr]
             ins_r = prog_r.Instrs[addr]
 
             cmpts = get_cmpt_list(ins_c, ins_r)
             for idx in cmpts:
                 self.check_ins_error(ins_c, ins_r, idx)
+
+    def pickle(self, file_path):
+        with my_open(file_path, 'wb') as fd:
+            data = ERec(self.rec, self.gt)
+            pickle.dump(data, fd)
 
     def save_file(self, file_path, option='default'):
         with my_open(file_path, 'w') as fd:
@@ -226,13 +233,15 @@ class Report:
 
 
     def check_ins_error(self, ins_c, ins_r, idx):
+        self.gt += 1
+
         cmpt_c = ins_c.Components[idx]
         cmpt_r = ins_r.Components[idx]
 
         c_type = cmpt_c.get_type()
         r_type = cmpt_r.get_type()
         if c_type == r_type:
-            self.rec[2].tp += 1
+            self.rec[c_type].tp += 1
         elif r_type == 8:
             self.rec[c_type].fn.ins.add(ins_c, ins_r, idx)
         else:
@@ -245,7 +254,16 @@ class Report:
         cmpt_c = data_c.Component
         c_type = cmpt_c.get_type()
         if data_r is None:
-            self.rec[c_type].fn.data.add(data_c)
+            # this is reassembler design choice
+            # ddisasm preserve .got section
+            # retrowrite delete .got section
+            # Thus, we do not check this case
+            if data_c.asm in ['R_X86_64_GLOB_DAT']:
+                pass
+            elif data_c.asm in ['R_X86_64_JUMP_SLOT']:
+                pass
+            else:
+                self.rec[c_type].fn.data.add(data_c)
         else:
             cmpt_r = data_r.Component
             r_type = cmpt_r.get_type()

@@ -9,12 +9,13 @@ from differ.ereport import Report
 
 
 def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
-    bin_name = os.path.basename(bin_path)
-    save_dir = os.path.join(save_dir, bin_name)
+    #bin_name = os.path.basename(bin_path)
+    #save_dir = os.path.join(save_dir, bin_name)
 
     out_dir = os.path.join(save_dir, 'error_ascii')
     pr_dir = os.path.join(save_dir, 'error_score')
     json_dir = os.path.join(save_dir, 'error_json')
+    pickle_dir = os.path.join(save_dir, 'error_pickle')
 
     disasm_dir = os.path.join(save_dir, 'disasm_diff')
     type_dir = os.path.join(save_dir, 'sym_dist')
@@ -42,15 +43,17 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
         out_file_path = '%s/%s'%(out_dir, tool)
         pr_file_path = '%s/%s'%(pr_dir, tool)
         json_file_path = '%s/%s'%(json_dir, tool)
+        pickle_file_path = '%s/%s'%(pickle_dir, tool)
 
         disasm_file_path = '%s/%s'%(disasm_dir, tool)
         type_file_path = '%s/%s'%(type_dir, tool)
 
         report = Report(prog_c)
         report.compare(prog_r)
-        report.save_file(json_file_path, option='json')
-        report.save_file(out_file_path, option='ascii')
-        report.save_file(pr_file_path)
+        #report.save_file(json_file_path, option='json')
+        #report.save_file(out_file_path, option='ascii')
+        #report.save_file(pr_file_path)
+        report.pickle(pickle_file_path)
 
         stat.count_symbols(prog_r, type_file_path)
         stat.count_disasm(prog_r, disasm_file_path)
