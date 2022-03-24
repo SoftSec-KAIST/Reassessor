@@ -2,14 +2,15 @@ import re
 from collections import namedtuple
 DATA_DIRECTIVE = ['.byte', '.asciz', '.quad', '.ascii', '.long', '.short', '.zero']
 
-AsmInst = namedtuple('AsmInst', ['opcode', 'operand_list', 'idx'])
+AsmInst = namedtuple('AsmInst', ['asm_code', 'opcode', 'operand_list', 'idx'])
 LocInfo = namedtuple('LocInfo', ['path', 'idx'])
 
 class CompositeData:
-    def __init__(self, label, members):
+    def __init__(self, label, members, idx):
         self.label = label
         self.members = members
         self.addr = ''
+        self.idx = idx
 
     def set_addr(self, addr):
         self.addr = addr
@@ -101,6 +102,7 @@ class AsmFileInfo:
     def get_composite_data(self, label):
         bHasComposite = False
         members = []
+        idx = self.idx
         while self.mov_next():
             terms = self.get_line().split()
             if terms[0] in DATA_DIRECTIVE:
@@ -119,7 +121,7 @@ class AsmFileInfo:
                 break
 
         if bHasComposite:
-            self.composite_data[label] = CompositeData(label, members)
+            self.composite_data[label] = CompositeData(label, members, idx)
 
 
     def is_func_label(self, terms):
@@ -130,7 +132,7 @@ class AsmFileInfo:
 
     def get_jmp_table(self, label):
         jmp_entries = []
-
+        idx = self.idx
         while self.mov_next():
             terms = self.get_line().split()
             if terms[0] not in ['.long', '.quad']:
@@ -139,7 +141,7 @@ class AsmFileInfo:
             jmp_entries.append((self.get_line(), self.idx))
 
         if jmp_entries:
-            self.jmp_dict[label] = CompositeData(label, jmp_entries)
+            self.jmp_dict[label] = CompositeData(label, jmp_entries, idx)
 
 
     def parse_inst(self, inst_str, idx, rep_str=''):
@@ -162,7 +164,7 @@ class AsmFileInfo:
             else:
                 operand = ' '.join(terms[1:])
 
-            inst_list.append(AsmInst(opcode, self.parse_att_operands(operand), idx))
+            inst_list.append(AsmInst('%s %s'%(opcode, operand), opcode, self.parse_att_operands(operand), idx))
 
         if rep_str:
             cur_idx = self.idx

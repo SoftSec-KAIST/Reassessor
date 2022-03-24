@@ -30,7 +30,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
 
     pickle_gt_f = open(pickle_gt_path, 'rb')
     prog_c = pickle.load(pickle_gt_f)
-
     stat = Statistics(prog_c)
 
     gt_type_file_path = '%s/%s'%(type_dir, 'gt')
@@ -51,7 +50,7 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
         report = Report(prog_c)
         report.compare(prog_r)
         #report.save_file(json_file_path, option='json')
-        #report.save_file(out_file_path, option='ascii')
+        report.save_file(out_file_path, option='ascii')
         #report.save_file(pr_file_path)
         report.pickle(pickle_file_path)
 

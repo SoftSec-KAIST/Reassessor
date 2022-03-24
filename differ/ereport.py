@@ -235,6 +235,9 @@ class Report:
     def check_ins_error(self, ins_c, ins_r, idx):
         self.gt += 1
 
+        if idx >= len(ins_c.Components):
+            import pdb
+            pdb.set_trace()
         cmpt_c = ins_c.Components[idx]
         cmpt_r = ins_r.Components[idx]
 

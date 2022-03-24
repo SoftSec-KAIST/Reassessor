@@ -1,5 +1,4 @@
 import capstone
-import pickle
 import re
 
 from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel
@@ -8,6 +7,8 @@ from normalizer.tool_base import NormalizeTool
 SYM_BLK = ['__rela_iplt_end']
 
 def ddisasm_label_to_addr(label):
+    # '.L_587dd0@GOTPCREL'
+    label = label.split('@')[0]
     if label.startswith('FUN_'):
         addr = int(label[4:])
     elif label.startswith('.L_'):
@@ -86,6 +87,5 @@ if __name__ == '__main__':
     ddisasm = NormalizeDdisasm(args.bin_path, args.reassem_path)
     ddisasm.normalize_inst()
     ddisasm.normalize_data()
+    ddisasm.save(args.save_file)
 
-    with open(args.save_file, 'wb') as f:
-        pickle.dump(ddisasm.prog, f)

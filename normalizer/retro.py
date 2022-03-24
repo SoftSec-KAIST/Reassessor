@@ -1,6 +1,5 @@
 import re
 import capstone
-import pickle
 
 from normalizer.tool_base import NormalizeTool
 from lib.parser import parse_att_asm_line, ReasmLabel
@@ -64,7 +63,5 @@ if __name__ == '__main__':
     retro = NormalizeRetro(args.bin_path, args.reassem_path)
     retro.normalize_inst()
     retro.normalize_data()
-
-    with open(args.save_file, 'wb') as f:
-        pickle.dump(retro.prog, f)
+    retro.save(args.save_file)
 

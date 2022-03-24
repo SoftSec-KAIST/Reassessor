@@ -58,11 +58,34 @@ class Label:
             s = 'LABEL'
         return 'Label ' + hex(addr) + ' ' + s
 
+class InstType:
+    def __init__(self, addr, path, asm_token=None, imm=None, disp=None):
+        self.addr = addr
+        self.path = path
+        self.asm_token = asm_token
+        self.imm = imm
+        self.disp = disp
+
+class DataType:
+    def __init__(self, addr, path, asm_token, value=None):
+        self.addr = addr
+        self.path = path
+        self.asm_token = asm_token
+        self.value = value
+
+'''
 class Component:
-    def __init__(self, terms=[], value=0, is_pcrel=False, reloc_sym=''):
-        self.Terms = terms
-        self.Value = value
-        self.reloc_sym = reloc_sym
+    #def __init__(self, terms=[], value=0, is_pcrel=False, reloc_sym=''):
+    def __init__(self, factors=None, is_pcrel=False):
+        self.factors = factors
+        if factors:
+            self.Terms = factors.terms
+            self.Value = factors.value
+            self.reloc_sym = factors.get_str()
+        else:
+            self.Terms = []
+            self.Value = 0
+            self.reloc_sym = ''
         if is_pcrel:
             self.Ty = CmptTy.PCREL
         else:
@@ -140,14 +163,14 @@ class Component:
             else:
                 ret += '%s'%(hex(term))
         return ret
-
+'''
 class Table:
     def __init__(self, name, addr, entries, entrySize):
         self.Name = name
         self.Address = addr
         self.Entries = entries
         self.EntrySize = entrySize
-
+'''
 class Instr:
     def __init__(self, addr, components, path, asm=None):
         self.Address = addr
@@ -197,7 +220,7 @@ class Instr:
         s += "%x " % self.Address
         s += self.print_operands()
         return s
-
+'''
 class Data:
     def __init__(self, addr, component, path, line, asm):
         self.Address = addr

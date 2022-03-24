@@ -1,7 +1,6 @@
 import re
 import struct
 import capstone
-from capstone.x86 import X86_OP_REG, X86_OP_MEM, X86_OP_IMM, X86_REG_RIP
 import sys
 import os
 import pickle
@@ -11,8 +10,8 @@ from elftools.elf.descriptions import describe_reloc_type
 from elftools.elf.relocation import RelocationSection
 from collections import defaultdict
 
-from lib.asm_types import Program, Component, Instr, Data, LblTy, Label
-from lib.parser import ATTExParser, FactorList
+from lib.asm_types import Program, InstType, LblTy, Label
+from lib.parser import CompGen
 from normalizer.asmfile import AsmFileInfo, LocInfo, AsmInst
 
 class JumpTable:
@@ -144,11 +143,12 @@ def get_reloc_symbs(elf):
         if symb['st_shndx'] != 'SHN_UNDEF':
             addr = symb['st_value']
             name = symb.name
+            size = symb['st_size']
             if addr != 0 and len(name) > 0:
                 if name in names:
-                    names[name].append(addr)
+                    names[name].append((addr, size))
                 else:
-                    names[name] = [addr]
+                    names[name] = [(addr, size)]
     return names
 
 class NormalizeGT:
@@ -156,7 +156,7 @@ class NormalizeGT:
         self.bin_path = bin_path
         self.asm_dir = asm_dir
         self.work_dir = work_dir
-        self.ex_parser = ATTExParser()
+        #self.ex_parser = ATTExParser()
 
         self.collect_loc_candidates()
         f = open(self.bin_path, 'rb')
@@ -167,6 +167,7 @@ class NormalizeGT:
             self.got_addr = self.elf.get_section_by_name('.got.plt')['sh_addr']
         else:
             self.got_addr = self.elf.get_section_by_name('.got')['sh_addr']
+
         self.relocs = get_reloc(self.elf)
         self.symbs = get_reloc_symbs(self.elf)
 
@@ -181,6 +182,8 @@ class NormalizeGT:
         self.cs.detail = True
         self.cs.syntax = capstone.CS_OPT_SYNTAX_ATT
         disassembly = self.cs.disasm(self.text.data(), self.text_base)
+
+        self.comp_gen = CompGen(got_addr = self.got_addr)
 
         self.instructions = {}  # address : instruction
         for instruction in disassembly:
@@ -214,87 +217,6 @@ class NormalizeGT:
             assert False, 'unexpected instruction %s' % ' '.join(operand_list)
         return False
 
-
-    def parse_components(self, insn, asm_info, func_info, asm_file):
-        operands = insn.operands
-        components = []
-
-        asm_operands = asm_info.operand_list
-
-        for idx, operand in enumerate(operands):
-
-            if len(asm_operands) <= idx:
-                # sarl $1, %eax     vs. salr %eax
-                # salw $1, -6(%rbp) vs. salw -6(%rbp)
-                # shrq $1, %rax     vs. shrq %rax
-                # shll $1, -0x3b4(%rbp) vs sall -948(%rbp)
-                # shrl $1, -0x3b0(%rbp) vs shrl -944(%rbp)
-                # shrw $1, -0x106(%rbp) vs shrw -262(%rbp)
-                # sarq $1, %rdx     vs  sarq %rdx
-                # sarl $1, %eax     vs  sarl %eax
-                # shrw $1, -0x106(%rbp) vs. shrw -262(%rbp)
-                # shrb $1, %al          vs. shrb %al
-                # rol $1, %eax          vs. roll %r9d
-                # sarw $1, %ax          vs. sarw %ax
-                # repne scasb (%rdi), %al vs. repnz scasb
-                # rep movsq (%rsi), (%rdi) vs. rep movsq
-                # repe cmpsb (%rdi), (%rsi) vs. repz cmpsb
-                if re.match('sa[rl].', asm_info.opcode):
-                    pass
-                elif re.match('sh[rl].', asm_info.opcode):
-                    pass
-                elif re.match('ro[rl].', asm_info.opcode):
-                    pass
-                elif asm_info.opcode.startswith('rep'):
-                    pass
-                elif re.search('movs. \(%.si\), \(%.di\)', str(insn)):
-                    #movsb (%rsi), (%rdi)  vs. movsb
-                    pass
-                else:
-                    print(insn)
-                    print('%s %s'%(asm_info.opcode, ' '.join(asm_info.operand_list)))
-                break
-
-            op_str = asm_operands[idx]
-            if operand.type == X86_OP_REG:
-                components.append(Component())
-                continue
-            elif operand.type == X86_OP_IMM:
-                is_pcrel = False
-                value = operand.imm
-                if insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL):
-                    is_pcrel = True
-
-            elif operand.type == X86_OP_MEM:
-                is_pcrel = False
-                value = operand.mem.disp
-                if operand.mem.base == X86_REG_RIP:
-                    is_pcrel = True
-
-            else:
-                continue
-
-            if is_pcrel and not (insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL)):
-                value += insn.address + insn.size
-            elif '@GOTOFF' in op_str:
-                value += self.got_addr
-
-            if op_str == "_GLOBAL_OFFSET_TABLE_":
-                gotoff = self.got_addr - insn.address
-            else:
-                gotoff = 0
-
-            factors = FactorList(self.ex_parser.parse(op_str), value, gotoff=gotoff)
-
-            if factors.has_label():
-                components.append(Component(factors.get_terms(), value, is_pcrel, factors.get_str()))
-            else:
-                components.append(Component())
-
-            if factors.has_label():
-                self.update_labels(func_info, factors, asm_file)
-
-        return components
 
     def get_section(self, addr):
         for section in self.elf.iter_sections():
@@ -333,9 +255,11 @@ class NormalizeGT:
 
             value = self.get_int(addr, sz)
 
-            factors = FactorList(self.ex_parser.parse(line.split()[1]), value)
-            component = Component(factors.get_table_terms(comp_data), value,  False, self.got_addr)
-            self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, line)
+            label_dict = {comp_data.label:comp_data.addr}
+            data = self.comp_gen.get_data(addr, asm_path, line, value, label_dict)
+            self.prog.Data[addr] = data
+            #component = self.comp_gen.get_data_components(line.split()[1], value, label_dict)
+            #self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, line)
 
             addr += sz
 
@@ -360,13 +284,14 @@ class NormalizeGT:
             expr = ' '.join(line.split()[1:])
             if sz in [4,8] and re.search('.[+|-]', expr):
                 value = self.get_int(addr, sz)
-                factors = FactorList(self.ex_parser.parse(expr), value)
 
-                if '@GOTOFF' in line:
-                    value += self.got_addr
+                #if '@GOTOFF' in line:
+                #    value += self.got_addr
 
-                component = Component(factors.get_terms(), value,  False, self.got_addr)
-                self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, directive+' '+ expr)
+                data = self.comp_gen.get_data(addr, asm_path, line, value)
+                self.prog.Data[addr] = data
+                #component = self.comp_gen.get_data_components(expr, value)
+                #self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, directive+' '+ expr)
 
             addr += sz
 
@@ -390,18 +315,20 @@ class NormalizeGT:
         os.system("objdump -t -f %s | grep \"F .text\" | sort > /tmp/xx%s" % (self.bin_path, temp_file))
 
         funcs = []
-        for line in open("/tmp/xx" + temp_file):
-            l = line.split()
-            fname = l[-1]
-            faddress = int(l[0], 16)
-            fsize = int(l[4], 16)
+        with open("/tmp/xx" + temp_file) as fp:
+            lines = fp.readlines()
+            for line in lines:
+                l = line.split()
+                fname = l[-1]
+                faddress = int(l[0], 16)
+                fsize = int(l[4], 16)
 
-            try:
-                #if len(loc_candidates) and fsize > 0:
-                if self.has_func_assem_file(fname) and fsize > 0:
-                    funcs.append([fname, faddress, fsize])
-            except:
-                pass
+                try:
+                    #if len(loc_candidates) and fsize > 0:
+                    if self.has_func_assem_file(fname) and fsize > 0:
+                        funcs.append([fname, faddress, fsize])
+                except:
+                    pass
         return funcs
 
 
@@ -449,23 +376,39 @@ class NormalizeGT:
 
             asm_file, addressed_asm_list = self.find_match_func(func_code, func_info)
 
-            self.bin2src_dict[faddress] = FuncInst(addressed_asm_list, func_info, asm_file.file_path)
-            for addr, capstone_insn, asm_info in addressed_asm_list:
+            func_summary = FuncInst(addressed_asm_list, func_info, asm_file.file_path)
+            self.bin2src_dict[faddress] = func_summary
+
+            for addr, capstone_insn, asm_token in addressed_asm_list:
 
                 #nop code might has no relevant assembly code
-                if not asm_info:
-                    components = [Component()]
-                    self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path)
+                if not asm_token:
+                    #components = [Component()]
+                    #self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path)
+                    self.prog.Instrs[addr] = InstType(addr, asm_file.file_path)
                     continue
 
-                components = self.parse_components(capstone_insn, asm_info, self.bin2src_dict[faddress], asm_file)
+                #self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm_token)
+                instr = self.comp_gen.get_instr(addr, asm_file.file_path, asm_token, capstone_insn)
+                self.prog.Instrs[addr] = instr
 
-                for com in components:
-                    lbls = com.get_labels()
+                # update labels
+                if instr.imm and instr.imm.has_label():
+                    self.update_labels(func_summary, instr.imm, asm_file)
+                if instr.disp and instr.disp.has_label():
+                    self.update_labels(func_summary, instr.disp,  asm_file)
+
+                '''
+                for comp in components:
+                    if comp.factors and comp.factors.has_label():
+                        self.update_labels(func_summary, comp.factors, asm_file)
+
+                    lbls = comp.get_labels()
                     if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                         com.Value += self.got_address
-
-                self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm_info)
+                '''
+                #add to Instrs
+                #self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm_token)
 
 
         text_end = self.text.data_size + self.text_base
@@ -548,26 +491,26 @@ class NormalizeGT:
 
         return False
 
-    def assem_addr_map(self, func_code, asm_list, candidate_len, debug=False):
+    def assem_addr_map(self, func_code, asm_token_list, candidate_len, debug=False):
 
         import pdb
         addressed_asm_list = []
         idx = 0
         for bin_asm in func_code:
-            if idx >= len(asm_list):
+            if idx >= len(asm_token_list):
                 if self.is_semantically_nop(bin_asm):
                     addressed_asm_list.append((bin_asm.address, bin_asm, ''))
                     continue
                 return []
-            asm = asm_list[idx]
+            asm_token = asm_token_list[idx]
 
             if bin_asm.address in self.dwarf_loc:
                 dwarf_set1 = self.dwarf_loc[bin_asm.address]
                 dwarf_set2 = set()
-                while isinstance(asm, LocInfo):
-                    dwarf_set2.add( '%s:%d'%(asm.path, asm.idx))
+                while isinstance(asm_token, LocInfo):
+                    dwarf_set2.add( '%s:%d'%(asm_token.path, asm_token.idx))
                     idx += 1
-                    asm = asm_list[idx]
+                    asm_token = asm_token_list[idx]
                 #give exception for a first debug info since some debug info is related to prev func
                 #in case of weak symbols, multiple debug info could be merged.
                 #ex) {'xercesc/dom/DOMNodeImpl.hpp:271', './xercesc/dom/impl/DOMNodeImpl.hpp:271'}
@@ -593,7 +536,7 @@ class NormalizeGT:
                         #else:
                         return []
 
-            if isinstance(asm, LocInfo):
+            if isinstance(asm_token, LocInfo):
                 # nop code might not have debug info
                 if self.is_semantically_nop(bin_asm):
                     addressed_asm_list.append((bin_asm.address, bin_asm, ''))
@@ -604,30 +547,30 @@ class NormalizeGT:
 
             if self.is_semantically_nop(bin_asm):
                 #.align might cause nop code
-                if self.is_semantically_nop(asm):
-                    addressed_asm_list.append((bin_asm.address, bin_asm, asm))
+                if self.is_semantically_nop(asm_token):
+                    addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
                 else:
                     addressed_asm_list.append((bin_asm.address, bin_asm, ''))
                     continue
-            elif asm.opcode == bin_asm.mnemonic:
-                addressed_asm_list.append((bin_asm.address, bin_asm, asm))
-            elif self.is_semantically_same(bin_asm, asm):
-                addressed_asm_list.append((bin_asm.address, bin_asm, asm))
+            elif asm_token.opcode == bin_asm.mnemonic:
+                addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
+            elif self.is_semantically_same(bin_asm, asm_token):
+                addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
             else:
                 if candidate_len > 1:
                     if debug:
                         pdb.set_trace()
                     return []
                 print(bin_asm)
-                print('%s %s'%(asm.opcode, ' '.join(asm.operand_list)))
+                print('%s %s'%(asm_token.opcode, ' '.join(asm_token.operand_list)))
                 import pdb
                 pdb.set_trace()
-                addressed_asm_list.append((bin_asm.address, bin_asm, asm))
+                addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
                 #return []
                 #assert False, 'Unexpacted instruction sequence'
             idx += 1
 
-        if idx < len(asm_list):
+        if idx < len(asm_token_list):
             if debug:
                 pdb.set_trace()
             #assert False, 'Unexpacted instruction sequence'
@@ -746,7 +689,10 @@ class NormalizeGT:
             for label, comp_data in asm_file.composite_data.items():
                 if not comp_data.addr:
                     if label in self.symbs and len(self.symbs[label]) == 1 and label not in visited_label:
-                        self.update_data(self.symbs[label][0], comp_data, asm_path)
+                        #if symbol size is zero we ignore it
+                        if self.symbs[label][0][1] == 0:
+                            continue
+                        self.update_data(self.symbs[label][0][0], comp_data, asm_path)
                         visited_label.append(label)
                     #else:
                     #    print('unknown comp data %s:%s'%(asm_path, label))
@@ -775,25 +721,32 @@ class NormalizeGT:
             if r_type in ['R_X86_64_COPY']:
                 continue
             elif r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT']:
-                asm_line = r_type
-                lbl = Label("L%X"%(value), LblTy.LABEL, value)
+                #asm_line = r_type
+                #lbl = Label("L%X"%(value), LblTy.LABEL, value)
+                label = 'L%x'%(value)
+                asm_line = '.long ' + label
             else:
                 directive = '.long'
                 if is_got:
                     value += self.got_addr
-                    lbl = Label("L%x@GOTOFF"%(value), LblTy.GOTOFF, value)
+                    #lbl = Label("L%x@GOTOFF"%(value), LblTy.GOTOFF, value)
+                    label = 'L%x@GOTOFF'%(value)
                 else:
-                    lbl = Label("L%x"%(value), LblTy.LABEL, value)
-
+                    #lbl = Label("L%x"%(value), LblTy.LABEL, value)
+                    label = 'L%x'%(value)
                     if sz == 8: directive = '.quad'
 
-                asm_line = directive + ' ' + lbl.Name
+                asm_line = directive + ' ' + label
 
-            component = Component([lbl], value)
+            data = self.comp_gen.get_data(addr, '',  asm_line, value)
+            self.prog.Data[addr] = data
+            '''
+            component = self.comp_gen.get_data_components(label, value)
+
             # If we already have addr, it means it should be a jump table
             if addr not in self.prog.Data:
                 self.prog.Data[addr] = Data(addr, component, '', 0, asm_line)
-
+            '''
 
 import argparse
 if __name__ == '__main__':

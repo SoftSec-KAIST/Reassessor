@@ -1,11 +1,10 @@
 from abc import abstractmethod
 import capstone
-from capstone.x86 import X86_OP_REG, X86_OP_MEM, X86_OP_IMM, X86_REG_RIP
 from collections import namedtuple
-
-from lib.asm_types import Program, Component, Instr, Data, LblTy
+import pickle
+from lib.asm_types import Program, LblTy
 from lib.utils import load_elf, get_disassembler, get_arch
-from lib.parser import FactorList, ATTExParser, IntelExParser, AsmTokenizer, ReasmInst, ReasmData
+from lib.parser import AsmTokenizer, ReasmInst, ReasmData, CompGen
 
 
 class NormalizeTool:
@@ -15,12 +14,12 @@ class NormalizeTool:
 
         self.elf = load_elf(self.bin_path)
 
+        if self.elf.get_section_by_name('.got.plt'):
+            self.got_addr = self.elf.get_section_by_name('.got.plt')['sh_addr']
+        else:
+            self.got_addr = self.elf.get_section_by_name('.got')['sh_addr']
 
-        if syntax == capstone.CS_OPT_SYNTAX_ATT:
-            self.ex_parser = ATTExParser()
-        elif syntax == capstone.CS_OPT_SYNTAX_INTEL:
-            self.ex_parser = IntelExParser()
-
+        self.comp_gen = CompGen(label_to_addr = label_to_addr_func, syntax=syntax, got_addr = self.got_addr)
 
         self.cs = get_disassembler(get_arch(self.elf))
         self.cs.detail = True
@@ -34,7 +33,6 @@ class NormalizeTool:
 
         self.label_to_addr = label_to_addr_func
 
-        self.got_addr = self.elf.get_section_by_name('.got.plt')['sh_addr']
 
     def mapper(self, map_func):
 
@@ -52,70 +50,13 @@ class NormalizeTool:
             names[symb.name] = symb['st_value']
         return names
 
-    def parse_components(self, insn, asm_token):
-        operands = insn.operands
-        components = []
-
-        if asm_token.opcode.startswith('nop'):
-            components.append(Component())
-
-        for idx, operand in enumerate(operands):
-
-            if len(asm_token.operand_list) <= idx:
-                print(insn)
-                break
-
-            op_str = asm_token.operand_list[idx]
-            if operand.type == X86_OP_REG:
-                components.append(Component())
-                continue
-            elif operand.type == X86_OP_IMM:
-                is_pcrel = False
-                if insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL):
-                    is_pcrel = True
-
-                value = operand.imm
-
-            elif operand.type == X86_OP_MEM:
-                is_pcrel = False
-                if operand.mem.base == X86_REG_RIP:
-                    value = insn.address + insn.size + operand.mem.disp
-                    is_pcrel = True
-                else:
-                    value = operand.mem.disp
-
-            else:
-                continue
-
-
-            if '@GOTOFF' in op_str:
-                value += self.got_addr
-
-            if '_GLOBAL_OFFSET_TABLE_' in op_str:
-                gotoff = self.got_addr - insn.address
-            else:
-                gotoff = 0
-
-            factors = FactorList(self.ex_parser.parse(op_str), value, self.label_to_addr, gotoff)
-
-            if factors.has_label():
-                components.append(Component(factors.get_terms(), value, is_pcrel, factors.get_str()))
-            else:
-                components.append(Component())
-
-
-
-        if self.cs.syntax == capstone.CS_OPT_SYNTAX_INTEL:
-            components.reverse()
-        return components
-
-
-
     def normalize_inst(self):
         text_start = self.prog.text_base
         text_end = self.prog.text_base + len(self.prog.text_data)
 
         skip = -1
+        import pdb
+        pdb.set_trace()
         for idx, asm_token in enumerate(self.addressed_asms):
             if idx <= skip:
                 continue
@@ -126,13 +67,13 @@ class NormalizeTool:
                 continue
 
             if idx == len(self.addressed_asms) - 1:
-                inst = self.prog.disasm(self.cs, addr, 15)
+                insn = self.prog.disasm(self.cs, addr, 15)
             else:
                 next_addr = self.addressed_asms[idx+1].addr
                 if addr == next_addr:
                     continue
                 try:
-                    inst = self.prog.disasm(self.cs, addr, next_addr - addr)
+                    insn = self.prog.disasm(self.cs, addr, next_addr - addr)
                 except IndexError:
                     #handle ddisasm: 'nopw   %cs:0x0(%rax,%rax,1)' -> 'nop'
                     if asm_token.opcode == 'nop':
@@ -142,37 +83,33 @@ class NormalizeTool:
                                 break
                             else:
                                 skip = j
-                        inst = self.prog.disasm(self.cs, addr, next_addr - addr)
+                        insn = self.prog.disasm(self.cs, addr, next_addr - addr)
                     else:
                         raise SyntaxError('Unexpected byte code')
 
-            components = self.parse_components(inst, asm_token)
+            instr = self.comp_gen.get_instr(addr, self.reassem_path, asm_token)
+            self.prog.Instrs[addr] = instr
 
+            '''
             for c in components:
                 lbls = c.get_labels()
                 if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
                     c.Value += self.got_addr
             self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, asm_token)
-
+            '''
 
     def normalize_data(self):
         for reasm_data in self.addressed_data:
-
-            factors = self.parse_data_expr(reasm_data.expr)
-
-            component = Component(factors.get_terms(), reloc_sym = factors.get_str())
-            self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.idx, reasm_data.asm_line)
-
-    def parse_data_expr(self, op_str):
-
-        value = 0
-        result = FactorList(self.ex_parser.parse(op_str), value, self.label_to_addr)
-
-        return result
-
+            data = self.comp_gen.get_data(reasm_data.addr, self.reassem_path, reasm_data.asm_line)
+            self.prog.Data[reasm_data.addr] = data
+            #component = self.comp_gen.get_data_components(reasm_data.expr)
+            #self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.idx, reasm_data.asm_line)
 
     @abstractmethod
     def address_src_file(self):
         pass
 
+    def save(self, save_file):
+        with open(save_file, 'wb') as f:
+            pickle.dump(self.prog, f)
 

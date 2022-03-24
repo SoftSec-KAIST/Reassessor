@@ -34,7 +34,7 @@ class RecCounter:
         if not os.path.exists(pickle_path):
             self.error += 1
             return
-        print(pickle_path)
+
         with open(pickle_path , 'rb') as fp:
             rec = pickle.load(fp)
 
@@ -57,7 +57,7 @@ class RecCounter:
 
 
 class WorkBin:
-    def __init__(self, bench='/data2/benchmark', out='/home/hskim/data/sok/reassem/new_result', retro='/home/hskim/data/sok/reassem/result', ddisasm='/home/hskim/data/sok/reassem/dd_result'):
+    def __init__(self, bench='/data2/benchmark', out='/home/hskim/data/sok/reassem/new_result', retro='/home/hskim/data/sok/reassem/result', ddisasm='/home/hskim/data/sok/reassem/debug_dd'):
         self.bench = bench
         self.out = out
         self.retro = retro
@@ -67,7 +67,7 @@ class WorkBin:
         return '%s/%s/retro_sym/%s.s'%(self.retro, sub_dir, filename)
 
     def get_ddisasm(self, sub_dir, filename):
-        return '%s/%s/ddisasm/%s.s'%(self.retro, sub_dir, filename)
+        return '%s/%s/ddisasm/%s.s'%(self.ddisasm, sub_dir, filename)
 
     def get_tuple(self, sub_dir):
         ret = []
@@ -94,20 +94,35 @@ class WorkBin:
 
 def job(conf, multi=True):
     #create_gt(conf, multi)
-    #create_retro(conf, multi)
+
+    create_retro(conf, multi)
+    #diff_retro(conf)
+
     #create_ddisasm(conf, multi)
-    diff(conf, multi)
+    #diff_ddisasm(conf)
 
-def diff(conf, multi=True):
-    if not os.path.exists(conf.retro_out):
+def diff_retro(conf):
+    diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result)
+
+def diff_ddisasm(conf):
+    diff('ddisasm', conf.bin, conf.gt_out, conf.ddisasm_out, conf.result)
+
+def diff(tool_name, binfile, gt_out, tool_out, result):
+    if not os.path.exists(tool_out):
         return
 
-    if os.path.exists(conf.result+'/error_pickle/retro_sym'):
-        return
+    if tool_name in ['retro']:
+        pickle_path = result + '/error_pickle/retro_sym'
+    else:
+        pickle_path = result + '/error_pickle/' + tool_name
 
-    os.system('mkdir -p %s'%(os.path.dirname(conf.result)))
-    print('python3 -m differ.diff %s %s %s --retro %s'%(conf.bin, conf.gt_out, conf.result, conf.retro_out))
-    os.system('python3 -m differ.diff %s %s %s --retro %s'%(conf.bin, conf.gt_out, conf.result, conf.retro_out))
+    #if os.path.exists(pickle_path):
+    #    return
+
+    os.system('mkdir -p %s'%(os.path.dirname(result)))
+    print('python3 -m differ.diff %s %s %s --%s %s'%(binfile, gt_out, result, tool_name, tool_out))
+    os.system('python3 -m differ.diff %s %s %s --%s %s'%(binfile, gt_out, result, tool_name, tool_out))
+
 
 
 def create_gt(conf, multi):
@@ -116,9 +131,13 @@ def create_gt(conf, multi):
 def create_retro(conf, multi):
     create_db('retro',  conf.bin, conf.retro_asm, conf.retro_out, multi)
 
+def create_ddisasm(conf, multi):
+    create_db('ddisasm',  conf.bin, conf.ddisasm_asm, conf.ddisasm_out, multi)
+
+
 def create_db(tool_name, bin_file, assem, output, multi=True):
-    if os.path.exists(output):
-        return
+    #if os.path.exists(output):
+    #    return
 
     if tool_name != 'gt':
         if not os.path.exists(assem):
@@ -182,4 +201,5 @@ if __name__ == '__main__':
     mgr = Manager(args.core)
     mgr.run()
 
-    mgr.report('retro_sym')
+    #mgr.report('retro_sym')
+    #mgr.report('ddisasm')

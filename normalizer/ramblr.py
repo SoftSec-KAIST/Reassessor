@@ -1,6 +1,5 @@
 import re
 import capstone
-import pickle
 
 from lib.parser import DATA_DIRECTIVE, SKIP_DIRECTIVE
 from normalizer.tool_base import NormalizeTool
@@ -127,6 +126,4 @@ if __name__ == '__main__':
     ramblr = NormalizeRamblr(args.bin_path, args.reassem_path)
     ramblr.normalize_inst()
     ramblr.normalize_data()
-
-    with open(args.save_file, 'wb') as f:
-        pickle.dump(ramblr.prog, f)
+    ramblr.save(args.save_file)
