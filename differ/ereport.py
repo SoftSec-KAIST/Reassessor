@@ -6,67 +6,6 @@ from lib.asm_types import CmptTy
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
-class Info:
-    def __init__(self, cls, addr, ty, res, obj_c, obj_r, src_c, src_r, idx):
-        if src_c is None:
-            src_c = []
-        else:
-            src_c = list(src_c)
-        if src_r is None:
-            src_r = []
-        else:
-            src_r = list(src_r)
-        self.j = {
-                'Error': self.get_err_type(cls, res),
-                'Addr': addr,
-                'Idx': idx,
-                'Class': ty,
-                'Expr_C': self.get_expr(ty, obj_c, idx, 'C', res),
-                'Expr_R': self.get_expr(ty, obj_r, idx, 'R', res),
-                'Src_C': src_c,
-                'Src_R': src_r
-                }
-
-    def to_json(self):
-        return self.j
-
-    def get_expr(self, ty, obj, idx, tool, res):
-        if ty == 'Ins' and tool == 'C' and res == 'FP':
-            cmpt = obj.Components[idx]
-            return cmpt.to_json()
-        elif ty == 'Ins' and tool == 'C' and res == 'FN':
-            cmpt = obj.Components[idx]
-            return cmpt.to_json()
-        elif ty == 'Ins' and tool == 'R' and res == 'FP':
-            cmpt = obj.Components[idx]
-            return cmpt.to_json()
-        elif ty == 'Ins' and tool == 'R' and res == 'FN':
-            cmpt = obj.Components[idx]
-            return cmpt.to_json()
-        elif ty == 'Data' and tool == 'C' and res == 'FP':
-            if obj is None:
-                return {}
-            else:
-                cmpt = obj.Component
-                return cmpt.to_json()
-        elif ty == 'Data' and tool == 'C' and res == 'FN':
-            cmpt = obj.Component
-            return cmpt.to_json()
-        elif ty == 'Data' and tool == 'R' and res == 'FP':
-            if obj is None:
-                return {}
-            else:
-                cmpt = obj.Component
-                return cmpt.to_json()
-        elif ty == 'Data' and tool == 'R' and res == 'FN':
-            return {}
-
-    def get_err_type(self, cls, err):
-        if 1 <= cls and cls <= 7:
-            return 'E%d%s'%(cls, err)
-        else:
-            return 'E8FP'
-
 class Record:
     def __init__(self, stype, etype, region):
         self.stype = stype      #1-8
@@ -199,10 +138,13 @@ class Report:
         fn = ins_addrs_c - ins_addrs_r
         for addr in fn:
             ins_c = self.prog_c.Instrs[addr]
+            data_r = None
+            if addr in prog_r.Data:
+                data_r = prog_r.Data[addr]
             if ins_c.imm:
-                self.rec[ins_c.imm.type].fn.ins.add(ins_c, None, 'imm')
+                self.rec[ins_c.imm.type].fn.ins.add(ins_c, data_r, 'imm')
             if ins_c.disp:
-                self.rec[ins_c.disp.type].fn.ins.add(ins_c, None, 'disp')
+                self.rec[ins_c.disp.type].fn.ins.add(ins_c, data_r, 'disp')
 
         fp = ins_addrs_r - ins_addrs_c - self.prog_c.unknown_region
         for addr in fp:
@@ -295,21 +237,5 @@ class Report:
                 self.rec[c_type].tp += 1
             else:
                 self.rec[c_type].fp.data.add(data_c, data_r, 'value')
-
-def get_cmpt_list(ins_c, ins_r):
-    cmpt_c = ins_c.get_components()
-    cmpt_r = ins_r.get_components()
-    cmpts = list(set(cmpt_c + cmpt_r))
-    cmpts.sort()
-    return cmpts
-
-
-def my_open(file_path, option='w'):
-    if 'w' in option:
-        dir_name = os.path.dirname(file_path)
-        if not os.path.exists(dir_name):
-            os.system("mkdir -p %s" % dir_name)
-    fd = open(file_path, option)
-    return fd
 
 

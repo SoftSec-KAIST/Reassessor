@@ -10,6 +10,16 @@ ERec = namedtuple('ERec', ['record', 'gt'])
 
 BuildConf = namedtuple('BuildConf', ['bin', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'result'])
 
+def job(conf, multi=True):
+    #create_gt(conf, multi)
+
+    #create_retro(conf, multi)
+    diff_retro(conf)
+
+    #create_ddisasm(conf, multi)
+    diff_ddisasm(conf)
+
+
 def print_conf(conf_list):
 
     for conf in conf_list:
@@ -92,15 +102,6 @@ class WorkBin:
         return ret
 
 
-def job(conf, multi=True):
-    create_gt(conf, multi)
-
-    #create_retro(conf, multi)
-    #diff_retro(conf)
-
-    #create_ddisasm(conf, multi)
-    #diff_ddisasm(conf)
-
 def diff_retro(conf):
     diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result)
 
@@ -109,6 +110,8 @@ def diff_ddisasm(conf):
 
 def diff(tool_name, binfile, gt_out, tool_out, result):
     if not os.path.exists(tool_out):
+        return
+    if os.path.getsize(tool_out) == 0:
         return
 
     if tool_name in ['retro']:
@@ -142,6 +145,8 @@ def create_db(tool_name, bin_file, assem, output, multi=True):
     if tool_name != 'gt':
         if not os.path.exists(assem):
             return
+        if os.path.getsize(assem) == 0:
+            return
 
     if not multi:
         print('python3 -m normalizer.%s %s %s %s'%(tool_name, bin_file, assem, output))
@@ -165,10 +170,13 @@ class Manager:
         gen = WorkBin()
         for pack in ['spec_cpu2006']:
             for arch in ['x64']:
+                #for comp in ['gcc']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie']:
                         #for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
+                        #for opt in ['ofast']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
+                            #for lopt in ['bfd']:
                             for lopt in ['bfd', 'gold']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
@@ -199,7 +207,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     mgr = Manager(args.core)
-    mgr.run()
+    #mgr.run()
 
-    #mgr.report('retro_sym')
-    #mgr.report('ddisasm')
+    mgr.report('retro_sym')
+    mgr.report('ddisasm')
