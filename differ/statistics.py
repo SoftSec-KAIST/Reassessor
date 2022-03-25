@@ -46,10 +46,20 @@ class Statistics:
                 elif cmpt.Ty == CmptTy.GOTOFF: # Type V
                     self.update_symbol(ty, 5, in_intersect)
 
+    def count_symbol(self, factors, ty, in_intersect):
+        if factors.has_label():
+            self.update_symbol(ty, factors.type, in_intersect)
+
     def count_symbols(self, prog_r, file_path):
         self.reset_type_stat()
         for addr in prog_r.Instrs:
             ins_r = prog_r.Instrs[addr]
+            if ins_r.imm:
+                self.count_symbol(ins_r.imm, 'ins', addr in self.prog_c.Instrs and self.prog_c.Instrs[addr].imm is not None)
+            if ins_r.disp:
+                self.count_symbol(ins_r.disp, 'ins', addr in self.prog_c.Instrs and self.prog_c.Instrs[addr].disp is not None)
+
+            '''
             for idx in ins_r.get_components():
                 cmpt = ins_r.Components[idx]
                 if addr in self.prog_c.Instrs:
@@ -57,10 +67,12 @@ class Statistics:
                     self.count_cmpt_symbol(cmpt, 'ins', idx in ins_c.get_components())
                 else:
                     self.count_cmpt_symbol(cmpt, 'ins', False)
+            '''
         for addr in prog_r.Data:
             data = prog_r.Data[addr]
-            cmpt = data.Component
-            self.count_cmpt_symbol(cmpt, 'data', True)
+            #cmpt = data.Component
+            #self.count_cmpt_symbol(cmpt, 'data', True)
+            self.count_symbol(data.value, 'data', True)
 
         with my_open(file_path) as fd:
             fd.write('%d,%d,%d,%d,%d,%d,%d\n' % tuple(self.insts))

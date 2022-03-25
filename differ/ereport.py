@@ -76,32 +76,32 @@ class Record:
         self.jdata = []
         self.adata = []
 
-    def add(self, gt, tool=None, idx=-1):
+    def add(self, gt, tool, loc):
         if gt:
-            address     = gt.Address
-            src_gt      = gt.Path,    gt.Line
-            gt_asm      = gt.asm
+            address     = gt.addr
+            src_gt      = gt.path,    gt.asm_idx
+            gt_asm      = gt.asm_line
         else:
-            address     = tool.Address
+            address     = tool.addr
             src_gt      = None
             gt_asm      = None
 
         if tool:
-            src_tool    = tool.Path,  tool.Line
-            tool_asm    = tool.asm
+            src_tool    = tool.path,  tool.asm_idx
+            tool_asm    = tool.asm_line
         else:
             src_tool    = None
             tool_asm    = None
 
-        info = Info(self.stype, address, self.region, self.etype, gt,  tool, src_gt, src_tool, idx)
+        #info = Info(self.stype, address, self.region, self.etype, gt,  tool, src_gt, src_tool, loc)
 
-        self.jdata.append(info.to_json())
+        #self.jdata.append(info.to_json())
         #self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
-        self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx, gt_asm, tool_asm))
+        self.adata.append((address, self.region, self.etype, src_gt, src_tool, loc, gt_asm, tool_asm))
 
     def dump(self, out_file):
-        for (addr, ty, res, src_c, src_r, idx, gt_asm, tool_asm) in self.adata:
-            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, idx, file = out_file)
+        for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm) in self.adata:
+            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, loc, file = out_file)
             if src_c:
                 print('\tGT:   %s'%(gt_asm), file=out_file)
             if src_r:
@@ -166,7 +166,6 @@ class Report:
         data_addrs = data_addrs_c.union(data_addrs_r)
 
         self.data_len = len(data_addrs)
-
         for addr in data_addrs:
             if addr in self.prog_c.Data and addr in prog_r.Data: # TP or FP
                 data_c = self.prog_c.Data[addr]
@@ -177,7 +176,8 @@ class Report:
                 self.check_data_error(data_c, None)
             elif addr in prog_r.Data: # FP
                 data_r = prog_r.Data[addr]
-                self.rec[8].fp.data.add(None, data_r)
+                self.rec[8].fp.data.add(None, data_r, 'value')
+
 
 
     def compare_ins_errors(self, prog_r):
@@ -193,9 +193,51 @@ class Report:
             ins_c = self.prog_c.Instrs[addr]
             ins_r = prog_r.Instrs[addr]
 
-            cmpts = get_cmpt_list(ins_c, ins_r)
-            for idx in cmpts:
-                self.check_ins_error(ins_c, ins_r, idx)
+            if ins_c.imm or ins_c.disp or ins_r.imm or ins_r.disp:
+                self.check_ins(ins_c, ins_r)
+
+        fn = ins_addrs_c - ins_addrs_r
+        for addr in fn:
+            ins_c = self.prog_c.Instrs[addr]
+            if ins_c.imm:
+                self.rec[ins_c.imm.type].fn.ins.add(ins_c, None, 'imm')
+            if ins_c.disp:
+                self.rec[ins_c.disp.type].fn.ins.add(ins_c, None, 'disp')
+
+        fp = ins_addrs_r - ins_addrs_c - self.prog_c.unknown_region
+        for addr in fp:
+            ins_r = prog_r.Instrs[addr]
+            if ins_r.imm:
+                self.rec[8].fp.ins.add(None, ins_r, 'imm')
+            if ins_r.disp:
+                self.rec[8].fp.ins.add(None, ins_r, 'disp')
+
+
+
+    def check_ins(self, ins_c, ins_r):
+        self.gt += 1
+
+        if ins_c.imm and ins_c.imm:
+            if ins_c.imm.type == ins_c.imm.type:
+                self.rec[ins_c.imm.type].tp += 1
+            else:
+                self.rec[ins_c.imm.type].fp.ins.add(ins_c, ins_r, 'imm')
+        elif ins_c.imm:
+            self.rec[ins_c.imm.type].fn.ins.add(ins_c, ins_r, 'imm')
+        elif ins_r.imm:
+            self.rec[8].fp.ins.add(ins_c, ins_r, 'imm')
+
+
+        if ins_c.disp and ins_c.disp:
+            if ins_c.disp.type == ins_c.disp.type:
+                self.rec[ins_c.disp.type].tp += 1
+            else:
+                self.rec[ins_c.disp.type].fp.ins.add(ins_c, ins_r, 'disp')
+        elif ins_c.disp:
+            self.rec[ins_c.disp.type].fn.ins.add(ins_c, ins_r, 'disp')
+        elif ins_r.disp:
+            self.rec[8].fp.ins.add(ins_c, ins_r, 'disp')
+
 
     def pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
@@ -232,49 +274,27 @@ class Report:
         print(json.dumps(res, indent=2), file = j_file)
 
 
-    def check_ins_error(self, ins_c, ins_r, idx):
-        self.gt += 1
-
-        if idx >= len(ins_c.Components):
-            import pdb
-            pdb.set_trace()
-        cmpt_c = ins_c.Components[idx]
-        cmpt_r = ins_r.Components[idx]
-
-        c_type = cmpt_c.get_type()
-        r_type = cmpt_r.get_type()
-        if c_type == r_type:
-            self.rec[c_type].tp += 1
-        elif r_type == 8:
-            self.rec[c_type].fn.ins.add(ins_c, ins_r, idx)
-        else:
-            self.rec[c_type].fp.ins.add(ins_c, ins_r, idx)
-
-
     def check_data_error(self, data_c, data_r):
         self.gt += 1
-
-        cmpt_c = data_c.Component
-        c_type = cmpt_c.get_type()
+        c_type = data_c.value.type
         if data_r is None:
             # this is reassembler design choice
             # ddisasm preserve .got section
             # retrowrite delete .got section
             # Thus, we do not check this case
-            if data_c.asm in ['R_X86_64_GLOB_DAT']:
+            if data_c.r_type and data_c.r_type in ['R_X86_64_GLOB_DAT']:
                 pass
-            elif data_c.asm in ['R_X86_64_JUMP_SLOT']:
+            elif data_c.r_type and data_c.r_type in ['R_X86_64_JUMP_SLOT']:
                 pass
             else:
-                self.rec[c_type].fn.data.add(data_c)
+                self.rec[c_type].fn.data.add(data_c, None, 'value')
         else:
-            cmpt_r = data_r.Component
-            r_type = cmpt_r.get_type()
+            r_type = data_r.value.type
 
             if c_type == r_type:
                 self.rec[c_type].tp += 1
             else:
-                self.rec[c_type].fp.data.add(data_c, data_r)
+                self.rec[c_type].fp.data.add(data_c, data_r, 'value')
 
 def get_cmpt_list(ins_c, ins_r):
     cmpt_c = ins_c.get_components()
