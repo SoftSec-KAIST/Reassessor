@@ -5,12 +5,17 @@ from lib.asm_types import Label, LblTy, DataType, InstType
 import capstone
 from capstone.x86 import X86_OP_REG, X86_OP_MEM, X86_OP_IMM, X86_REG_RIP
 
-REGISTERS = ['RIP', 'RAX', 'RBX', 'RCX', 'RDX', 'RSI', 'RDI', 'RBP', 'RSP',
-        'R8', 'R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15',
-        'R8D', 'R9D', 'R10D', 'R11D', 'R12D', 'R13D', 'R14D', 'R15D',
-        'EAX', 'EBX', 'ECX', 'EDX', 'ESI', 'EDI', 'EBP', 'ESP']
+REGISTERS = ['RAX', 'RBX', 'RCX', 'RDX', 'RSI', 'RDI', 'RBP', 'RSP', 'R8', 'R9', 'R10', 'R11', 'R12', 'R13', 'R14', 'R15',
+        'EAX', 'EBX', 'ECX', 'EDX', 'ESI', 'EDI', 'EBP', 'ESP','R8D', 'R9D', 'R10D', 'R11D', 'R12D', 'R13D', 'R14D', 'R15D',
+        'AX', 'BX', 'CX', 'DX', 'BP', 'SI', 'DI', 'SP', 'R8W', 'R9W', 'R10W', 'R11W', 'R12W', 'R13W', 'R14W', 'R15W',
+        'AH', 'BH', 'CH', 'DH',
+        'AL', 'BL', 'CL', 'DL', 'BPL', 'SIL', 'DIL', 'SPL', 'R8B', 'R9B', 'R10B', 'R11B', 'R12B', 'R13B', 'R14B', 'R15B',
+        'XMM0', 'XMM1', 'XMM2', 'XMM3', 'XMM4', 'XMM5', 'XMM6', 'XMM7', 'XMM8', 'XMM9', 'XMM10',
+        'XMM11', 'XMM12', 'XMM13', 'XMM14', 'XMM15',
+        'RIP'
+]
 
-DATA_DIRECTIVE = ['.byte', '.asciz', '.quad', '.ascii', '.long', '.short']
+DATA_DIRECTIVE = ['.byte', '.asciz', '.quad', '.ascii', '.long', '.short', '.string', '.zero']
 SKIP_DIRECTIVE = ['.align', '.globl', '.type']
 jump_instrs =  ["jo","jno","js","jns","je", "jz","jne", "jnz","jb", "jna", "jc","jnb", "jae", "jnc","jbe", "jna","ja", "jnb","jl", "jng","jge", "jnl","jle", "jng","jg", "jnl","jp", "jpe","jnp", "jpo","jcx", "jec", 'jmp', 'jmpl', 'jmpq']
 
@@ -162,14 +167,14 @@ class CompGen:
 
         self.got_addr = got_addr
 
-    def get_data(self, addr, asm_path, line, value=0, additional_dict=None):
+    def get_data(self, addr, asm_path, line, idx , value=0, additional_dict=None, r_type=None):
         expr = ''.join(line.split()[1:])
         tokens = self.ex_parser.parse(expr)
         if additional_dict:
             factors = FactorList(tokens, value, additional_dict)
         else:
             factors = FactorList(tokens, value, self.label_to_addr)
-        return DataType(addr, asm_path, tokens, factors)
+        return DataType(addr, asm_path, line, idx, factors, r_type = r_type)
         #return Component(factors)
 
     def rearrange_operands(self, addr, asm_path, asm_token, insn):
@@ -220,18 +225,13 @@ class CompGen:
         disp_list = []
         imm_list = []
         for operand in insn.operands:
-            if operand.size != 4:
-                continue
-            elif operand.type == X86_OP_MEM and disp_list:
+            if operand.type == X86_OP_MEM:
                 disp_list.append(operand.mem.disp)
-            elif operand.type == X86_OP_IMM and imm_list:
+            elif operand.type == X86_OP_IMM:
                 imm_list.append(operand.imm)
 
-        if len(disp_list)+len(imm_list) == 0:
+        if len(disp_list)+len(imm_list) == 0: # or asm_token.opcode.startswith('rep'):
             return InstType(addr, asm_path, asm_token)
-
-        assert len(disp_list) <= 1, 'Unexpected operand type'
-        assert len(imm_list) <= 1, 'Unexpected operand type'
 
         #match reloc expressions to values
         disp = None
@@ -241,8 +241,10 @@ class CompGen:
             factors = FactorList(tokens)
             if factors.has_label():
                 if self.ex_parser.is_imm:
+                    assert len(imm_list) == 1, 'Unexpected operand type'
                     imm = self.create_component(op_str, imm_list[0], insn)
                 else:
+                    assert len(disp_list) == 1, 'Unexpected operand type'
                     disp = self.create_component(op_str, disp_list[0], insn)
 
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
@@ -274,22 +276,26 @@ class CompGen:
         return components
         '''
 
-    def create_component(self, op_str, value, insn):
+    def create_component(self, op_str, value = 0, insn = None):
 
 
         tokens = self.ex_parser.parse(op_str)
         is_pcrel = self.ex_parser.has_rip
 
-        gotoff = 0
-        if '@GOTOFF' in op_str:
-            value += self.got_addr
-        elif '_GLOBAL_OFFSET_TABLE_' in op_str:
-            gotoff = self.got_addr - insn.address
-        else:
-            if is_pcrel:
-                value += insn.address + insn.size
+        if value:
+            if '@GOTOFF' in op_str:
+                value += self.got_addr
+            elif '_GLOBAL_OFFSET_TABLE_' in op_str:
+                #gotoff = self.got_addr - insn.address
+                pass
+            else:
+                if is_pcrel:
+                    value += insn.address + insn.size
 
-        factors = FactorList(tokens, value, self.label_to_addr, gotoff, is_pcrel = is_pcrel)
+            factors = FactorList(tokens, value, is_pcrel = is_pcrel)
+        else:
+            factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel = is_pcrel)
+
         if factors.has_label():
             return factors
 
@@ -317,10 +323,9 @@ class CompGen:
         disp = None
         for op_str in asm_token.operand_list:
             tokens = self.ex_parser.parse(op_str)
-            factors = FactorList(tokens, label_to_addr = self.label_to_addr)
+            is_pcrel = self.ex_parser.has_rip
+            factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel = is_pcrel)
             if factors.has_label():
-                import pdb
-                pdb.set_trace()
                 if self.ex_parser.is_imm:
                     imm = self.create_component(op_str)
                 else:
@@ -393,13 +398,13 @@ class CompGen:
 
 
 class FactorList:
-    def __init__(self, factors, value=0, label_to_addr=None, gotoff=0, is_pcrel=False):
+    def __init__(self, factors, value=0, label_to_addr=None, is_pcrel=False):
         self.labels = []
         self.num = 0
         self.value = value
         self._label_to_addr = label_to_addr
-        self.gotoff = gotoff
-        self.is_pcrel = False
+        #self.gotoff = gotoff
+        self.is_pcrel = is_pcrel
         for factor in factors:
             if factor.data.isdigit() or factor.data.startswith('0x'):
                 self.num += eval(factor.get_str())
@@ -412,12 +417,34 @@ class FactorList:
         else:
             self.terms = []
         self._label_to_addr = None
+        self.type = self.get_type()
+
+    def get_type(self):
+        if len(self.labels) == 2:
+            return 7
+        elif len(self.labels) == 1:
+            if '@GOTOFF' in self.labels[0]:
+                if self.is_composite():
+                    return 6
+                else:
+                    return 5
+            elif self.is_pcrel:
+                if self.is_composite():
+                    return 4
+                else:
+                    return 3
+            else:
+                if self.is_composite():
+                    return 2
+                else:
+                    return 1
+        return 8
 
     def has_label(self):
         return len(self.labels) > 0
 
     def is_composite(self):
-        return self.has_label() and len(self.terms) > 1
+        return self.has_label() and (len(self.terms) > 1 or self.num != 0)
 
     def get_str(self):
         ret = ''
@@ -447,7 +474,8 @@ class FactorList:
 
         for label in self.labels:
             if '_GLOBAL_OFFSET_TABLE_' in label:
-                addr = self.gotoff
+                #addr = self.gotoff
+                addr = 0
             elif '@GOTOFF' in label:
                 addr = self.label_to_addr(label.split('@GOTOFF')[0])
                 label_type = LblTy.GOTOFF
@@ -581,6 +609,8 @@ class IntelExParser(ExParser):
             expr = re.findall('OFFSET (.*)', expr)[0]
             self.is_imm = True
         elif re.search ('.* PTR FS:.*', expr):
+            return ''
+        elif re.match ('ST\(.*\)', expr):
             return ''
         return expr
 

@@ -63,15 +63,23 @@ class InstType:
         self.addr = addr
         self.path = path
         self.asm_token = asm_token
+        if asm_token:
+            self.asm_line = asm_token.asm_line
+            self.asm_idx = asm_token.idx
+        else:
+            self.asm_line = ''
+            self.asm_idx = 0
         self.imm = imm
         self.disp = disp
 
 class DataType:
-    def __init__(self, addr, path, asm_token, value=None):
+    def __init__(self, addr, path, asm_line, idx, value=None, r_type=None):
         self.addr = addr
         self.path = path
-        self.asm_token = asm_token
+        self.asm_line = asm_line
+        self.asm_idx = idx
         self.value = value
+        self.r_type = r_type
 
 '''
 class Component:
@@ -170,7 +178,6 @@ class Table:
         self.Address = addr
         self.Entries = entries
         self.EntrySize = entrySize
-'''
 class Instr:
     def __init__(self, addr, components, path, asm=None):
         self.Address = addr
@@ -220,7 +227,6 @@ class Instr:
         s += "%x " % self.Address
         s += self.print_operands()
         return s
-'''
 class Data:
     def __init__(self, addr, component, path, line, asm):
         self.Address = addr

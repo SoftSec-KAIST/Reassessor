@@ -55,8 +55,7 @@ class NormalizeTool:
         text_end = self.prog.text_base + len(self.prog.text_data)
 
         skip = -1
-        import pdb
-        pdb.set_trace()
+        last_idx = len(self.addressed_asms) - 1
         for idx, asm_token in enumerate(self.addressed_asms):
             if idx <= skip:
                 continue
@@ -83,7 +82,13 @@ class NormalizeTool:
                                 break
                             else:
                                 skip = j
-                        insn = self.prog.disasm(self.cs, addr, next_addr - addr)
+                            if last_idx == j:
+                                next_addr += 1
+                                break
+                        try:
+                            insn = self.prog.disasm(self.cs, addr, next_addr - addr)
+                        except IndexError:
+                            continue
                     else:
                         raise SyntaxError('Unexpected byte code')
 
@@ -100,7 +105,7 @@ class NormalizeTool:
 
     def normalize_data(self):
         for reasm_data in self.addressed_data:
-            data = self.comp_gen.get_data(reasm_data.addr, self.reassem_path, reasm_data.asm_line)
+            data = self.comp_gen.get_data(reasm_data.addr, self.reassem_path, reasm_data.asm_line, reasm_data.idx)
             self.prog.Data[reasm_data.addr] = data
             #component = self.comp_gen.get_data_components(reasm_data.expr)
             #self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.idx, reasm_data.asm_line)

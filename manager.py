@@ -57,7 +57,7 @@ class RecCounter:
 
 
 class WorkBin:
-    def __init__(self, bench='/data2/benchmark', out='/home/hskim/data/sok/reassem/new_result', retro='/home/hskim/data/sok/reassem/result', ddisasm='/home/hskim/data/sok/reassem/debug_dd'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result', retro='/data3/1_reassessor/benchmark', ddisasm='/data3/1_reassessor/debug_dd'):
         self.bench = bench
         self.out = out
         self.retro = retro
@@ -93,9 +93,9 @@ class WorkBin:
 
 
 def job(conf, multi=True):
-    #create_gt(conf, multi)
+    create_gt(conf, multi)
 
-    create_retro(conf, multi)
+    #create_retro(conf, multi)
     #diff_retro(conf)
 
     #create_ddisasm(conf, multi)

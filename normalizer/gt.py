@@ -256,7 +256,7 @@ class NormalizeGT:
             value = self.get_int(addr, sz)
 
             label_dict = {comp_data.label:comp_data.addr}
-            data = self.comp_gen.get_data(addr, asm_path, line, value, label_dict)
+            data = self.comp_gen.get_data(addr, asm_path, line, idx, value, label_dict)
             self.prog.Data[addr] = data
             #component = self.comp_gen.get_data_components(line.split()[1], value, label_dict)
             #self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, line)
@@ -288,7 +288,7 @@ class NormalizeGT:
                 #if '@GOTOFF' in line:
                 #    value += self.got_addr
 
-                data = self.comp_gen.get_data(addr, asm_path, line, value)
+                data = self.comp_gen.get_data(addr, asm_path, line, idx , value)
                 self.prog.Data[addr] = data
                 #component = self.comp_gen.get_data_components(expr, value)
                 #self.prog.Data[addr] = Data(addr, component, asm_path, idx+1, directive+' '+ expr)
@@ -416,7 +416,7 @@ class NormalizeGT:
         unknown_region = set()
         for faddress in sorted(self.bin2src_dict.keys()):
             unknown_region.update(range(prev_end, faddress))
-            prev_end = faddress + self.bin2src_dict[faddress].addr
+            prev_end = faddress + self.bin2src_dict[faddress].size
         unknown_region.update(range(prev_end, text_end))
         self.prog.unknown_region = unknown_region
 
@@ -738,7 +738,7 @@ class NormalizeGT:
 
                 asm_line = directive + ' ' + label
 
-            data = self.comp_gen.get_data(addr, '',  asm_line, value)
+            data = self.comp_gen.get_data(addr, '',  asm_line, 0, value, r_type = r_type)
             self.prog.Data[addr] = data
             '''
             component = self.comp_gen.get_data_components(label, value)
