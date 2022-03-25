@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from lib.asm_types import Program, InstType, LblTy, Label
 from lib.parser import CompGen
-from normalizer.asmfile import AsmFileInfo, LocInfo, AsmInst
+from lib.asmfile import AsmFileInfo, LocInfo, AsmInst
 
 class JumpTable:
     def __init__(self, entries):
