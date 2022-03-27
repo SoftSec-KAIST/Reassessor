@@ -1,5 +1,5 @@
 from enum import Enum
-from lib.utils import *
+from lib.utils import get_text, get_reloc_addrs
 import json
 
 class LblTy(Enum):
@@ -80,97 +80,6 @@ class DataType:
         self.asm_idx = idx
         self.value = value
         self.r_type = r_type
-
-'''
-class Component:
-    #def __init__(self, terms=[], value=0, is_pcrel=False, reloc_sym=''):
-    def __init__(self, factors=None, is_pcrel=False):
-        self.factors = factors
-        if factors:
-            self.Terms = factors.terms
-            self.Value = factors.value
-            self.reloc_sym = factors.get_str()
-        else:
-            self.Terms = []
-            self.Value = 0
-            self.reloc_sym = ''
-        if is_pcrel:
-            self.Ty = CmptTy.PCREL
-        else:
-            numlbl = 0
-            has_got = False
-            for lbl in self.Terms:
-                if isinstance(lbl, Label):
-                    numlbl += 1
-                    if lbl.Ty == LblTy.GOTOFF:
-                        has_got = True
-            if has_got:
-                self.Ty = CmptTy.GOTOFF
-            elif numlbl >= 2: # XXX: check '-'?
-                self.Ty = CmptTy.OBJREL
-            elif numlbl == 1:
-                self.Ty = CmptTy.ABSOLUTE
-            else:
-                self.Ty = CmptTy.NONE
-
-    def get_type(self):
-        if self.Ty == CmptTy.ABSOLUTE:
-            if not self.is_composite(): return 1
-            return 2
-        elif self.Ty == CmptTy.PCREL:
-            if not self.is_composite(): return 3
-            return 4
-        elif self.Ty == CmptTy.GOTOFF:
-            if not self.is_composite(): return 5
-            return 6
-        elif self.Ty == CmptTy.OBJREL:
-            return 7
-        return 8
-
-    def is_ms(self):
-        return len(self.Terms) > 0
-
-    def is_composite(self):
-        return len(self.Terms) > 1
-
-    def get_labels(self):
-        if len(self.Terms) == 0:
-            return []
-        elif isinstance(self.Terms[-1], Label):
-            return self.Terms
-        else:
-            return self.Terms[:-1]
-
-    def __eq__(self, other):
-        if len(self.Terms) == len(other.Terms):
-            for i in range(len(self.Terms)):
-                if self.Terms[i] != other.Terms[i]:
-                    return False
-            return True
-        else:
-            return False
-
-    def to_json(self):
-        terms = []
-        for t in self.Terms:
-            terms.append('%s' % t)
-        value = self.Value
-        ty = cmptTyToStr(self.Ty)
-        j = {
-                'Terms': terms,
-                'Value': value,
-                'Type': ty
-                }
-        return j
-
-    def to_string(self):
-        ret = ''
-        for term in self.Terms:
-            if isinstance(term, Label):
-                ret += term.get_name()
-            else:
-                ret += '%s'%(hex(term))
-        return ret
 '''
 class Table:
     def __init__(self, name, addr, entries, entrySize):
@@ -178,6 +87,7 @@ class Table:
         self.Address = addr
         self.Entries = entries
         self.EntrySize = entrySize
+
 class Instr:
     def __init__(self, addr, components, path, asm=None):
         self.Address = addr
@@ -234,12 +144,12 @@ class Data:
         self.Path = path
         self.Line = line
         self.asm = asm
-
+'''
 class Program:
     def __init__(self, elf, cs):
         self.Instrs = {}
         self.Data = {}
-        self.Tables = {}
+        #self.Tables = {}
 
         text_base, text_data = get_text(elf)
 

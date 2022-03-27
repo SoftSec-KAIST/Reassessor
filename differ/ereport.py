@@ -6,6 +6,14 @@ from lib.asm_types import CmptTy
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
+def my_open(file_path, option='w'):
+     if 'w' in option:
+         dir_name = os.path.dirname(file_path)
+         if not os.path.exists(dir_name):
+             os.system("mkdir -p %s" % dir_name)
+     fd = open(file_path, option)
+     return fd
+
 class Record:
     def __init__(self, stype, etype, region):
         self.stype = stype      #1-8
