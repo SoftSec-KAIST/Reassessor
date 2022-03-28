@@ -241,10 +241,26 @@ class CompGen:
             factors = FactorList(tokens)
             if factors.has_label():
                 if self.ex_parser.is_imm:
-                    assert len(imm_list) == 1, 'Unexpected operand type'
+                    assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
                     imm = self.create_component(op_str, imm_list[0], insn)
                 else:
-                    assert len(disp_list) == 1, 'Unexpected operand type'
+                    if len(disp_list) == 0 and len(imm_list) == 1:
+                        # assembler might change RIP-relativea addressing to absolute addressing
+                        # movq ext_ncd_write_field_@GOTPCREL(%rip), %rdi
+                        #  ->  mov    $0x8c4340,%rdi
+                        if '(%rip)' in op_str:
+                            assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
+                            imm = self.create_component(op_str.split('(%rip)')[0], imm_list[0], insn)
+                            continue
+                        elif '@GOT(' in op_str:
+                            assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
+                            imm = self.create_component(op_str.split('(')[0], imm_list[0], insn)
+                            continue
+
+                    #if len(disp_list) != 1 or disp is not None:
+                    #    import pdb
+                    #    pdb.set_trace()
+                    assert len(disp_list) == 1 and disp is None, 'Unexpected operand type'
                     disp = self.create_component(op_str, disp_list[0], insn)
 
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
@@ -476,6 +492,7 @@ class FactorList:
             if '_GLOBAL_OFFSET_TABLE_' in label:
                 #addr = self.gotoff
                 addr = 0
+                label_type = LblTy.LABEL
             elif '@GOTOFF' in label:
                 addr = self.label_to_addr(label.split('@GOTOFF')[0])
                 label_type = LblTy.GOTOFF
