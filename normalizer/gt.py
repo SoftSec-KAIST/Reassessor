@@ -463,18 +463,94 @@ class NormalizeGT:
                     return True
         else:
             opcodes = [
-                ['sall', 'shll'],
-                ['shlq', 'salq'],
+                # Mnemonic Alias
+                ["call", "callw"],
+                ["call", "calll"],
+                ["call", "callq"],
+                ["cbw",  "cbtw"],
+                ["cwde", "cwtl"],
+                ["cwd",  "cwtd"],
+                ["cdq",  "cltd"],
+                ["cdqe", "cltq"],
+                ["cqo",  "cqto"],
+                ["lret", "lretw"],
+                ["lret", "lretl"],
+                ["leavel", "leave"],
+                ["leaveq", "leave"],
+                ["loopz",  "loope"],
+                ["loopnz", "loopne"],
+                ["popf",  "popfw"],
+                ["popf",  "popfl"],
+                ["popf",  "popfq"],
+                ["popfd", "popfl"],
+                ["pushf",  "pushfw"],
+                ["pushf",  "pushfl"],
+                ["pushf",  "pushfq"],
+                ["pushfd", "pushfl"],
+                ["pusha",  "pushaw"],
+                ["pusha",  "pushal"],
+                ["repe",  "rep"],
+                ["repz",  "rep"],
+                ["repnz", "repne"],
+                ["ret", "retw"],
+                ["ret", "retl"],
+                ["ret", "retq"],
+                ["salb", "shlb"],
+                ["salw", "shlw"],
+                ["sall", "shll"],
+                ["salq", "shlq"],
+                ["smovb", "movsb"],
+                ["smovw", "movsw"],
+                ["smovl", "movsl"],
+                ["smovq", "movsq"],
+                ["ud2a",  "ud2"],
+                ["verrw", "verr"],
+                ["sysret",  "sysretl"],
+                ["sysexit", "sysexitl"],
+                ["lgdt", "lgdtw"],
+                ["lgdt", "lgdtl"],
+                ["lgdt", "lgdtq"],
+                ["lidt", "lidtw"],
+                ["lidt", "lidtl"],
+                ["lidt", "lidtq"],
+                ["sgdt", "sgdtw"],
+                ["sgdt", "sgdtl"],
+                ["sgdt", "sgdtq"],
+                ["sidt", "sidtw"],
+                ["sidt", "sidtl"],
+                ["sidt", "sidtq"],
+                ["fcmovz",   "fcmove"],
+                ["fcmova",   "fcmovnbe"],
+                ["fcmovnae", "fcmovb"],
+                ["fcmovna",  "fcmovbe"],
+                ["fcmovae",  "fcmovnb"],
+                ["fcomip",   "fcompi"],
+                ["fildq",    "fildll"],
+                ["fistpq",   "fistpll"],
+                ["fisttpq",  "fisttpll"],
+                ["fldcww",   "fldcw"],
+                ["fnstcww",  "fnstcw"],
+                ["fnstsww",  "fnstsw"],
+                ["fucomip",  "fucompi"],
+                ["fwait",    "wait"],
+                ["fxsaveq",   "fxsave64"],
+                ["fxrstorq",  "fxrstor64"],
+                ["xsaveq",    "xsave64"],
+                ["xrstorq",   "xrstor64"],
+                ["xsaveoptq", "xsaveopt64"],
+                ["xrstorsq",  "xrstors64"],
+                ["xsavecq",   "xsavec64"],
+                ["xsavesq",   "xsaves64"],
+                # findings
                 ['shl', 'sal'],
-                ['shlb', 'salb'],
                 ['setae', 'setnb'],
+                ['setae', 'setnc'],
                 ['cmovael', 'cmovnb'],
-                ['shlw', 'salw'],
                 ['retq', 'rep ret'],
                 ['setb', 'setc'],
                 ['cmovbq', 'cmovc'],
-                ['setae', 'setnc'],
-                #["ret", "rep"], # retq == rep retn
+                ['retl', 'rep ret'],
+                # assembler optimization
                 ['leaq', 'movq'],
                 ['leal', 'movl'],
             ]
@@ -489,8 +565,6 @@ class NormalizeGT:
             capstone_bugs = [
                 ['movd', 'movq'],
                 ['cmovaeq', 'cmovnb'],
-                ['fildll', 'fildq'],
-                ['fucomip', 'fucompi'],
             ]
             for opcode in capstone_bugs:
                 if insn.mnemonic in opcode and asm.opcode in opcode:
@@ -727,19 +801,15 @@ class NormalizeGT:
             #This reloc data is added by linker
             if r_type in ['R_X86_64_COPY', 'R_X86_64_REX_GOTPCRELX']:
                 continue
-            elif r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT']:
-                #asm_line = r_type
-                #lbl = Label("L%X"%(value), LblTy.LABEL, value)
+            elif r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT', 'R_386_GLOB_DAT', 'R_386_JUMP_SLOT']:
                 label = 'L%x'%(value)
                 asm_line = '.long ' + label
             else:
                 directive = '.long'
                 if is_got:
                     value += self.got_addr
-                    #lbl = Label("L%x@GOTOFF"%(value), LblTy.GOTOFF, value)
                     label = 'L%x@GOTOFF'%(value)
                 else:
-                    #lbl = Label("L%x"%(value), LblTy.LABEL, value)
                     label = 'L%x'%(value)
                     if sz == 8: directive = '.quad'
 
@@ -747,13 +817,6 @@ class NormalizeGT:
 
             data = self.comp_gen.get_data(addr, '',  asm_line, 0, value, r_type = r_type)
             self.prog.Data[addr] = data
-            '''
-            component = self.comp_gen.get_data_components(label, value)
-
-            # If we already have addr, it means it should be a jump table
-            if addr not in self.prog.Data:
-                self.prog.Data[addr] = Data(addr, component, '', 0, asm_line)
-            '''
 
 import argparse
 if __name__ == '__main__':
