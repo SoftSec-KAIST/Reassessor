@@ -300,9 +300,10 @@ class CompGen:
 
         if value:
             if '@GOTOFF' in op_str:
-                value += self.got_addr
+                value = (value + self.got_addr) & 0xffffffff
             elif '_GLOBAL_OFFSET_TABLE_' in op_str:
                 #gotoff = self.got_addr - insn.address
+                value = self.got_addr
                 pass
             else:
                 if is_pcrel:
@@ -313,6 +314,10 @@ class CompGen:
             factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel = is_pcrel)
 
         if factors.has_label():
+            if len(factors.terms) == 3 and factors.terms[0].get_name() == 'GLOBAL_OFFSET_TABLE_':
+                factors.terms[0].Address = self.got_addr
+                factors.terms[1].Address = insn.address
+                factors.terms[2].Address = self.got_addr - value
             return factors
 
         return None
@@ -454,6 +459,8 @@ class FactorList:
                     return 2
                 else:
                     return 1
+        elif len(self.labels) == 3 and self.labels[0] == 'GLOBAL_OFFSET_TABLE_':
+            return 7
         return 8
 
     def has_label(self):
@@ -504,7 +511,9 @@ class FactorList:
                 label_type = LblTy.LABEL
 
             if addr == 0:
-                if len(self.labels) > 1:
+                if len(self.labels) == 3 and self.labels[0] == 'GLOBAL_OFFSET_TABLE_':
+                    pass
+                elif len(self.labels) > 1:
                     import pdb
                     pdb.set_trace()
                     raise SyntaxError('Unsolved label')
@@ -583,6 +592,10 @@ class ATTExParser(ExParser):
             return ''
         elif expr[0] == '%':
             return ''
+        elif expr.startswith('_GLOBAL_OFFSET_TABLE_+'):
+            # clang x86 pie
+            # $_GLOBAL_OFFSET_TABLE_+(.Ltmp266-.L15$pb)
+            expr = '%s+%s-%s'%(re.findall('^(.*)\+\((.*)-(.*)\)$', expr[1:])[0])
         elif re.search('.*\(.*\)', expr):
             if '%rip' in re.findall('.*\((.*)\)', expr)[0]:
                 self.has_rip = True
@@ -615,6 +628,9 @@ class ATTExParser(ExParser):
             if factor.op == '+':
                 return Factor('-', factor.data)
         elif self._is_next(r'[_.a-zA-Z0-9@]*'):
+            if self.line == '$pb':
+                self.current += self.line
+                self.line = ''
             return Factor('+', self.current)
 
 
