@@ -47,7 +47,8 @@ class Record:
         self.adata.append((address, self.region, self.etype, src_gt, src_tool, loc, gt_asm, tool_asm))
 
     def dump(self, out_file):
-        for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm) in self.adata:
+
+        for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm) in sorted(self.adata):
             print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, loc, file = out_file)
             if src_c:
                 print('\tGT:   %s'%(gt_asm), file=out_file)
