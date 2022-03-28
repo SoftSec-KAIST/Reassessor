@@ -119,7 +119,8 @@ def get_reloc(elf):
         if not isinstance(section, RelocationSection):
             continue
         if section.name.startswith(".rel") and \
-           (("data" in section.name) or section.name.endswith(".dyn")):
+           (("data" in section.name) or section.name.endswith(".dyn") or \
+            section.name.endswith('.init_array') or section.name.endswith('.fini_array') or section.name.endswith('.init')):
             for relocation in section.iter_relocations():
                 addr = relocation['r_offset']
                 t = describe_reloc_type(relocation['r_info_type'], elf)
@@ -152,10 +153,11 @@ def get_reloc_symbs(elf):
     return names
 
 class NormalizeGT:
-    def __init__(self, bin_path, asm_dir, work_dir='/data2/benchmark'):
+    def __init__(self, bin_path, asm_dir, reloc_file='', work_dir='/data2/benchmark'):
         self.bin_path = bin_path
         self.asm_dir = asm_dir
         self.work_dir = work_dir
+        self.reloc_file = reloc_file
         #self.ex_parser = ATTExParser()
 
         self.collect_loc_candidates()
@@ -168,7 +170,12 @@ class NormalizeGT:
         else:
             self.got_addr = self.elf.get_section_by_name('.got')['sh_addr']
 
-        self.relocs = get_reloc(self.elf)
+        if reloc_file:
+            with open(reloc_file, 'rb') as fp:
+                reloc_elf = ELFFile(fp)
+                self.relocs = get_reloc(reloc_elf)
+        else:
+            self.relocs = get_reloc(self.elf)
         self.symbs = get_reloc_symbs(self.elf)
 
         self.text = self.elf.get_section_by_name(".text")
@@ -718,7 +725,7 @@ class NormalizeGT:
             sz, is_got, r_type = self.relocs[addr]
             value = self.get_int(addr, sz)
             #This reloc data is added by linker
-            if r_type in ['R_X86_64_COPY']:
+            if r_type in ['R_X86_64_COPY', 'R_X86_64_REX_GOTPCRELX']:
                 continue
             elif r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT']:
                 #asm_line = r_type
@@ -754,9 +761,10 @@ if __name__ == '__main__':
     parser.add_argument('bin_path', type=str)
     parser.add_argument('asm_dir', type=str)
     parser.add_argument('save_file', type=str)
+    parser.add_argument('--reloc', type=str)
     args = parser.parse_args()
 
-    gt = NormalizeGT(args.bin_path, args.asm_dir)
+    gt = NormalizeGT(args.bin_path, args.asm_dir, args.reloc)
     gt.normalize_data()
 
     with open(args.save_file, 'wb') as f:

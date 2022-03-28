@@ -8,17 +8,19 @@ import multiprocessing
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
-BuildConf = namedtuple('BuildConf', ['bin', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'result'])
+BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 
 def job(conf, multi=True):
-    #create_gt(conf, multi)
+    create_gt(conf, multi)
 
     #create_retro(conf, multi)
-    diff_retro(conf)
+    #diff_retro(conf)
 
-    #create_ddisasm(conf, multi)
+    create_ddisasm(conf, multi)
     diff_ddisasm(conf)
 
+    create_ramblr(conf, multi)
+    diff_ramblr(conf)
 
 def print_conf(conf_list):
 
@@ -67,11 +69,12 @@ class RecCounter:
 
 
 class WorkBin:
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result', retro='/data3/1_reassessor/benchmark', ddisasm='/data3/1_reassessor/debug_dd'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result', retro='/data3/1_reassessor/benchmark', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/ramblr'):
         self.bench = bench
         self.out = out
         self.retro = retro
         self.ddisasm = ddisasm
+        self.ramblr = ramblr
 
     def get_retro(self, sub_dir, filename):
         return '%s/%s/retro_sym/%s.s'%(self.retro, sub_dir, filename)
@@ -79,34 +82,58 @@ class WorkBin:
     def get_ddisasm(self, sub_dir, filename):
         return '%s/%s/ddisasm/%s.s'%(self.ddisasm, sub_dir, filename)
 
-    def get_tuple(self, sub_dir):
+    def get_ramblr(self, sub_dir, filename):
+        return '%s/%s/ramblr/%s.s'%(self.ramblr, sub_dir, filename)
+
+    def get_tuple(self, sub_dir, arch, pie_opt):
         ret = []
         #print('%s/%s/bin/*'%(self.bench, sub_dir))
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
             filename = os.path.basename(binary)
+            if pie_opt in ['nopie']:
+                reloc = '%s/%s/reloc/%s'%(self.bench, sub_dir, filename)
+            else:
+                reloc = ''
 
             gt_asm = '%s/%s/asm/%s'%(self.bench, sub_dir, filename)
             strip = '%s/stripbin/%s'%(self.bench, filename)
             retro_asm = self.get_retro(sub_dir, filename)
             ddisasm_asm = self.get_ddisasm(sub_dir, filename)
+            ramblr_asm = self.get_ramblr(sub_dir, filename)
+
 
             gt_out = '%s/%s/%s/pickle/gt.dat'%(self.out, sub_dir, filename)
             retro_out = '%s/%s/%s/pickle/retro.dat'%(self.out, sub_dir, filename)
             ddisasm_out = '%s/%s/%s/pickle/ddisasm.dat'%(self.out, sub_dir, filename)
+            ramblr_out = '%s/%s/%s/pickle/ramblr.dat'%(self.out, sub_dir, filename)
+
+            if pie_opt in ['pie']:
+                ramblr_asm = ''
+                ramblr_out = ''
+            elif pie_opt in ['nopie'] or arch in ['x86']:
+                retro_asm = ''
+                retro_out = ''
 
             result = '%s/%s/%s'%(self.out, sub_dir, filename)
 
-            ret.append(BuildConf(binary, gt_asm, strip, gt_out, retro_asm, retro_out, ddisasm_asm, ddisasm_out, result))
+            ret.append(BuildConf(binary, reloc, gt_asm, strip, gt_out, retro_asm, retro_out, ddisasm_asm, ddisasm_out, ramblr_asm, ramblr_out, result))
             #print(BuildConf(binary, gt_asm, strip, gt_out, retro_asm, retro_out, ddisasm_asm, ddisasm_out))
 
         return ret
 
 
 def diff_retro(conf):
-    diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result)
+    if conf.retr_out:
+        diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result)
 
 def diff_ddisasm(conf):
-    diff('ddisasm', conf.bin, conf.gt_out, conf.ddisasm_out, conf.result)
+    if conf.ddisasm_out:
+        diff('ddisasm', conf.bin, conf.gt_out, conf.ddisasm_out, conf.result)
+
+def diff_ramblr(conf):
+    if conf.ramblr_out:
+        diff('ramblr', conf.bin, conf.gt_out, conf.ramblr_out, conf.result)
+
 
 def diff(tool_name, binfile, gt_out, tool_out, result):
     if not os.path.exists(tool_out):
@@ -129,30 +156,38 @@ def diff(tool_name, binfile, gt_out, tool_out, result):
 
 
 def create_gt(conf, multi):
-    create_db('gt',     conf.bin, conf.gt_asm, conf.gt_out, multi)
+    create_db('gt',     conf.bin, conf.gt_asm, conf.gt_out, multi, conf.reloc)
 
 def create_retro(conf, multi):
-    create_db('retro',  conf.bin, conf.retro_asm, conf.retro_out, multi)
+    if conf.retro_asm:
+        create_db('retro',  conf.bin, conf.retro_asm, conf.retro_out, multi)
 
 def create_ddisasm(conf, multi):
-    create_db('ddisasm',  conf.bin, conf.ddisasm_asm, conf.ddisasm_out, multi)
+    if conf.ddisasm_asm:
+        create_db('ddisasm',  conf.bin, conf.ddisasm_asm, conf.ddisasm_out, multi)
 
+def create_ramblr(conf, multi):
+    if conf.ramblr_asm:
+        create_db('ramblr',  conf.bin, conf.ramblr_asm, conf.ramblr_out, multi)
 
-def create_db(tool_name, bin_file, assem, output, multi=True):
+def create_db(tool_name, bin_file, assem, output, multi=True, reloc=''):
     #if os.path.exists(output):
     #    return
-
+    option = ''
     if tool_name != 'gt':
         if not os.path.exists(assem):
             return
         if os.path.getsize(assem) == 0:
             return
+    elif tool_name == 'gt' and reloc:
+        option = '--reloc %s'%(reloc)
+
 
     if not multi:
-        print('python3 -m normalizer.%s %s %s %s'%(tool_name, bin_file, assem, output))
+        print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
 
     os.system('mkdir -p %s'%(os.path.dirname(output)))
-    os.system('python3 -m normalizer.%s %s %s %s'%(tool_name, bin_file, assem, output))
+    os.system('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
 
 
 class Manager:
@@ -172,7 +207,7 @@ class Manager:
             for arch in ['x64']:
                 #for comp in ['gcc']:
                 for comp in ['clang', 'gcc']:
-                    for popt in ['pie']:
+                    for popt in ['nopie']:
                         #for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
                         #for opt in ['ofast']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
@@ -180,7 +215,7 @@ class Manager:
                             for lopt in ['bfd', 'gold']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
-                                ret.extend(gen.get_tuple(sub_dir))
+                                ret.extend(gen.get_tuple(sub_dir, arch, popt))
         return ret
 
 
@@ -207,7 +242,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     mgr = Manager(args.core)
-    #mgr.run()
+    mgr.run()
 
-    mgr.report('retro_sym')
-    mgr.report('ddisasm')
+    #mgr.report('retro_sym')
+    #mgr.report('ddisasm')

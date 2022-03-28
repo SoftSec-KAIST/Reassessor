@@ -1,7 +1,7 @@
 import re
 import capstone
 
-from lib.parser import DATA_DIRECTIVE, SKIP_DIRECTIVE
+from lib.parser import ReasmLabel, DATA_DIRECTIVE, SKIP_DIRECTIVE
 from normalizer.tool_base import NormalizeTool
 
 
@@ -18,6 +18,7 @@ def ramblr_mapper(reassem_path, tokenizer):
     result = []
     addr = -1
     is_linker_gen = False
+    visited_addr = set()
     with open(reassem_path) as f:
         for idx, line in enumerate(f):
             line = line.strip()
@@ -47,7 +48,7 @@ def ramblr_mapper(reassem_path, tokenizer):
                 continue
 
             if re.search('^.*:$', terms[0]):
-                xaddr = ramblr_label_to_addr(terms[:-1])
+                xaddr = ramblr_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
                 elif addr > 0:
@@ -64,6 +65,10 @@ def ramblr_mapper(reassem_path, tokenizer):
                         result.append(tokenizer.parse_data(terms[0] + ' ' + expr, addr, idx+1))
                 addr += get_data_size(line)
             else:
+                # ramblr sometimes creates duplicated code
+                if addr in visited_addr:
+                    continue
+                visited_addr.add(addr)
                 asm_line = ' '.join(terms)
                 result.append(tokenizer.parse(asm_line, addr, idx+1))
                 addr = -1
