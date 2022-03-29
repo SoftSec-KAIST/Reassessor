@@ -444,7 +444,7 @@ class FactorList:
         if len(self.labels) == 2:
             return 7
         elif len(self.labels) == 1:
-            if '@GOTOFF' in self.labels[0]:
+            if '@GOTOFF' in self.labels[0] or '@GOT' in self.labels[0]:
                 if self.is_composite():
                     return 6
                 else:
@@ -646,8 +646,12 @@ class IntelExParser(ExParser):
             self.is_imm = True
         elif re.search ('.* PTR FS:.*', expr):
             return ''
+        elif re.search ('.* PTR ES:.*', expr):
+            return ''
         elif re.match ('ST\(.*\)', expr):
             return ''
+        elif re.search('^\[.*\]$', expr):
+            expr = re.findall('^\[(.*)\]$', expr)[0]
         return expr
 
     def _exp(self):

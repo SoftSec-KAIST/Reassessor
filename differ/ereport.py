@@ -137,7 +137,6 @@ class Report:
         self.ins_len = len(ins_addrs)
 
         for addr in ins_addrs:
-
             ins_c = self.prog_c.Instrs[addr]
             ins_r = prog_r.Instrs[addr]
 
@@ -168,8 +167,8 @@ class Report:
     def check_ins(self, ins_c, ins_r):
         self.gt += 1
 
-        if ins_c.imm and ins_c.imm:
-            if ins_c.imm.type == ins_c.imm.type:
+        if ins_c.imm and ins_r.imm:
+            if ins_c.imm.type == ins_r.imm.type:
                 self.rec[ins_c.imm.type].tp += 1
             else:
                 self.rec[ins_c.imm.type].fp.ins.add(ins_c, ins_r, 'imm')
@@ -179,8 +178,8 @@ class Report:
             self.rec[8].fp.ins.add(ins_c, ins_r, 'imm')
 
 
-        if ins_c.disp and ins_c.disp:
-            if ins_c.disp.type == ins_c.disp.type:
+        if ins_c.disp and ins_r.disp:
+            if ins_c.disp.type == ins_r.disp.type:
                 self.rec[ins_c.disp.type].tp += 1
             else:
                 self.rec[ins_c.disp.type].fp.ins.add(ins_c, ins_r, 'disp')
