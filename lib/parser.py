@@ -314,7 +314,7 @@ class CompGen:
             factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel = is_pcrel)
 
         if factors.has_label():
-            if len(factors.terms) == 3 and factors.terms[0].get_name() == 'GLOBAL_OFFSET_TABLE_':
+            if len(factors.terms) == 3 and factors.terms[0].get_name() == '_GLOBAL_OFFSET_TABLE_':
                 factors.terms[0].Address = self.got_addr
                 factors.terms[1].Address = insn.address
                 factors.terms[2].Address = self.got_addr - value
@@ -431,7 +431,8 @@ class FactorList:
                 self.num += eval(factor.get_str())
             else:
                 self.labels.append(factor.get_str())
-        if len(self.labels) == 2:
+        # exclude ddisasm bugs
+        if len(self.labels) == 2 and self.labels[-1] not in ['-_GLOBAL_OFFSET_TABLE_']:
             self.terms = self.get_table_terms()
         elif self.has_label():
             self.terms = self.get_terms()
@@ -459,7 +460,7 @@ class FactorList:
                     return 2
                 else:
                     return 1
-        elif len(self.labels) == 3 and self.labels[0] == 'GLOBAL_OFFSET_TABLE_':
+        elif len(self.labels) == 3 and '_GLOBAL_OFFSET_TABLE_' in self.labels[0]:
             return 7
         return 8
 
@@ -511,7 +512,10 @@ class FactorList:
                 label_type = LblTy.LABEL
 
             if addr == 0:
-                if len(self.labels) == 3 and self.labels[0] == 'GLOBAL_OFFSET_TABLE_':
+                if len(self.labels) == 3 and '_GLOBAL_OFFSET_TABLE_' in self.labels[0]:
+                    pass
+                # handle ddisasm bugs
+                elif len(self.labels) == 2 and self.labels[-1] == '-_GLOBAL_OFFSET_TABLE_':
                     pass
                 elif len(self.labels) > 1:
                     import pdb
@@ -528,6 +532,9 @@ class FactorList:
     def get_table_terms(self):
         base_label = self.labels[1][1:]
         base_addr = self.label_to_addr(base_label)
+        if base_addr <= 0:
+            import pdb
+            pdb.set_trace()
         assert base_addr > 0, 'This is incorrect jump table base'
 
         addr1 = (self.value + base_addr ) & 0xffffffff
@@ -595,7 +602,7 @@ class ATTExParser(ExParser):
         elif expr.startswith('_GLOBAL_OFFSET_TABLE_+'):
             # clang x86 pie
             # $_GLOBAL_OFFSET_TABLE_+(.Ltmp266-.L15$pb)
-            expr = '%s+%s-%s'%(re.findall('^(.*)\+\((.*)-(.*)\)$', expr[1:])[0])
+            expr = '%s+%s-%s'%(re.findall('^(.*)\+\((.*)-(.*)\)$', expr)[0])
         elif re.search('.*\(.*\)', expr):
             if '%rip' in re.findall('.*\((.*)\)', expr)[0]:
                 self.has_rip = True
@@ -644,9 +651,11 @@ class IntelExParser(ExParser):
         elif re.search('OFFSET .*', expr):
             expr = re.findall('OFFSET (.*)', expr)[0]
             self.is_imm = True
+        elif re.search ('.* PTR ES:.*', expr):
+            return ''
         elif re.search ('.* PTR FS:.*', expr):
             return ''
-        elif re.search ('.* PTR ES:.*', expr):
+        elif re.search ('.* PTR GS:.*', expr):
             return ''
         elif re.match ('ST\(.*\)', expr):
             return ''
@@ -665,6 +674,15 @@ class IntelExParser(ExParser):
             factor = self._term()
             if factor.data:
                 result.append(Factor(op, factor.data))
+
+        if result and re.search('^[0-9]*@GOTOFF', result[-1].data):
+            # [EBX+_ZN4Data5SetUpINS_12Exercise_2_3ILi3EEELi3EE15right_hand_sideE+12@GOTOFF]
+            #import pdb
+            #pdb.set_trace()
+            for factor in result[:-1]:
+                if factor.data and not factor.data.isdigit():
+                    factor.data += '@GOTOFF'
+            result[-1].data = result[-1].data.split('@')[0]
 
         return result
 

@@ -13,14 +13,14 @@ BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out'
 def job(conf, multi=True):
     create_gt(conf, multi)
 
-    #create_retro(conf, multi)
+    create_retro(conf, multi)
     #diff_retro(conf)
 
     create_ddisasm(conf, multi)
-    diff_ddisasm(conf)
+    #diff_ddisasm(conf)
 
     create_ramblr(conf, multi)
-    diff_ramblr(conf)
+    #diff_ramblr(conf)
 
 def print_conf(conf_list):
 
@@ -40,14 +40,20 @@ class RecCounter:
             self.board.append({'tp':0, 'fp':0, 'fn':0})
 
         self.error = 0
+        self.success = 0
         self.tot_gt = 0
 
-    def add(self, pickle_path):
+        self.disasm_tp = 0
+        self.disasm_fp = 0
+        self.disasm_fn = 0
+
+    def add(self, pickle_path, disasm_path):
         if not os.path.exists(pickle_path):
             self.error += 1
             return
 
         with open(pickle_path , 'rb') as fp:
+            self.success += 1
             rec = pickle.load(fp)
 
 
@@ -57,6 +63,13 @@ class RecCounter:
                 self.board[stype]['fn'] += rec.record[stype].fn.length()
 
             self.tot_gt += rec.gt
+
+        with open(disasm_path) as fp:
+            data = fp.readline()
+            disasm_tp, disasm_fp, disasm_fn = data.strip().split(',')
+            self.disasm_tp += int(disasm_tp)
+            self.disasm_fp += int(disasm_fp)
+            self.disasm_fn += int(disasm_fn)
 
 
     def report(self):
@@ -123,14 +136,20 @@ class WorkBin:
 
 
 def diff_retro(conf):
-    if conf.retr_out:
+    if not conf.retro_asm or not os.path.exists(conf.retro_asm):
+        return
+    if conf.retro_out:
         diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result)
 
 def diff_ddisasm(conf):
+    if not conf.ddisasm_asm or not os.path.exists(conf.ddisasm_asm):
+        return
     if conf.ddisasm_out:
         diff('ddisasm', conf.bin, conf.gt_out, conf.ddisasm_out, conf.result)
 
 def diff_ramblr(conf):
+    if not conf.ramblr_asm or not os.path.exists(conf.ramblr_asm):
+        return
     if conf.ramblr_out:
         diff('ramblr', conf.bin, conf.gt_out, conf.ramblr_out, conf.result)
 
@@ -146,8 +165,8 @@ def diff(tool_name, binfile, gt_out, tool_out, result):
     else:
         pickle_path = result + '/error_pickle/' + tool_name
 
-    #if os.path.exists(pickle_path):
-    #    return
+    if os.path.exists(pickle_path):
+        return
 
     os.system('mkdir -p %s'%(os.path.dirname(result)))
     print('python3 -m differ.diff %s %s %s --%s %s'%(binfile, gt_out, result, tool_name, tool_out))
@@ -171,8 +190,8 @@ def create_ramblr(conf, multi):
         create_db('ramblr',  conf.bin, conf.ramblr_asm, conf.ramblr_out, multi)
 
 def create_db(tool_name, bin_file, assem, output, multi=True, reloc=''):
-    #if os.path.exists(output):
-    #    return
+    if os.path.exists(output):
+        return
     option = ''
     if tool_name != 'gt':
         if not os.path.exists(assem):
@@ -204,10 +223,11 @@ class Manager:
         ret = []
         gen = WorkBin()
         for pack in ['spec_cpu2006']:
-            for arch in ['x64']:
+            #for arch in ['x86']:
+            for arch in ['x86', 'x64']:
                 #for comp in ['gcc']:
                 for comp in ['clang', 'gcc']:
-                    for popt in ['nopie']:
+                    for popt in ['pie', 'nopie']:
                         #for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
                         #for opt in ['ofast']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
@@ -227,13 +247,38 @@ class Manager:
             for conf in self.conf_list:
                 job(conf, self.multi)
 
-    def report(self, tool):
+    def merge(self, tool):
         counter = RecCounter()
 
         for conf in self.conf_list:
-            counter.add(conf.result+'/error_pickle/' + tool)
+            pickle = conf.result+'/error_pickle/' + tool
+            disasm = conf.result+'/disasm_diff/' + tool
+            counter.add(pickle, disasm)
 
-        counter.report()
+        #counter.report()
+        return counter
+
+    def report(self):
+        #---------------------------------------------
+        retro = self.merge('retro_sym')
+        ddisasm = self.merge('ddisasm')
+        ramblr = self.merge('ramblr')
+
+        print('                   %12s  %12s  %12s'%('Ramblr', 'RetroWrite', 'Ddisasm'))
+        print('-' * 60 )
+        print('# of Bins          %12d  %12d  %12d'%(ramblr.success, retro.success, ddisasm.success))
+        print('-' * 60 )
+
+        for stype in range(1, 9):
+            print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
+            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
+            print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
+            print('-' * 60 )
+
+        print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.disasm_tp, retro.disasm_tp, ddisasm.disasm_tp))
+        print('%7s  # of FPs  %12d  %12d  %12d'%('Disasm',ramblr.disasm_fp, retro.disasm_fp, ddisasm.disasm_fp))
+        print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.disasm_fn, retro.disasm_fn, ddisasm.disasm_fn))
+        print('-' * 60 )
 
 import argparse
 if __name__ == '__main__':
@@ -242,7 +287,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     mgr = Manager(args.core)
-    mgr.run()
+    #mgr.run()
 
-    #mgr.report('retro_sym')
-    #mgr.report('ddisasm')
+    mgr.report()
+
