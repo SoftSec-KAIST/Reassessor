@@ -543,12 +543,9 @@ class NormalizeGT:
                 ["xsavesq",   "xsaves64"],
                 # findings
                 ['shl', 'sal'],
-                ['setae', 'setnb'],
-                ['setae', 'setnc'],
                 ['cmovael', 'cmovnb'],
-                ['retq', 'rep ret'],
-                ['setb', 'setc'],
                 ['cmovbq', 'cmovc'],
+                ['retq', 'rep ret'],
                 ['retl', 'rep ret'],
                 # assembler optimization
                 ['leaq', 'movq'],
@@ -558,6 +555,9 @@ class NormalizeGT:
                 if insn.mnemonic in opcode and asm.opcode in opcode:
                     return True
 
+            if self.check_suffix(insn.mnemonic, asm.opcode):
+                return True
+
             if insn.mnemonic in ['addq'] and asm.opcode in ['subq']:
                 if asm.operand_list[0].startswith('$-'):
                     return True
@@ -565,11 +565,39 @@ class NormalizeGT:
             capstone_bugs = [
                 ['movd', 'movq'],
                 ['cmovaeq', 'cmovnb'],
+                ['cmovaew', 'cmovnb'],
+                ['cmovbl', 'cmovc'],
             ]
             for opcode in capstone_bugs:
                 if insn.mnemonic in opcode and asm.opcode in opcode:
                     return True
 
+        return False
+
+    def check_suffix(self, opcode1, opcode2):
+        suffix_list = [('(.*)c$','(.*)b$'),      #setc   -> setb
+            ('(.*)z$','(.*)e$'),       #setz   -> sete
+            ('(.*)na$','(.*)be$'),     #setna  -> setbe
+            ('(.*)nb$','(.*)ae$'),     #setnb  -> setae
+            ('(.*)nc$','(.*)ae$'),     #setnc  -> setae
+            ('(.*)ng$','(.*)le$'),     #setng  -> setle
+            ('(.*)nl$','(.*)ge$'),     #setnl  -> setge
+            ('(.*)nz$','(.*)ne$'),     #setnl  -> setge
+            ('(.*)pe$','(.*)p$'),      #setpe  -> setp
+            ('(.*)po$','(.*)np$'),     #setpo  -> setnp
+            ('(.*)nae$','(.*)b$'),     #setnae -> setb
+            ('(.*)nbe$','(.*)a$'),     #setnbe -> seta
+            ('(.*)nge$','(.*)l$'),     #setnbe -> seta
+            ('(.*)nle$','(.*)g$')]     #setnle -> setg
+        for (suff1, suff2) in suffix_list:
+            rex = suff1+'|'+suff2
+            if re.search(rex, opcode1) and re.search(rex,opcode2):
+                if re.search(suff1, opcode1): tmp1 = re.findall(suff1, opcode1)[0]
+                else: tmp1 = re.findall(suff2, opcode1)[0]
+                if re.search(suff1, opcode2): tmp2 = re.findall(suff1, opcode2)[0]
+                else: tmp2 = re.findall(suff2, opcode2)[0]
+                if tmp1 == tmp2:
+                    return True
         return False
 
     def assem_addr_map(self, func_code, asm_token_list, candidate_len, debug=False):
