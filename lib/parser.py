@@ -35,6 +35,10 @@ class AsmTokenizer:
         elif opcode.startswith('rep'):
             opcode = ' '.join(terms[:2])
             op_str = ' '.join(terms[2:])
+        elif opcode in ['lock', 'bnd']:
+            #ddisasm disassembl error
+            opcode = ' '.join(terms[:2])
+            op_str = ' '.join(terms[2:])
         else:
             op_str = ' '.join(terms[1:])
 
@@ -92,6 +96,10 @@ def parse_intel_asm_line(line):
         arg1 = ''
         return ['nop', []]
     elif prev.split()[0] in ['rep', 'repe', 'repz', 'repne', 'repnz']:
+        opcode = ' '.join(prev.split()[:2])
+        arg1 = ' '.join(prev.split()[2:])
+    elif prev.split()[0] in ['lock']:
+        #ddisasm disassembl error
         opcode = ' '.join(prev.split()[:2])
         arg1 = ' '.join(prev.split()[2:])
     else:
@@ -599,6 +607,10 @@ class ATTExParser(ExParser):
             return ''
         elif expr[0] == '%':
             return ''
+        elif ':$' in expr:
+            #handle ramblr diassem errors.
+            # ljmpl $0x32dc:$0x3d80ffff
+            return ''
         elif expr.startswith('_GLOBAL_OFFSET_TABLE_+'):
             # clang x86 pie
             # $_GLOBAL_OFFSET_TABLE_+(.Ltmp266-.L15$pb)
@@ -648,19 +660,18 @@ class IntelExParser(ExParser):
     def _strip(self, expr):
         if re.search('.* PTR \[.*\]', expr):
             expr = re.findall('.* PTR \[(.*)\]', expr)[0]
-        elif re.search('OFFSET .*', expr):
-            expr = re.findall('OFFSET (.*)', expr)[0]
-            self.is_imm = True
-        elif re.search ('.* PTR ES:.*', expr):
-            return ''
-        elif re.search ('.* PTR FS:.*', expr):
-            return ''
-        elif re.search ('.* PTR GS:.*', expr):
+        elif re.search ('.* PTR .S:.*', expr):
             return ''
         elif re.match ('ST\(.*\)', expr):
             return ''
         elif re.search('^\[.*\]$', expr):
             expr = re.findall('^\[(.*)\]$', expr)[0]
+
+        # add BYTE PTR [OFFSET _GLOBAL_OFFSET_TABLE_]
+        if re.search('OFFSET .*', expr):
+            expr = re.findall('OFFSET (.*)', expr)[0]
+            self.is_imm = True
+
         return expr
 
     def _exp(self):
