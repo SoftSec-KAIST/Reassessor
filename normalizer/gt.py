@@ -567,6 +567,8 @@ class NormalizeGT:
                 ['cmovaeq', 'cmovnb'],
                 ['cmovaew', 'cmovnb'],
                 ['cmovbl', 'cmovc'],
+                ['cmovael', 'cmovnc'],
+                ['cmovaeq', 'cmovnc'],
             ]
             for opcode in capstone_bugs:
                 if insn.mnemonic in opcode and asm.opcode in opcode:
@@ -639,7 +641,8 @@ class NormalizeGT:
 
                     if new_dwarf_set2 - new_dwarf_set1:
                         if debug:
-                            pdb.set_trace()
+                            #pdb.set_trace()
+                            pass
                         #if 0 == len(addressed_asm_list) and 0 == len(dwarf_set2 - dwarf_set1):
                         #    pass
                         #else:
@@ -650,9 +653,15 @@ class NormalizeGT:
                 if self.is_semantically_nop(bin_asm):
                     addressed_asm_list.append((bin_asm.address, bin_asm, ''))
                     continue
-                if debug:
-                    pdb.set_trace()
-                return []
+                elif debug:
+                    # some debug info might be omitted
+                    # pdb.set_trace()
+                    while isinstance(asm_token, LocInfo):
+                        idx += 1
+                        asm_token = asm_token_list[idx]
+                    pass
+                else:
+                    return []
 
             if self.is_semantically_nop(bin_asm):
                 #.align might cause nop code
@@ -711,11 +720,15 @@ class NormalizeGT:
 
 
         if not ret:
-            import pdb
-            pdb.set_trace()
+            # debug info might be omitted.
+            # we give some exception to assembly matching.
             for asm_file in candidate_list:
                 addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len, True)
-            assert False, 'No matched assembly code'
+
+                if addressed_asm_list:
+                    ret.append((asm_file, addressed_asm_list))
+
+            assert len(ret) == 1, 'No matched assembly code'
 
 
         asm_file, addressed_asm_list = ret[0]
