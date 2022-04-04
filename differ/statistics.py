@@ -85,8 +85,18 @@ class Statistics:
         addrs_r = set(prog_r.Instrs.keys())
 
         tp = addrs_c.intersection(addrs_r)
-        fp = addrs_r - addrs_c - self.prog_c.unknown_region
-        fn = addrs_c - addrs_r
+        fp = addrs_r - addrs_c - self.prog_c.unknown_region - self.prog_c.aligned_region
+        fn = addrs_c - addrs_r - self.prog_c.unknown_region - self.prog_c.aligned_region
+
+        #exclude nop region
+        nop_region = set()
+        for addr in fn:
+            if not self.prog_c.Instrs[addr].asm_line:
+                nop_region.add(addr)
+            elif self.prog_c.Instrs[addr].asm_line.startswith('nop'):
+                nop_region.add(addr)
+
+        fn = fn - nop_region
 
         self.disasm[0] += len(tp)
         self.disasm[1] += len(fp)

@@ -80,71 +80,7 @@ class DataType:
         self.asm_idx = idx
         self.value = value
         self.r_type = r_type
-'''
-class Table:
-    def __init__(self, name, addr, entries, entrySize):
-        self.Name = name
-        self.Address = addr
-        self.Entries = entries
-        self.EntrySize = entrySize
 
-class Instr:
-    def __init__(self, addr, components, path, asm=None):
-        self.Address = addr
-        self.Components = components
-        self.Path = path
-        if asm:
-            self.Line = asm.idx
-            self.asm = asm.opcode + ' ' + ' '.join(asm.operand_list)
-        else:
-            self.Line = 0
-            self.asm = 'nop'
-
-    def get_components(self):
-        res = []
-        for idx, component in enumerate(self.Components):
-            if component.is_ms():
-                res.append(idx)
-        return res
-
-    # FIXME
-    def get_operand_type(self, idx):
-        return self.Operands[idx].get_type()
-
-    # FIXME
-    def get_operand_label(self, idx):
-        assert self.Operands[idx].get_label()
-
-    # FIXME
-    def get_operand_value(self, idx):
-        return self.Operands[idx].get_label().get_value()
-
-    def get_type_str(self, opty):
-        if opty == LblTy.GOTOFF:
-            return "GOTOFF"
-        else:
-            return "LABEL"
-
-    def print_operands(self):
-        s = ''
-        for operand in self.Operands:
-            ty = operand.get_type()
-            s += "%s " % self.get_type_str(ty)
-        return s
-
-    def __str__(self):
-        s = ''
-        s += "%x " % self.Address
-        s += self.print_operands()
-        return s
-class Data:
-    def __init__(self, addr, component, path, line, asm):
-        self.Address = addr
-        self.Component = component
-        self.Path = path
-        self.Line = line
-        self.asm = asm
-'''
 class Program:
     def __init__(self, elf, cs):
         self.Instrs = {}
@@ -165,6 +101,7 @@ class Program:
             self.sections.append((sec_addr, sec_size, sec_name))
 
         self.unknown_region = set()
+        self.aligned_region = set()
 
     def get_section(self, addr):
         for section in self.sections:

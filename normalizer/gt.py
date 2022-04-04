@@ -386,16 +386,20 @@ class NormalizeGT:
             func_summary = FuncInst(addressed_asm_list, func_info, asm_file.file_path)
             self.bin2src_dict[faddress] = func_summary
 
-            for addr, capstone_insn, asm_token in addressed_asm_list:
+            prev_opcode = ''
+            for idx, (addr, capstone_insn, asm_token) in enumerate(addressed_asm_list):
 
-                #nop code might has no relevant assembly code
                 if not asm_token:
-                    #components = [Component()]
-                    #self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path)
+                    # nop code might has no relevant assembly code
+                    if prev_opcode in ['jmp', 'jmpq', 'jmpl', 'call', 'callq', 'calll', 'ret', 'retq', 'retl', 'halt', 'ud2']:
+                        next_addr, _, _ = addressed_asm_list[idx+1]
+                        self.prog.aligned_region.update([item for item in range(addr, next_addr)])
+
                     self.prog.Instrs[addr] = InstType(addr, asm_file.file_path)
                     continue
 
-                #self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm_token)
+                prev_opcode = capstone_insn.mnemonic
+
                 instr = self.comp_gen.get_instr(addr, asm_file.file_path, asm_token, capstone_insn)
                 self.prog.Instrs[addr] = instr
 
@@ -405,17 +409,6 @@ class NormalizeGT:
                 if instr.disp and instr.disp.has_label():
                     self.update_labels(func_summary, instr.disp,  asm_file)
 
-                '''
-                for comp in components:
-                    if comp.factors and comp.factors.has_label():
-                        self.update_labels(func_summary, comp.factors, asm_file)
-
-                    lbls = comp.get_labels()
-                    if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
-                        com.Value += self.got_address
-                '''
-                #add to Instrs
-                #self.prog.Instrs[addr] = Instr(addr, components, asm_file.file_path, asm_token)
 
 
         text_end = self.text.data_size + self.text_base
@@ -677,7 +670,8 @@ class NormalizeGT:
             else:
                 if candidate_len > 1:
                     if debug:
-                        pdb.set_trace()
+                        pass
+                        #pdb.set_trace()
                     return []
                 print(bin_asm)
                 print('%s %s'%(asm_token.opcode, ' '.join(asm_token.operand_list)))
@@ -709,6 +703,19 @@ class NormalizeGT:
         candidate_list = self.get_assem_file(fname)
         candidate_len = len(candidate_list)
         for asm_file in candidate_list:
+            if os.path.basename(asm_file.file_path) in ['src_sha224sum-md5sum.s']:
+                if os.path.basename(self.bin_path) in ['sha512sum', 'sha256sum', 'sha384sum']:
+                    continue
+            if os.path.basename(asm_file.file_path) in ['src_sha256sum-md5sum.s']:
+                if os.path.basename(self.bin_path) in ['sha512sum', 'sha224sum', 'sha384sum']:
+                    continue
+            if os.path.basename(asm_file.file_path) in ['src_sha384sum-md5sum.s']:
+                if os.path.basename(self.bin_path) in ['sha512sum', 'sha224sum', 'sha256sum']:
+                    continue
+            if os.path.basename(asm_file.file_path) in ['src_sha512sum-md5sum.s']:
+                if os.path.basename(self.bin_path) in ['sha224sum', 'sha256sum', 'sha384sum']:
+                    continue
+
 
             #asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
             #addressed_asm_list = self.assem_addr_map(func_code, asm_inst_list, candidate_len)
