@@ -33,11 +33,10 @@ class Manager:
 
     def gen_option(self, work_dir):
         ret = []
-        for pack in ['spec_cpu2006']:
-            for arch in ['x64']:
+        for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+            for arch in ['x64', 'x86']:
                 for comp in ['clang', 'gcc']:
-                    for popt in ['pie']:
-                        #for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
+                    for popt in ['nopie', 'pie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
                             for lopt in ['bfd', 'gold']:
 
