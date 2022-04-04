@@ -189,7 +189,7 @@ class Report:
             self.rec[8].fp.ins.add(ins_c, ins_r, 'disp')
 
 
-    def pickle(self, file_path):
+    def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
             data = ERec(self.rec, self.gt)
             pickle.dump(data, fd)

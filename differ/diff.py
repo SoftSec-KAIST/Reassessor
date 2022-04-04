@@ -8,9 +8,7 @@ from differ.statistics import Statistics
 from differ.ereport import Report
 
 
-def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
-    #bin_name = os.path.basename(bin_path)
-    #save_dir = os.path.join(save_dir, bin_name)
+def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True, disasm_check=True):
 
     out_dir = os.path.join(save_dir, 'error_ascii')
     pr_dir = os.path.join(save_dir, 'error_score')
@@ -20,7 +18,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
     disasm_dir = os.path.join(save_dir, 'disasm_diff')
     type_dir = os.path.join(save_dir, 'sym_dist')
     #err_dir = os.path.join(save_dir, 'error')
-
 
 
     # Load GT
@@ -39,23 +36,23 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir):
         pickle_tool_f = open(pickle_tool_path, 'rb')
         prog_r = pickle.load(pickle_tool_f)
 
-        out_file_path = '%s/%s'%(out_dir, tool)
-        pr_file_path = '%s/%s'%(pr_dir, tool)
-        json_file_path = '%s/%s'%(json_dir, tool)
-        pickle_file_path = '%s/%s'%(pickle_dir, tool)
+        if error_check:
+            out_file_path = '%s/%s'%(out_dir, tool)
+            pr_file_path = '%s/%s'%(pr_dir, tool)
+            json_file_path = '%s/%s'%(json_dir, tool)
+            pickle_file_path = '%s/%s'%(pickle_dir, tool)
 
-        disasm_file_path = '%s/%s'%(disasm_dir, tool)
-        type_file_path = '%s/%s'%(type_dir, tool)
+            report = Report(prog_c)
+            report.compare(prog_r)
+            report.save_file(out_file_path, option='ascii')
+            report.save_pickle(pickle_file_path)
 
-        report = Report(prog_c)
-        report.compare(prog_r)
-        #report.save_file(json_file_path, option='json')
-        report.save_file(out_file_path, option='ascii')
-        #report.save_file(pr_file_path)
-        report.pickle(pickle_file_path)
+        if disasm_check:
+            disasm_file_path = '%s/%s'%(disasm_dir, tool)
+            type_file_path = '%s/%s'%(type_dir, tool)
 
-        stat.count_symbols(prog_r, type_file_path)
-        stat.count_disasm(prog_r, disasm_file_path)
+            stat.count_symbols(prog_r, type_file_path)
+            stat.count_disasm(prog_r, disasm_file_path)
 
 
         pickle_tool_f.close()
@@ -75,6 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('--ddisasm', type=str)
     parser.add_argument('--ramblr', type=str)
     parser.add_argument('--retro', type=str)
+    parser.add_argument('--error', action='store_true')
+    parser.add_argument('--disasm', action='store_true')
     args = parser.parse_args()
 
     pickle_tool_list = dict()
@@ -86,5 +85,11 @@ if __name__ == '__main__':
         pickle_tool_list['retro_sym'] = args.retro
 
     if pickle_tool_list:
-        diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir)
+        if args.error and not args.disasm:
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir, error_check=True, disasm_check=False )
+        elif not args.error and args.disasm:
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir, error_check=False, disasm_check=True )
+        else:
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir)
+
 
