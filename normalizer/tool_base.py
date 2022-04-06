@@ -2,7 +2,7 @@ from abc import abstractmethod
 import capstone
 from collections import namedtuple
 import pickle
-from lib.asm_types import Program, LblTy
+from lib.types import Program, LblTy
 from lib.utils import load_elf, get_disassembler, get_arch
 from lib.parser import AsmTokenizer, ReasmInst, ReasmData, CompGen
 

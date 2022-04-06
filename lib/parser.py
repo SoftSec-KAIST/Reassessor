@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from collections import namedtuple
 import re
-from lib.asm_types import Label, LblTy, DataType, InstType
+from lib.types import Label, LblTy, DataType, InstType
 import capstone
 from capstone.x86 import X86_OP_REG, X86_OP_MEM, X86_OP_IMM, X86_REG_RIP
 

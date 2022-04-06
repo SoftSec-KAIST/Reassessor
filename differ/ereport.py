@@ -2,7 +2,7 @@ from collections import namedtuple
 import pickle
 import os
 import json
-from lib.asm_types import CmptTy
+from lib.types import CmptTy
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
@@ -18,7 +18,7 @@ class Record:
     def __init__(self, stype, etype, region):
         self.stype = stype      #1-8
         self.etype = etype      #FP/FN
-        self.region = region    #Ins/Data
+        self.region = region    #Inst/Data
 
         self.jdata = []
         self.adata = []
@@ -40,26 +40,25 @@ class Record:
             src_tool    = None
             tool_asm    = None
 
-        #info = Info(self.stype, address, self.region, self.etype, gt,  tool, src_gt, src_tool, loc)
 
-        #self.jdata.append(info.to_json())
-        #self.adata.append((address, self.region, self.etype, src_gt, src_tool, idx))
         self.adata.append((address, self.region, self.etype, src_gt, src_tool, loc, gt_asm, tool_asm))
 
     def dump(self, out_file):
 
         for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm) in sorted(self.adata):
-            print('T%d'%(self.stype), hex(addr), ty, res, src_c, src_r, loc, file = out_file)
+            gt = ''
             if src_c:
-                print('\tGT:   %s'%(gt_asm), file=out_file)
+                gt = gt_asm
+            tool = ''
             if src_r:
-                print('\tTOOL: %s'%(tool_asm), file=out_file)
+                tool = tool_asm
+            print('E%d%2s (%4s) %-8s: %-40s  | %-40s'%(self.stype, res, ty, hex(addr), tool, gt), file=out_file)
 
 class RecE:
     def __init__(self, stype, etype):
         self.stype = stype
         self.etype = etype
-        self.ins = Record(stype, etype, 'Ins')
+        self.ins = Record(stype, etype, 'Inst')
         self.data = Record(stype, etype, 'Data')
 
     def length(self):
@@ -80,7 +79,7 @@ class RecS:
         if 0 == self.fp.length() + self.fn.length():
             return
 
-        print('Type %d'%(self.stype), file = out_file)
+        print('Relocatable Expression Type %d'%(self.stype), file = out_file)
         self.fp.dump(out_file)
         self.fn.dump(out_file)
 
@@ -194,14 +193,10 @@ class Report:
             data = ERec(self.rec, self.gt)
             pickle.dump(data, fd)
 
-    def save_file(self, file_path, option='default'):
+    def save_file(self, file_path, option='ascii'):
         with my_open(file_path, 'w') as fd:
             if option == 'ascii':
                 self.save_ascii_file(fd)
-            elif option == 'json':
-                self.save_json_file(fd)
-            elif option == 'default':
-                self.save_default_file(fd)
             else:
                 raise SyntaxError("Unsupported save format")
 
@@ -210,19 +205,6 @@ class Report:
         print('# Data to check:', self.data_len, file = out_file)
         for stype in range(1,9):
             self.rec[stype].dump(out_file)
-
-    def save_default_file(self, pr_file):
-        for stype in range(1,9):
-            print('%d,%d,%d' % (self.rec[stype].tp, self.rec[stype].fp.length(), self.rec[stype].fn.length()), file = pr_file)
-        print('%d' % self.gt, file = pr_file)
-
-    def save_json_file(self, j_file):
-        res = []
-        for stype in range(1,9):
-            res.extend(self.rec[stype].get_json())
-
-        print(json.dumps(res, indent=2), file = j_file)
-
 
     def check_data_error(self, data_c, data_r):
         self.gt += 1

@@ -11,8 +11,8 @@ ERec = namedtuple('ERec', ['record', 'gt'])
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 
 def job(conf, multi=True):
-    #diff_option = '--error'
-    diff_option = '--disasm'
+    diff_option = '--error'
+    #diff_option = '--disasm'
     #create_gt(conf, multi)
     '''
     if create_retro(conf, multi):
@@ -24,7 +24,7 @@ def job(conf, multi=True):
     if create_ramblr(conf, multi):
         diff_ramblr(conf)
     '''
-    #diff_retro(conf)
+    diff_retro(conf, diff_option)
     diff_ddisasm(conf, diff_option)
     diff_ramblr(conf, diff_option)
 
@@ -45,8 +45,6 @@ class RecCounter:
 
     def add(self, pickle_path, disasm_path):
         if not os.path.exists(pickle_path):
-            if self.tool == 'ddisasm':
-                print(pickle_path)
             self.error += 1
             return
 
@@ -76,7 +74,7 @@ class RecCounter:
             self.disasm_tp += int(disasm_tp)
             self.disasm_fp += int(disasm_fp)
             self.disasm_fn += int(disasm_fn)
-            if int(disasm_fn) + int(disasm_fp):
+            if 1000 < int(disasm_fn) + int(disasm_fp) :
                 print('> %-110s %7s %7s'%(disasm_path, disasm_fn, disasm_fp))
 
 
@@ -265,9 +263,8 @@ class Manager:
         filename = os.path.basename(target)
 
         sub_dir = '/'.join(path.split('/')[-6:-1])
-        package = path.split('/')[-6]
-        arch = path.split('/')[-5]
-        pie_opt = path.split('/')[-3]
+        (package, arch, comp, pie_opt, lopt) = sub_dir.split('/')
+        assert package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006'], 'invalid package'
 
         gen = WorkBin()
         conf = gen.gen_tuple(sub_dir, package, arch, pie_opt, target)
@@ -299,6 +296,8 @@ class Manager:
 
     def report(self):
         #---------------------------------------------
+
+        print('> %-110s %7s %7s'%('', 'FN'.center(7), 'FP'.center(7)))
         retro = self.merge('retro_sym')
         ddisasm = self.merge('ddisasm')
         ramblr = self.merge('ramblr')

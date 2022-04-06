@@ -59,15 +59,6 @@ class Statistics:
             if ins_r.disp:
                 self.count_symbol(ins_r.disp, 'ins', addr in self.prog_c.Instrs and self.prog_c.Instrs[addr].disp is not None)
 
-            '''
-            for idx in ins_r.get_components():
-                cmpt = ins_r.Components[idx]
-                if addr in self.prog_c.Instrs:
-                    ins_c = self.prog_c.Instrs[addr]
-                    self.count_cmpt_symbol(cmpt, 'ins', idx in ins_c.get_components())
-                else:
-                    self.count_cmpt_symbol(cmpt, 'ins', False)
-            '''
         for addr in prog_r.Data:
             data = prog_r.Data[addr]
             #cmpt = data.Component
@@ -106,7 +97,7 @@ class Statistics:
         with my_open(file_path) as fd:
             fd.write('%d,%d,%d\n' % tuple(self.disasm))
 
-            if len(fp) + len(fn) < 100 and len(fp) + len(fn) > 0:
+            if 1000 > len(fp) + len(fn) > 0:
                 self.new_diff(fd, fp, fn, self.prog_c, prog_r)
             else:
                 if fp:

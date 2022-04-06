@@ -10,7 +10,7 @@ from elftools.elf.descriptions import describe_reloc_type
 from elftools.elf.relocation import RelocationSection
 from collections import defaultdict
 
-from lib.asm_types import Program, InstType, LblTy, Label
+from lib.types import Program, InstType, LblTy, Label
 from lib.parser import CompGen
 from lib.asmfile import AsmFileInfo, LocInfo, AsmInst
 

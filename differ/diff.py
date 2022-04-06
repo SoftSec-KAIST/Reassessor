@@ -17,7 +17,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
 
     disasm_dir = os.path.join(save_dir, 'disasm_diff')
     type_dir = os.path.join(save_dir, 'sym_dist')
-    #err_dir = os.path.join(save_dir, 'error')
 
 
     # Load GT
@@ -44,7 +43,7 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
 
             report = Report(prog_c)
             report.compare(prog_r)
-            report.save_file(out_file_path, option='ascii')
+            report.save_file(out_file_path)
             report.save_pickle(pickle_file_path)
 
         if disasm_check:
@@ -57,7 +56,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
 
         pickle_tool_f.close()
 
-        #err_file.close()
 
     pickle_gt_f.close()
 
