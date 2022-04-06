@@ -1,4 +1,4 @@
-from lib.asm_types import CmptTy
+from lib.types import CmptTy
 from differ.ereport import my_open
 
 class Statistics:

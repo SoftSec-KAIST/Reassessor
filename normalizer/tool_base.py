@@ -3,9 +3,20 @@ import capstone
 from collections import namedtuple
 import pickle
 from lib.types import Program, LblTy
-from lib.utils import load_elf, get_disassembler, get_arch
 from lib.parser import AsmTokenizer, ReasmInst, ReasmData, CompGen
 
+from elftools.elf.elffile import ELFFile
+import capstone
+
+def get_disassembler(arch):
+    if arch == "x64":
+        cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+    else:
+        cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+    return cs
+
+def load_elf(bin_path):
+    return ELFFile(open(bin_path, 'rb'))
 
 class NormalizeTool:
     def __init__(self, bin_path, reassem_path, map_func, label_to_addr_func, syntax = capstone.CS_OPT_SYNTAX_ATT):
@@ -21,7 +32,7 @@ class NormalizeTool:
 
         self.comp_gen = CompGen(label_to_addr = label_to_addr_func, syntax=syntax, got_addr = self.got_addr)
 
-        self.cs = get_disassembler(get_arch(self.elf))
+        self.cs = get_disassembler(self.elf.get_machine_arch())
         self.cs.detail = True
         self.cs.syntax = syntax
 
@@ -101,13 +112,6 @@ class NormalizeTool:
             instr = self.comp_gen.get_instr(addr, self.reassem_path, asm_token)
             self.prog.Instrs[addr] = instr
 
-            '''
-            for c in components:
-                lbls = c.get_labels()
-                if len(lbls) == 1 and lbls[0].get_type() == LblTy.GOTOFF:
-                    c.Value += self.got_addr
-            self.prog.Instrs[addr] = Instr(addr, components, self.reassem_path, asm_token)
-            '''
 
     def normalize_data(self):
         for reasm_data in self.addressed_data:

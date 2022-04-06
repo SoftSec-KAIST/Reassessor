@@ -14,19 +14,19 @@ def job(conf, multi=True):
     diff_option = '--error'
     #diff_option = '--disasm'
     #create_gt(conf, multi)
-    '''
     if create_retro(conf, multi):
-        diff_retro(conf)
+        diff_retro(conf, diff_option)
 
+    '''
     if create_ddisasm(conf, multi):
-        diff_ddisasm(conf)
+        diff_ddisasm(conf, diff_option)
 
     if create_ramblr(conf, multi):
-        diff_ramblr(conf)
+        diff_ramblr(conf, diff_option)
     '''
-    diff_retro(conf, diff_option)
-    diff_ddisasm(conf, diff_option)
-    diff_ramblr(conf, diff_option)
+    #diff_retro(conf, diff_option)
+    #diff_ddisasm(conf, diff_option)
+    #diff_ramblr(conf, diff_option)
 
 class RecCounter:
     def __init__(self, tool):
@@ -206,8 +206,8 @@ def create_ramblr(conf, multi):
     return False
 
 def create_db(tool_name, bin_file, assem, output, multi=True, reloc=''):
-    if os.path.exists(output):
-        return False
+    #if os.path.exists(output):
+    #    return False
     option = ''
     if tool_name != 'gt':
         if not os.path.exists(assem):
@@ -268,7 +268,7 @@ class Manager:
 
         gen = WorkBin()
         conf = gen.gen_tuple(sub_dir, package, arch, pie_opt, target)
-        job(conf)
+        job(conf, multi=False)
 
     def run(self):
         if self.multi:

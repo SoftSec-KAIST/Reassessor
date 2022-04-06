@@ -363,69 +363,6 @@ class CompGen:
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
 
 
-        #--------------------------
-        '''
-        if len(insn.operands) != len(asm_token.operand_list):
-           return self.rearrange_components(insn, asm_token)
-
-        operands = insn.operands
-        components = []
-
-        for idx, operand in enumerate(operands):
-
-            op_str = asm_token.operand_list[idx]
-            if operand.type == X86_OP_REG:
-                components.append(Component())
-                continue
-            elif operand.type == X86_OP_IMM:
-                is_pcrel = False
-                if insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL):
-                    is_pcrel = True
-
-                value = operand.imm
-
-            elif operand.type == X86_OP_MEM:
-                is_pcrel = False
-                if operand.mem.base == X86_REG_RIP:
-                    value = insn.address + insn.size + operand.mem.disp
-                    is_pcrel = True
-                else:
-                    value = operand.mem.disp
-
-            else:
-                continue
-
-
-            if '@GOTOFF' in op_str:
-                value += self.got_addr
-
-            if '_GLOBAL_OFFSET_TABLE_' in op_str:
-                gotoff = self.got_addr - insn.address
-            else:
-                gotoff = 0
-            tokens = self.ex_parser.parse(op_str)
-            factors = FactorList(tokens, value, self.label_to_addr, gotoff)
-
-            if factors.has_label():
-                if insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL):
-                    pass
-                elif operand.type == X86_OP_MEM and self.ex_parser.is_imm:
-                    import pdb
-                    pdb.set_trace()
-                    print(insn)
-
-                components.append(Component(factors, is_pcrel))
-            else:
-                components.append(Component())
-
-        if self.syntax == capstone.CS_OPT_SYNTAX_INTEL:
-            components.reverse()
-
-        return components
-        '''
-
-
-
 class FactorList:
     def __init__(self, factors, value=0, label_to_addr=None, is_pcrel=False):
         self.labels = []
@@ -453,7 +390,7 @@ class FactorList:
         if len(self.labels) == 2:
             return 7
         elif len(self.labels) == 1:
-            if '@GOTOFF' in self.labels[0] or '@GOT' in self.labels[0]:
+            if ('@GOTOFF' in self.labels[0] or '@GOT' in self.labels[0]) and '@GOTPCREL' not in self.labels[0]:
                 if self.is_composite():
                     return 6
                 else:

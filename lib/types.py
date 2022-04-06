@@ -1,5 +1,5 @@
 from enum import Enum
-from lib.utils import get_text, get_reloc_addrs
+from elftools.elf.relocation import RelocationSection
 import json
 
 class LblTy(Enum):
@@ -80,6 +80,26 @@ class DataType:
         self.asm_idx = idx
         self.value = value
         self.r_type = r_type
+
+
+def get_text(elf):
+    text = elf.get_section_by_name('.text')
+    addr = text['sh_addr']
+    data = text.data()
+    return addr, data
+
+def get_reloc_addrs(elf):
+    reloc_addrs = []
+    for section in elf.iter_sections():
+        if not isinstance(section, RelocationSection):
+            continue
+        symbol_table = elf.get_section(section['sh_link'])
+        for relocation in section.iter_relocations():
+            symbol = symbol_table.get_symbol(relocation['r_info_sym'])
+            addr = relocation['r_offset']
+            if symbol.name:
+                reloc_addrs.append(addr)
+    return reloc_addrs
 
 class Program:
     def __init__(self, elf, cs):
