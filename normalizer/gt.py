@@ -201,7 +201,6 @@ class NormalizeGT:
 
         self.prog = Program(self.elf, self.cs)
 
-        print('match_src_to_bin')
         self.match_src_to_bin()
 
 

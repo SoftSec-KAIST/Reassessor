@@ -2,7 +2,7 @@ from collections import namedtuple
 import pickle
 import os
 import json
-from lib.types import CmptTy
+from lib.types import CmptTy, InstType, DataType
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
@@ -33,26 +33,35 @@ class Record:
             src_gt      = None
             gt_asm      = None
 
+        reasm_type = 0
         if tool:
             src_tool    = tool.path,  tool.asm_idx
             tool_asm    = tool.asm_line
+            if isinstance(tool, InstType):
+                if loc == 'disp' and tool.disp:
+                    reasm_type = tool.disp.type
+                elif loc == 'imm' and tool.imm:
+                    reasm_type = tool.imm.type
+            if isinstance(tool, DataType):
+                if loc == 'value' and tool.value:
+                    reasm_type = tool.value.type
         else:
             src_tool    = None
             tool_asm    = None
 
 
-        self.adata.append((address, self.region, self.etype, src_gt, src_tool, loc, gt_asm, tool_asm))
+        self.adata.append((address, self.region, self.etype, src_gt, src_tool, loc, gt_asm, tool_asm, reasm_type))
 
     def dump(self, out_file):
 
-        for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm) in sorted(self.adata):
+        for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm, reasm_type) in sorted(self.adata):
             gt = ''
             if src_c:
                 gt = gt_asm
             tool = ''
             if src_r:
                 tool = tool_asm
-            print('E%d%2s (%4s) %-8s: %-40s  | %-40s'%(self.stype, res, ty, hex(addr), tool, gt), file=out_file)
+            print('E%d%2s (%4s:%d) %-8s: %-40s  | %-40s'%(self.stype, res, ty, reasm_type, hex(addr), tool, gt), file=out_file)
 
 class RecE:
     def __init__(self, stype, etype):

@@ -13,17 +13,15 @@ BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out'
 def job(conf, multi=True):
     diff_option = '--error'
     #diff_option = '--disasm'
-    #create_gt(conf, multi)
+    create_gt(conf, multi)
     if create_retro(conf, multi):
         diff_retro(conf, diff_option)
 
-    '''
     if create_ddisasm(conf, multi):
         diff_ddisasm(conf, diff_option)
 
     if create_ramblr(conf, multi):
         diff_ramblr(conf, diff_option)
-    '''
     #diff_retro(conf, diff_option)
     #diff_ddisasm(conf, diff_option)
     #diff_ramblr(conf, diff_option)
@@ -218,8 +216,7 @@ def create_db(tool_name, bin_file, assem, output, multi=True, reloc=''):
         option = '--reloc %s'%(reloc)
 
 
-    if not multi:
-        print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
+    print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
 
     os.system('mkdir -p %s'%(os.path.dirname(output)))
     os.system('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
@@ -238,20 +235,11 @@ class Manager:
     def gen_option(self, work_dir):
         ret = []
         gen = WorkBin()
-        #for pack in ['spec_cpu2006']:
-        #for pack in ['binutils-2.31.1']:
-        #for pack in ['coreutils-8.30']:
-        #for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-            #for arch in ['x86']:
             for arch in ['x86', 'x64']:
-                #for comp in ['gcc']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
-                        #for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
-                        #for opt in ['ofast']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
-                            #for lopt in ['bfd']:
                             for lopt in ['bfd', 'gold']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
