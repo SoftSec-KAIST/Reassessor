@@ -555,10 +555,18 @@ class ATTExParser(ExParser):
         elif re.search('.*\(.*\)', expr):
             if '%rip' in re.findall('.*\((.*)\)', expr)[0]:
                 self.has_rip = True
-            expr = re.findall('(.*)\(.*\)', expr)[0]
+
             # ramblr: movzbl  (label_4744+7)(%rdx),  %esi
-            if re.search('\(.*\)', expr):
+            if re.search('^\(.*\)\(.*\)$', expr):
+                expr = re.findall('^\((.*)\)\(.*\)$', expr)
+            # ramblr: movl $(label_4299+3), -316(%ebp)
+            elif self.is_imm and re.search('^\(.*\)$', expr):
                 expr = re.findall('\((.*)\)', expr)[0]
+            else:
+                expr = re.findall('(.*)\(.*\)', expr)[0]
+
+            #if re.search('\(.*\)', expr):
+            #    expr = re.findall('\((.*)\)', expr)[0]
         return expr
 
     def _exp(self):
