@@ -27,7 +27,7 @@ class Record:
         if gt:
             address     = gt.addr
             src_gt      = gt.path,    gt.asm_idx
-            gt_asm      = gt.asm_line
+            gt_asm      = gt.asm_line.strip()
         else:
             address     = tool.addr
             src_gt      = None
@@ -36,7 +36,7 @@ class Record:
         reasm_type = 0
         if tool:
             src_tool    = tool.path,  tool.asm_idx
-            tool_asm    = tool.asm_line
+            tool_asm    = tool.asm_line.strip()
             if isinstance(tool, InstType):
                 if loc == 'disp' and tool.disp:
                     reasm_type = tool.disp.type
@@ -132,7 +132,8 @@ class Report:
                 self.check_data_error(data_c, None)
             elif addr in prog_r.Data: # FP
                 data_r = prog_r.Data[addr]
-                self.rec[8].fp.data.add(None, data_r, 'value')
+                self.check_data_error(None, data_r)
+                #self.rec[8].fp.data.add(None, data_r, 'value')
 
 
 
@@ -154,6 +155,10 @@ class Report:
         fn = ins_addrs_c - ins_addrs_r
         for addr in fn:
             ins_c = self.prog_c.Instrs[addr]
+
+            if ins_c.imm or ins_c.disp:
+                self.check_ins(ins_c, None)
+            '''
             data_r = None
             if addr in prog_r.Data:
                 data_r = prog_r.Data[addr]
@@ -161,20 +166,100 @@ class Report:
                 self.rec[ins_c.imm.type].fn.ins.add(ins_c, data_r, 'imm')
             if ins_c.disp:
                 self.rec[ins_c.disp.type].fn.ins.add(ins_c, data_r, 'disp')
+            '''
 
         fp = ins_addrs_r - ins_addrs_c - self.prog_c.unknown_region
         for addr in fp:
             ins_r = prog_r.Instrs[addr]
+            if ins_r.imm or ins_r.disp:
+                self.check_ins(None, ins_r)
+            '''
             if ins_r.imm:
                 self.rec[8].fp.ins.add(None, ins_r, 'imm')
             if ins_r.disp:
                 self.rec[8].fp.ins.add(None, ins_r, 'disp')
+            '''
 
+    def compare_two_reloc_expr(self, gt_factor, tool_factor, label):
+        reloc1 = None
+        reloc2 = None
+        if gt_factor:
+            if label == 'imm':
+                reloc1 = gt_factor.imm
+            elif label == 'disp':
+                reloc1 = gt_factor.disp
+            elif label == 'value':
+                reloc1 = gt_factor.value
+        if tool_factor:
+            if label == 'imm':
+                reloc2 = tool_factor.imm
+            elif label == 'disp':
+                reloc2 = tool_factor.disp
+            elif label == 'value':
+                reloc2 = tool_factor.value
+
+
+        if reloc1 and reloc2:
+            if reloc1.type == reloc2.type:
+                if reloc1.type in [2,4,6]:
+                    if reloc1.num == reloc2.num:
+                        self.rec[reloc1.type].tp += 1
+                    else:
+                        if label == 'value':
+                            self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
+                        else:
+                            self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
+                else:
+                    self.rec[reloc1.type].tp += 1
+            else:
+                if label == 'value':
+                    self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
+                else:
+                    self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
+        elif reloc1:
+            if label == 'value':
+                self.rec[reloc1.type].fn.data.add(gt_factor, tool_factor, label)
+            else:
+                self.rec[reloc1.type].fn.ins.add(gt_factor, tool_factor, label)
+        elif reloc2:
+            if label == 'value':
+                self.rec[8].fp.data.add(gt_factor, tool_factor, label)
+            else:
+                self.rec[8].fp.ins.add(gt_factor, tool_factor, label)
+
+    def check_data_error(self, data_c, data_r):
+        self.gt += 1
+        if data_c and data_r is None:
+            # this is reassembler design choice
+            # ddisasm preserve .got section
+            # retrowrite delete .got section
+            # Thus, we do not check this case
+            if data_c.r_type and data_c.r_type in ['R_X86_64_GLOB_DAT']:
+                pass
+            elif data_c.r_type and data_c.r_type in ['R_X86_64_JUMP_SLOT']:
+                pass
+            else:
+                #c_type = data_c.value.type
+                #self.rec[c_type].fn.data.add(data_c, None, 'value')
+                self.compare_two_reloc_expr(data_c, data_r, 'value')
+        else:
+            self.compare_two_reloc_expr(data_c, data_r, 'value')
+            '''
+            r_type = data_r.value.type
+
+            if c_type == r_type:
+                self.rec[c_type].tp += 1
+            else:
+                self.rec[c_type].fp.data.add(data_c, data_r, 'value')
+            '''
 
 
     def check_ins(self, ins_c, ins_r):
         self.gt += 1
 
+        self.compare_two_reloc_expr(ins_c, ins_r, 'imm')
+        self.compare_two_reloc_expr(ins_c, ins_r, 'disp')
+        '''
         if ins_c.imm and ins_r.imm:
             if ins_c.imm.type == ins_r.imm.type:
                 self.rec[ins_c.imm.type].tp += 1
@@ -185,7 +270,6 @@ class Report:
         elif ins_r.imm:
             self.rec[8].fp.ins.add(ins_c, ins_r, 'imm')
 
-
         if ins_c.disp and ins_r.disp:
             if ins_c.disp.type == ins_r.disp.type:
                 self.rec[ins_c.disp.type].tp += 1
@@ -195,7 +279,7 @@ class Report:
             self.rec[ins_c.disp.type].fn.ins.add(ins_c, ins_r, 'disp')
         elif ins_r.disp:
             self.rec[8].fp.ins.add(ins_c, ins_r, 'disp')
-
+        '''
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
@@ -214,27 +298,5 @@ class Report:
         print('# Data to check:', self.data_len, file = out_file)
         for stype in range(1,9):
             self.rec[stype].dump(out_file)
-
-    def check_data_error(self, data_c, data_r):
-        self.gt += 1
-        c_type = data_c.value.type
-        if data_r is None:
-            # this is reassembler design choice
-            # ddisasm preserve .got section
-            # retrowrite delete .got section
-            # Thus, we do not check this case
-            if data_c.r_type and data_c.r_type in ['R_X86_64_GLOB_DAT']:
-                pass
-            elif data_c.r_type and data_c.r_type in ['R_X86_64_JUMP_SLOT']:
-                pass
-            else:
-                self.rec[c_type].fn.data.add(data_c, None, 'value')
-        else:
-            r_type = data_r.value.type
-
-            if c_type == r_type:
-                self.rec[c_type].tp += 1
-            else:
-                self.rec[c_type].fp.data.add(data_c, data_r, 'value')
 
 
