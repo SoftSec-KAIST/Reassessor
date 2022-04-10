@@ -178,6 +178,10 @@ class CompGen:
     def get_data(self, addr, asm_path, line, idx , value=0, additional_dict=None, r_type=None):
         expr = ''.join(line.split()[1:])
         tokens = self.ex_parser.parse(expr)
+
+        if len(tokens) == 1 and expr.endswith('@GOTOFF'):
+            value = (value + self.got_addr) & 0xffffffff
+
         if additional_dict:
             factors = FactorList(tokens, value, additional_dict)
         else:
@@ -560,7 +564,8 @@ class ATTExParser(ExParser):
             if re.search('^\(.*\)\(.*\)$', expr):
                 expr = re.findall('^\((.*)\)\(.*\)$', expr)
             # ramblr: movl $(label_4299+3), -316(%ebp)
-            elif self.is_imm and re.search('^\(.*\)$', expr):
+            # ramblr: movw $0x808, (label_1293+2)
+            elif ('%' not in expr) and re.search('^\(.*\)$', expr):
                 expr = re.findall('\((.*)\)', expr)[0]
             else:
                 expr = re.findall('(.*)\(.*\)', expr)[0]

@@ -108,6 +108,10 @@ class AsmFileInfo:
             if terms[0] in DATA_DIRECTIVE:
                 if terms[0] in ['.long', '.quad']:
                     # if it has label-label patterns, it would be jump table
+                    if not members and '@GOTOFF' in terms[1]:
+                        self.mov_prev()
+                        self.get_jmp_table(label)
+                        return
                     if not members and re.search('-\.L', terms[1]):
                         self.mov_prev()
                         self.get_jmp_table(label)
