@@ -130,3 +130,6 @@ dmypy.json
 *.pyc
 *.swp
 temp*
+
+nohup.out
+triage/
