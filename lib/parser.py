@@ -486,7 +486,11 @@ class FactorList:
             pdb.set_trace()
         assert base_addr > 0, 'This is incorrect jump table base'
 
-        addr1 = (self.value + base_addr ) & 0xffffffff
+        if self.value == 0:
+            addr1 = self.label_to_addr(self.labels[0])
+        else:
+            addr1 = (self.value + base_addr ) & 0xffffffff
+
         lbl1 = Label(self.labels[0], LblTy.LABEL, addr1)
         lbl2 = Label(self.labels[1], LblTy.LABEL, base_addr)
 

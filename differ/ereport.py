@@ -209,6 +209,15 @@ class Report:
                             self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
                         else:
                             self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
+                elif reloc1.type in [7]:
+                    if reloc1.terms[0].get_value() == reloc2.terms[0].get_value() and reloc1.terms[1].get_value() == reloc2.terms[1].get_value():
+                        self.rec[reloc1.type].tp += 1
+                    else:
+                        if label == 'value':
+                            self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
+                        else:
+                            self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
+
                 else:
                     self.rec[reloc1.type].tp += 1
             else:
@@ -244,14 +253,6 @@ class Report:
                 self.compare_two_reloc_expr(data_c, data_r, 'value')
         else:
             self.compare_two_reloc_expr(data_c, data_r, 'value')
-            '''
-            r_type = data_r.value.type
-
-            if c_type == r_type:
-                self.rec[c_type].tp += 1
-            else:
-                self.rec[c_type].fp.data.add(data_c, data_r, 'value')
-            '''
 
 
     def check_ins(self, ins_c, ins_r):
@@ -259,27 +260,6 @@ class Report:
 
         self.compare_two_reloc_expr(ins_c, ins_r, 'imm')
         self.compare_two_reloc_expr(ins_c, ins_r, 'disp')
-        '''
-        if ins_c.imm and ins_r.imm:
-            if ins_c.imm.type == ins_r.imm.type:
-                self.rec[ins_c.imm.type].tp += 1
-            else:
-                self.rec[ins_c.imm.type].fp.ins.add(ins_c, ins_r, 'imm')
-        elif ins_c.imm:
-            self.rec[ins_c.imm.type].fn.ins.add(ins_c, ins_r, 'imm')
-        elif ins_r.imm:
-            self.rec[8].fp.ins.add(ins_c, ins_r, 'imm')
-
-        if ins_c.disp and ins_r.disp:
-            if ins_c.disp.type == ins_r.disp.type:
-                self.rec[ins_c.disp.type].tp += 1
-            else:
-                self.rec[ins_c.disp.type].fp.ins.add(ins_c, ins_r, 'disp')
-        elif ins_c.disp:
-            self.rec[ins_c.disp.type].fn.ins.add(ins_c, ins_r, 'disp')
-        elif ins_r.disp:
-            self.rec[8].fp.ins.add(ins_c, ins_r, 'disp')
-        '''
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
