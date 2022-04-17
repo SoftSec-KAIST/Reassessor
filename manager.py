@@ -11,17 +11,19 @@ ERec = namedtuple('ERec', ['record', 'gt'])
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 
 def job(conf, multi=True):
-    diff_option = '--error'
+    #diff_option = '--error'
     #diff_option = '--disasm'
+    diff_option = ''
     create_gt(conf, multi)
-    if create_retro(conf, multi):
-        diff_retro(conf, diff_option)
+    #if create_retro(conf, multi):
+    #    diff_retro(conf, diff_option)
 
     if create_ddisasm(conf, multi):
         diff_ddisasm(conf, diff_option)
 
-    if create_ramblr(conf, multi):
-        diff_ramblr(conf, diff_option)
+    #if create_ramblr(conf, multi):
+    #    diff_ramblr(conf, diff_option)
+
     #diff_retro(conf, diff_option)
     #diff_ddisasm(conf, diff_option)
     #diff_ramblr(conf, diff_option)
@@ -86,7 +88,7 @@ class RecCounter:
 
 
 class WorkBin:
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result2', retro='/data3/1_reassessor/benchmark', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/ramblr'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result3', retro='/data3/1_reassessor/benchmark', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/ramblr'):
         self.bench = bench
         self.out = out
         self.retro = retro
@@ -235,7 +237,8 @@ class Manager:
     def gen_option(self, work_dir):
         ret = []
         gen = WorkBin()
-        for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+        #for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+        for pack in ['coreutils-8.30']:
             for arch in ['x86', 'x64']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:

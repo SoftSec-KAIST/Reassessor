@@ -714,6 +714,24 @@ class NormalizeGT:
             if os.path.basename(asm_file.file_path) in ['src_sha512sum-md5sum.s']:
                 if os.path.basename(self.bin_path) in ['sha224sum', 'sha256sum', 'sha384sum']:
                     continue
+            if 'usable_st_size' in fname:
+                '''
+                    grep  '^usable_st_size:'  coreutils-8.30/x64/clang/nopie/o1-bfd/src/* -A 10 | grep orl
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/dd.s-	orl	24(%rdi), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/head.s-	orl	24(%rdi), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/od.s-	orl	24(%rdi), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/shuf.s-	orl	24(%rdi), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/split.s-	orl	in_stat_buf+24(%rip), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/tail.s-	orl	24(%rdi), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/truncate.s-	orl	24(%rdi), %eax
+                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/wc.s-	orl	24(%rdi), %eax
+                '''
+                if os.path.basename(asm_file.file_path) in ['dd.s', 'head.s', 'od.s', 'shuf.s', 'tail.s', 'truncate.s', 'wc.s']:
+                    if os.path.basename(self.bin_path) in ['split']:
+                        continue
+                if os.path.basename(asm_file.file_path) in ['split.s']:
+                    if os.path.basename(self.bin_path) in  ['dd', 'head', 'od', 'shuf', 'tail', 'truncate', 'wc']:
+                        continue
 
 
             #asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
