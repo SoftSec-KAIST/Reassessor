@@ -6,7 +6,7 @@ from lib.parser import parse_att_asm_line, ReasmLabel
 
 class NormalizeRetro(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, retro_mapper, retro_label_to_addr, capstone.CS_OPT_SYNTAX_ATT)
+        super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT)
 
 def retro_label_to_addr(label):
     if label.startswith('.LC'):
@@ -32,8 +32,11 @@ def retro_mapper(reassem_path, tokenizer):
                 xaddr = retro_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
-                elif addr > 0:
+
+                if addr > 0:
                     result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
+                else:
+                    result.append(ReasmLabel(terms[0][:-1], 0, idx+1))
                 continue
             elif terms[0] in ['.long', '.quad']:
                 expr = ''.join(terms[1:])

@@ -164,8 +164,10 @@ class Factor:
         raise SyntaxError('Unexpected operator')
 
 class CompGen:
-    def __init__(self, label_to_addr = None, syntax = capstone.CS_OPT_SYNTAX_ATT, got_addr = 0):
-        self.label_to_addr = label_to_addr
+    def __init__(self, label_dict = None, syntax = capstone.CS_OPT_SYNTAX_ATT, got_addr = 0):
+        self.label_dict = dict()
+        if label_dict:
+            self.label_dict = label_dict
 
         self.syntax = syntax
         if syntax == capstone.CS_OPT_SYNTAX_INTEL:
@@ -185,49 +187,19 @@ class CompGen:
         if additional_dict:
             factors = FactorList(tokens, value, additional_dict)
         else:
-            factors = FactorList(tokens, value, self.label_to_addr)
+            factors = FactorList(tokens, value, self.label_dict)
         return DataType(addr, asm_path, line, idx, factors, r_type = r_type)
         #return Component(factors)
 
     def rearrange_operands(self, addr, asm_path, asm_token, insn):
-        '''
-        # sarl $1, %eax     vs. salr %eax
-        # salw $1, -6(%rbp) vs. salw -6(%rbp)
-        # sarw $1, %ax          vs. sarw %ax
-        # shrq $1, %rax     vs. shrq %rax
-        # shll $1, -0x3b4(%rbp) vs sall -948(%rbp)
-        # shrl $1, -0x3b0(%rbp) vs shrl -944(%rbp)
-        # shrw $1, -0x106(%rbp) vs shrw -262(%rbp)
-        # sarq $1, %rdx     vs  sarq %rdx
-        # sarl $1, %eax     vs  sarl %eax
-        # shrw $1, -0x106(%rbp) vs. shrw -262(%rbp)
-        # shrb $1, %al          vs. shrb %al
-        if re.match('s[ah][rl].', asm_token.opcode):
-            pass
-        # rol $1, %eax          vs. roll %r9d
-        elif re.match('ro[rl].', asm_token.opcode):
-            pass
-        # repne scasb (%rdi), %al vs. repnz scasb
-        # rep movsq (%rsi), (%rdi) vs. rep movsq
-        # repe cmpsb (%rdi), (%rsi) vs. repz cmpsb
-        elif asm_token.opcode.startswith('rep'):
-            pass
-        #movsb (%rsi), (%rdi)  vs. movsb
-        elif re.search('movs. \(%.si\), \(%.di\)', str(insn)):
-            pass
-        else:
-            print(insn)
-            print('%s (%s)'%(asm_token.opcode, ' '.join(asm_token.operand_list)))
-            print('%d %d'%(len(insn.operands), len(asm_token.operand_list)))
-            return [Component()]
-
-
-        '''
         #op_str_list = []
         if insn.group(capstone.CS_GRP_JUMP) or insn.group(capstone.CS_GRP_CALL):
             op_str = asm_token.operand_list[0]
             tokens = self.ex_parser.parse(op_str)
-            value = insn.operands[0].imm + insn.address + insn.size
+            if insn.operands[0].type == X86_OP_MEM:
+                value = insn.operands[0].mem.disp + insn.address + insn.size
+            else:
+                value = insn.operands[0].imm
             factors = FactorList(tokens, value, is_pcrel=True)
             if factors.has_label():
                 return InstType(addr, asm_path, asm_token, imm = factors)
@@ -244,6 +216,7 @@ class CompGen:
 
         if len(disp_list)+len(imm_list) == 0: # or asm_token.opcode.startswith('rep'):
             return InstType(addr, asm_path, asm_token)
+
 
         #match reloc expressions to values
         disp = None
@@ -276,36 +249,8 @@ class CompGen:
                     disp = self.create_component(op_str, disp_list[0], insn)
 
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
-        '''
-        components = []
-        for idx, op_str in enumerate(op_str_list):
-            value = value_list[idx]
-
-            if '@GOTOFF' in op_str:
-                value += self.got_addr
-            if '_GLOBAL_OFFSET_TABLE_' in op_str:
-                gotoff = self.got_addr - insn.address
-            else:
-                gotoff = 0
-
-            tokens = self.ex_parser.parse(op_str)
-            is_pcrel = self.ex_parser.has_rip
-
-            factors = FactorList(tokens, value, self.label_to_addr, gotoff)
-
-            if factors.has_label():
-                components.append(Component(factors, is_pcrel))
-            else:
-                components.append(Component())
-
-        if self.syntax == capstone.CS_OPT_SYNTAX_INTEL:
-            components.reverse()
-
-        return components
-        '''
 
     def create_component(self, op_str, value = 0, insn = None):
-
 
         tokens = self.ex_parser.parse(op_str)
         is_pcrel = self.ex_parser.has_rip
@@ -323,7 +268,7 @@ class CompGen:
 
             factors = FactorList(tokens, value, is_pcrel = is_pcrel)
         else:
-            factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel = is_pcrel)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel)
 
         if factors.has_label():
             if len(factors.terms) == 3 and factors.terms[0].get_name() == '_GLOBAL_OFFSET_TABLE_':
@@ -340,6 +285,7 @@ class CompGen:
         if asm_token.opcode.startswith('nop'):
             return InstType(addr, asm_path, asm_token)
 
+        # GT uses capstone IR
         if insn:
             return self.rearrange_operands(addr, asm_path, asm_token, insn)
 
@@ -347,7 +293,7 @@ class CompGen:
         if asm_token.opcode.startswith('call') or asm_token.opcode in jump_instrs:
             op_str = asm_token.operand_list[0]
             tokens = self.ex_parser.parse(op_str)
-            factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel=True)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel=True)
             if factors.has_label():
                 return InstType(addr, asm_path, asm_token, imm = factors)
             return InstType(addr, asm_path, asm_token)
@@ -357,7 +303,7 @@ class CompGen:
         for op_str in asm_token.operand_list:
             tokens = self.ex_parser.parse(op_str)
             is_pcrel = self.ex_parser.has_rip
-            factors = FactorList(tokens, label_to_addr = self.label_to_addr, is_pcrel = is_pcrel)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel)
             if factors.has_label():
                 if self.ex_parser.is_imm:
                     imm = self.create_component(op_str)
@@ -368,11 +314,11 @@ class CompGen:
 
 
 class FactorList:
-    def __init__(self, factors, value=0, label_to_addr=None, is_pcrel=False):
+    def __init__(self, factors, value=0, label_dict=None, is_pcrel=False):
         self.labels = []
         self.num = 0
         self.value = value
-        self._label_to_addr = label_to_addr
+        self._label_dict = label_dict
         #self.gotoff = gotoff
         self.is_pcrel = is_pcrel
         for factor in factors:
@@ -387,7 +333,7 @@ class FactorList:
             self.terms = self.get_terms()
         else:
             self.terms = []
-        self._label_to_addr = None
+        self._label_dict = None
         self.type = self.get_type()
 
     def get_type(self):
@@ -433,14 +379,21 @@ class FactorList:
         return ret
 
     def label_to_addr(self, label):
-        if self._label_to_addr is None:
+        if self._label_dict is None:
             return 0
-        if isinstance(self._label_to_addr, dict):
-            if label in self._label_to_addr:
-                return self._label_to_addr[label]
-            else:
-                return 0
-        return self._label_to_addr(label)
+
+        if label.split('@')[0] in self._label_dict:
+            res = self._label_dict[label]
+            if isinstance(res, list):
+                if len(self._label_dict[label]) == 1:
+                    return self._label_dict[label][0]
+                else:
+                    #if there is duplicated label, we nullify the label
+                    return -2
+            return self._label_dict[label]
+        else:
+            #there is no relevant label
+            return -1
 
     def get_terms(self):
         result = []
@@ -460,7 +413,7 @@ class FactorList:
                     addr = self.label_to_addr(label)
                 label_type = LblTy.LABEL
 
-            if addr == 0:
+            if addr <= 0:
                 if len(self.labels) == 3 and '_GLOBAL_OFFSET_TABLE_' in self.labels[0]:
                     pass
                 # handle ddisasm bugs

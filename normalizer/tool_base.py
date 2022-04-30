@@ -3,7 +3,8 @@ import capstone
 from collections import namedtuple
 import pickle
 from lib.types import Program, LblTy
-from lib.parser import AsmTokenizer, ReasmInst, ReasmData, CompGen
+from lib.parser import AsmTokenizer, ReasmInst, ReasmData, ReasmLabel, CompGen
+from collections import defaultdict
 
 from elftools.elf.elffile import ELFFile
 import capstone
@@ -19,7 +20,7 @@ def load_elf(bin_path):
     return ELFFile(open(bin_path, 'rb'))
 
 class NormalizeTool:
-    def __init__(self, bin_path, reassem_path, map_func, label_to_addr_func, syntax = capstone.CS_OPT_SYNTAX_ATT):
+    def __init__(self, bin_path, reassem_path, map_func, syntax = capstone.CS_OPT_SYNTAX_ATT):
         self.bin_path = bin_path
         self.reassem_path = reassem_path
 
@@ -29,8 +30,6 @@ class NormalizeTool:
             self.got_addr = self.elf.get_section_by_name('.got.plt')['sh_addr']
         else:
             self.got_addr = self.elf.get_section_by_name('.got')['sh_addr']
-
-        self.comp_gen = CompGen(label_to_addr = label_to_addr_func, syntax=syntax, got_addr = self.got_addr)
 
         self.cs = get_disassembler(self.elf.get_machine_arch())
         self.cs.detail = True
@@ -42,7 +41,21 @@ class NormalizeTool:
 
         self.mapper(map_func)
 
-        self.label_to_addr = label_to_addr_func
+        self.label_dict = self.make_label_dict()
+
+        self.comp_gen = CompGen(label_dict = self.label_dict, syntax=syntax, got_addr = self.got_addr)
+
+
+    def make_label_dict(self):
+        if not self.addressed_label:
+            return dict()
+        label_dict = defaultdict(list)
+        for label in self.addressed_label:
+            label_dict[label.label].append(label.addr)
+        for label in self.relocs:
+            if label not in label_dict:
+                label_dict[label].append(0)
+        return label_dict
 
 
     def mapper(self, map_func):
@@ -52,6 +65,7 @@ class NormalizeTool:
 
         self.addressed_asms = [asm for asm in addressed_lines if isinstance(asm, ReasmInst)]
         self.addressed_data = [asm for asm in addressed_lines if isinstance(asm, ReasmData)]
+        self.addressed_label = [asm for asm in addressed_lines if isinstance(asm, ReasmLabel)]
 
     def get_reloc_symbs(self):
         names = {}

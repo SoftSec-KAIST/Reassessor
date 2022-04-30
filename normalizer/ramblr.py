@@ -11,7 +11,7 @@ RE_FUNC = re.compile('[A-Za-z_][0-9A-Za-z_]+[:]')
 
 class NormalizeRamblr(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, ramblr_mapper, ramblr_label_to_addr, capstone.CS_OPT_SYNTAX_ATT)
+        super().__init__(bin_path, reassem_path, ramblr_mapper, capstone.CS_OPT_SYNTAX_ATT)
 
 def ramblr_mapper(reassem_path, tokenizer):
 
@@ -51,8 +51,12 @@ def ramblr_mapper(reassem_path, tokenizer):
                 xaddr = ramblr_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
-                elif addr > 0:
+
+                if addr > 0:
                     result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
+                else:
+                    result.append(ReasmLabel(terms[0][:-1], 0, idx+1))
+
                 continue
 
             assert addr > 0

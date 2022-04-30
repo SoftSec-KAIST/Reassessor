@@ -22,7 +22,7 @@ def ddisasm_label_to_addr(label):
 
 class NormalizeDdisasm(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, ddisasm_mapper, ddisasm_label_to_addr, capstone.CS_OPT_SYNTAX_INTEL)
+        super().__init__(bin_path, reassem_path, ddisasm_mapper, capstone.CS_OPT_SYNTAX_INTEL)
 
 def ddisasm_mapper(reassem_path, tokenizer):
     result = []
@@ -46,12 +46,16 @@ def ddisasm_mapper(reassem_path, tokenizer):
                     is_linker_gen = True
             elif terms[0] in ['.text', '.data', '.bss']:
                 is_linker_gen = False
-            elif re.search('^.*:$', line):
+            elif re.search('^.*:$', terms[0]):
                 xaddr = ddisasm_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
-                elif addr > 0:
+
+                if addr > 0:
                     result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
+                else:
+                    result.append(ReasmLabel(terms[0][:-1], 0, idx+1))
+
                 continue
             elif is_linker_gen or terms[0] in SKIP_DIRECTIVE:
                 continue

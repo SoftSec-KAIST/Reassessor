@@ -180,6 +180,18 @@ class Report:
                 self.rec[8].fp.ins.add(None, ins_r, 'disp')
             '''
 
+    def add_fp(self, etype, gt_factor, tool_factor, label):
+        if label == 'value':
+            self.rec[etype].fp.data.add(gt_factor, tool_factor, label)
+        else:
+            self.rec[etype].fp.ins.add(gt_factor, tool_factor, label)
+
+    def add_fn(self, etype, gt_factor, tool_factor, label):
+        if label == 'value':
+            self.rec[etype].fn.data.add(gt_factor, tool_factor, label)
+        else:
+            self.rec[etype].fn.ins.add(gt_factor, tool_factor, label)
+
     def compare_two_reloc_expr(self, gt_factor, tool_factor, label):
         reloc1 = None
         reloc2 = None
@@ -201,40 +213,40 @@ class Report:
 
         if reloc1 and reloc2:
             if reloc1.type == reloc2.type:
-                if reloc1.type in [2,4,6]:
-                    if reloc1.num == reloc2.num:
-                        self.rec[reloc1.type].tp += 1
-                    else:
-                        if label == 'value':
-                            self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
-                        else:
-                            self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
-                elif reloc1.type in [7]:
+                if reloc1.type in [7]:
                     if reloc1.terms[0].get_value() == reloc2.terms[0].get_value() and reloc1.terms[1].get_value() == reloc2.terms[1].get_value():
                         self.rec[reloc1.type].tp += 1
                     else:
-                        if label == 'value':
-                            self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
-                        else:
-                            self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
+                        self.add_fp(reloc1.type, gt_factor, tool_factor, label)
 
-                else:
-                    self.rec[reloc1.type].tp += 1
+                else: # reloc1.type in [1,2,3,4,5,6]:
+                    # -1: does not exist
+                    # -2: duplicated label
+                    #  0: Reloc Symbol (Unknown symbol)
+                    if ( reloc1.terms[0].Address and
+                         reloc2.terms[0].Address != 0 and
+                         reloc1.terms[0].Address != reloc2.terms[0].Address):
+                        print('%s vs %s'%(hex(reloc1.terms[0].Address), hex(reloc2.terms[0].Address)))
+
+                        #import pdb
+                        #pdb.set_trace()
+                        print(tool_factor.asm_line)
+                        self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+
+                    elif reloc1.type in [2,4,6] and reloc1.num != reloc2.num:
+                        self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+
+                    else:
+                        self.rec[reloc1.type].tp += 1
+
             else:
-                if label == 'value':
-                    self.rec[reloc1.type].fp.data.add(gt_factor, tool_factor, label)
-                else:
-                    self.rec[reloc1.type].fp.ins.add(gt_factor, tool_factor, label)
+                self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+
         elif reloc1:
-            if label == 'value':
-                self.rec[reloc1.type].fn.data.add(gt_factor, tool_factor, label)
-            else:
-                self.rec[reloc1.type].fn.ins.add(gt_factor, tool_factor, label)
+            self.add_fn(reloc1.type, gt_factor, tool_factor, label)
+
         elif reloc2:
-            if label == 'value':
-                self.rec[8].fp.data.add(gt_factor, tool_factor, label)
-            else:
-                self.rec[8].fp.ins.add(gt_factor, tool_factor, label)
+            self.add_fp(8, gt_factor, tool_factor, label)
 
     def check_data_error(self, data_c, data_r):
         self.gt += 1
