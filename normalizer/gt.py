@@ -120,7 +120,9 @@ def get_reloc(elf):
             continue
         if section.name.startswith(".rel") and \
            (("data" in section.name) or section.name.endswith(".dyn") or \
-            section.name.endswith('.init_array') or section.name.endswith('.fini_array') or section.name.endswith('.init')):
+            section.name.endswith('.init_array') or section.name.endswith('.fini_array')):
+            # or section.name.endswith('.init')):
+
             for relocation in section.iter_relocations():
                 addr = relocation['r_offset']
                 t = describe_reloc_type(relocation['r_info_type'], elf)
@@ -864,7 +866,9 @@ class NormalizeGT:
             sz, is_got, r_type = self.relocs[addr]
             value = self.get_int(addr, sz)
             #This reloc data is added by linker
-            if r_type in ['R_X86_64_COPY', 'R_X86_64_REX_GOTPCRELX']:
+            if value == 0:
+                continue
+            elif r_type in ['R_X86_64_COPY', 'R_X86_64_REX_GOTPCRELX']:
                 continue
             elif r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT', 'R_386_GLOB_DAT', 'R_386_JUMP_SLOT']:
                 label = 'L%x'%(value)

@@ -197,7 +197,10 @@ class CompGen:
             op_str = asm_token.operand_list[0]
             tokens = self.ex_parser.parse(op_str)
             if insn.operands[0].type == X86_OP_MEM:
-                value = insn.operands[0].mem.disp + insn.address + insn.size
+                if insn.operands[0].mem.base == X86_REG_RIP:
+                    value = insn.operands[0].mem.disp + insn.address + insn.size
+                else:
+                    value = insn.operands[0].mem.disp
             else:
                 value = insn.operands[0].imm
             factors = FactorList(tokens, value, is_pcrel=True)
@@ -413,7 +416,7 @@ class FactorList:
                     addr = self.label_to_addr(label)
                 label_type = LblTy.LABEL
 
-            if addr <= 0:
+            if addr <= 0 and self.value:
                 if len(self.labels) == 3 and '_GLOBAL_OFFSET_TABLE_' in self.labels[0]:
                     pass
                 # handle ddisasm bugs
@@ -424,6 +427,8 @@ class FactorList:
                     pdb.set_trace()
                     raise SyntaxError('Unsolved label')
                 addr = self.value - self.num
+            elif '@PLT' in label or '@GOTPCREL' in label:
+                addr = 0
 
             lbl = Label(label, label_type, addr)
             result.append(lbl)

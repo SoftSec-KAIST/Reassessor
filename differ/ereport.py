@@ -3,8 +3,16 @@ import pickle
 import os
 import json
 from lib.types import CmptTy, InstType, DataType
+from enum import Enum
 
 ERec = namedtuple('ERec', ['record', 'gt'])
+
+class ReportTy(Enum):
+    UNKNOWN = 0
+    TP = 1
+    FP = 2
+    FN = 3
+    TF = 4
 
 def my_open(file_path, option='w'):
      if 'w' in option:
@@ -15,73 +23,54 @@ def my_open(file_path, option='w'):
      return fd
 
 class Record:
-    def __init__(self, stype, etype, region):
+    def __init__(self, stype, etype):
         self.stype = stype      #1-8
         self.etype = etype      #FP/FN
-        self.region = region    #Inst/Data
 
         self.jdata = []
         self.adata = []
 
-    def add(self, gt, tool, loc):
+    def add(self, gt, tool, region, tool_reloc_type, invalid_label=0):
         if gt:
             address     = gt.addr
-            src_gt      = gt.path,    gt.asm_idx
+            asm_info    = gt.path,    gt.asm_idx
             gt_asm      = gt.asm_line.strip()
         else:
             address     = tool.addr
-            src_gt      = None
+            asm_info    = None
             gt_asm      = None
 
-        reasm_type = 0
+        #reasm_type = 0
         if tool:
-            src_tool    = tool.path,  tool.asm_idx
+            reasm_info  = tool.path,  tool.asm_idx
             tool_asm    = tool.asm_line.strip()
-            if isinstance(tool, InstType):
-                if loc == 'disp' and tool.disp:
-                    reasm_type = tool.disp.type
-                elif loc == 'imm' and tool.imm:
-                    reasm_type = tool.imm.type
-            if isinstance(tool, DataType):
-                if loc == 'value' and tool.value:
-                    reasm_type = tool.value.type
         else:
-            src_tool    = None
+            reasm_info  = None
             tool_asm    = None
 
 
-        self.adata.append((address, self.region, self.etype, src_gt, src_tool, loc, gt_asm, tool_asm, reasm_type))
+        self.adata.append((address, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label))
 
     def dump(self, out_file):
 
-        for (addr, ty, res, src_c, src_r, loc, gt_asm, tool_asm, reasm_type) in sorted(self.adata):
+        for (addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label) in sorted(self.adata):
             gt = ''
-            if src_c:
+            if asm_info:
                 gt = gt_asm
             tool = ''
-            if src_r:
+            if reasm_info:
                 tool = tool_asm
-            print('E%d%2s (%4s:%d) %-8s: %-40s  | %-40s'%(self.stype, res, ty, reasm_type, hex(addr), tool, gt), file=out_file)
-
-class RecE:
-    def __init__(self, stype, etype):
-        self.stype = stype
-        self.etype = etype
-        self.ins = Record(stype, etype, 'Inst')
-        self.data = Record(stype, etype, 'Data')
+            print('E%d%2s (%4s:%d:%d) %-8s: %-40s  | %-40s'%(self.stype, self.etype, region, tool_reloc_type, invalid_label, hex(addr), tool, gt), file=out_file)
 
     def length(self):
-        return len(self.ins.adata) + len(self.data.adata)
+        return len(self.adata)
 
-    def dump(self, out_file):
-        self.ins.dump(out_file)
-        self.data.dump(out_file)
 
 class RecS:
     def __init__(self, stype):
         self.stype = stype
-        self.fp = RecE(stype, 'FP')
-        self.fn = RecE(stype, 'FN')
+        self.fp = Record(stype, 'FP')
+        self.fn = Record(stype, 'FN')
         self.tp = 0
 
     def dump(self, out_file):
@@ -95,10 +84,10 @@ class RecS:
 
     def get_json(self):
         res = []
-        res.extend(self.fp.ins.jdata)
-        res.extend(self.fp.data.jdata)
-        res.extend(self.fn.ins.jdata)
-        res.extend(self.fn.data.jdata)
+        res.extend(self.fp.jdata)
+        res.extend(self.fp.jdata)
+        res.extend(self.fn.jdata)
+        res.extend(self.fn.jdata)
         return res
 
 class Report:
@@ -133,7 +122,6 @@ class Report:
             elif addr in prog_r.Data: # FP
                 data_r = prog_r.Data[addr]
                 self.check_data_error(None, data_r)
-                #self.rec[8].fp.data.add(None, data_r, 'value')
 
 
 
@@ -158,95 +146,88 @@ class Report:
 
             if ins_c.imm or ins_c.disp:
                 self.check_ins(ins_c, None)
-            '''
-            data_r = None
-            if addr in prog_r.Data:
-                data_r = prog_r.Data[addr]
-            if ins_c.imm:
-                self.rec[ins_c.imm.type].fn.ins.add(ins_c, data_r, 'imm')
-            if ins_c.disp:
-                self.rec[ins_c.disp.type].fn.ins.add(ins_c, data_r, 'disp')
-            '''
 
         fp = ins_addrs_r - ins_addrs_c - self.prog_c.unknown_region
         for addr in fp:
             ins_r = prog_r.Instrs[addr]
             if ins_r.imm or ins_r.disp:
                 self.check_ins(None, ins_r)
-            '''
-            if ins_r.imm:
-                self.rec[8].fp.ins.add(None, ins_r, 'imm')
-            if ins_r.disp:
-                self.rec[8].fp.ins.add(None, ins_r, 'disp')
-            '''
 
-    def add_fp(self, etype, gt_factor, tool_factor, label):
-        if label == 'value':
-            self.rec[etype].fp.data.add(gt_factor, tool_factor, label)
-        else:
-            self.rec[etype].fp.ins.add(gt_factor, tool_factor, label)
-
-    def add_fn(self, etype, gt_factor, tool_factor, label):
-        if label == 'value':
-            self.rec[etype].fn.data.add(gt_factor, tool_factor, label)
-        else:
-            self.rec[etype].fn.ins.add(gt_factor, tool_factor, label)
-
-    def compare_two_reloc_expr(self, gt_factor, tool_factor, label):
-        reloc1 = None
-        reloc2 = None
+    def compare_two_reloc_expr(self, gt_factor, tool_factor, region):
+        gt_reloc = None
+        tool_reloc = None
         if gt_factor:
-            if label == 'imm':
-                reloc1 = gt_factor.imm
-            elif label == 'disp':
-                reloc1 = gt_factor.disp
-            elif label == 'value':
-                reloc1 = gt_factor.value
+            if region == 'Imm':
+                gt_reloc = gt_factor.imm
+            elif region == 'Disp':
+                gt_reloc = gt_factor.disp
+            elif region == 'Data':
+                gt_reloc = gt_factor.value
         if tool_factor:
-            if label == 'imm':
-                reloc2 = tool_factor.imm
-            elif label == 'disp':
-                reloc2 = tool_factor.disp
-            elif label == 'value':
-                reloc2 = tool_factor.value
+            if region == 'Imm':
+                tool_reloc = tool_factor.imm
+            elif region == 'Disp':
+                tool_reloc = tool_factor.disp
+            elif region == 'Data':
+                tool_reloc = tool_factor.value
 
+        gt_reloc_type = 8
+        tool_reloc_type = 8
+        if gt_reloc:
+            gt_reloc_type = gt_reloc.type
+        if tool_reloc:
+            tool_reloc_type = tool_reloc.type
 
-        if reloc1 and reloc2:
-            if reloc1.type == reloc2.type:
-                if reloc1.type in [7]:
-                    if reloc1.terms[0].get_value() == reloc2.terms[0].get_value() and reloc1.terms[1].get_value() == reloc2.terms[1].get_value():
-                        self.rec[reloc1.type].tp += 1
+        result = ReportTy.UNKNOWN
+
+        invalid_label = 0
+
+        if gt_reloc and tool_reloc:
+            if gt_reloc_type == tool_reloc.type:
+                if gt_reloc_type in [7]:
+                    if gt_reloc.terms[0].get_value() == tool_reloc.terms[0].get_value() and gt_reloc.terms[1].get_value() == tool_reloc.terms[1].get_value():
+                        result = ReportTy.TP
                     else:
-                        self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+                        result = ReportTy.FP
 
-                else: # reloc1.type in [1,2,3,4,5,6]:
+                else: # gt_reloc_type in [1,2,3,4,5,6]:
                     # -1: does not exist
                     # -2: duplicated label
                     #  0: Reloc Symbol (Unknown symbol)
-                    if ( reloc1.terms[0].Address and
-                         reloc2.terms[0].Address != 0 and
-                         reloc1.terms[0].Address != reloc2.terms[0].Address):
-                        print('%s vs %s'%(hex(reloc1.terms[0].Address), hex(reloc2.terms[0].Address)))
-
-                        #import pdb
-                        #pdb.set_trace()
+                    if ( gt_reloc.terms[0].Address != 0 and
+                         tool_reloc.terms[0].Address != 0 and
+                         gt_reloc.terms[0].Address != tool_reloc.terms[0].Address):
+                        print('%s vs %s'%(hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
                         print(tool_factor.asm_line)
-                        self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+                        result = ReportTy.FP
 
-                    elif reloc1.type in [2,4,6] and reloc1.num != reloc2.num:
-                        self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+                        if tool_reloc.terms[0].Address < 0:
+                            invalid_label = tool_reloc.terms[0].Address
+                    elif gt_reloc_type in [2,4,6] and gt_reloc.num != tool_reloc.num:
+                        result = ReportTy.FP
 
                     else:
-                        self.rec[reloc1.type].tp += 1
+                        result = ReportTy.TP
 
             else:
-                self.add_fp(reloc1.type, gt_factor, tool_factor, label)
+                result = ReportTy.FP
 
-        elif reloc1:
-            self.add_fn(reloc1.type, gt_factor, tool_factor, label)
+        elif gt_reloc:
+            result = ReportTy.FN
 
-        elif reloc2:
-            self.add_fp(8, gt_factor, tool_factor, label)
+        elif tool_reloc:
+            result = ReportTy.FP
+
+        self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label)
+
+    def record_result(self, region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label):
+        if result == ReportTy.TP:
+            self.rec[gt_reloc_type].tp += 1
+        elif result == ReportTy.FP:
+            self.rec[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label)
+        elif result == ReportTy.FN:
+            self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type)
+
 
     def check_data_error(self, data_c, data_r):
         self.gt += 1
@@ -260,18 +241,16 @@ class Report:
             elif data_c.r_type and data_c.r_type in ['R_X86_64_JUMP_SLOT']:
                 pass
             else:
-                #c_type = data_c.value.type
-                #self.rec[c_type].fn.data.add(data_c, None, 'value')
-                self.compare_two_reloc_expr(data_c, data_r, 'value')
+                self.compare_two_reloc_expr(data_c, data_r, 'Data')
         else:
-            self.compare_two_reloc_expr(data_c, data_r, 'value')
+            self.compare_two_reloc_expr(data_c, data_r, 'Data')
 
 
     def check_ins(self, ins_c, ins_r):
         self.gt += 1
 
-        self.compare_two_reloc_expr(ins_c, ins_r, 'imm')
-        self.compare_two_reloc_expr(ins_c, ins_r, 'disp')
+        self.compare_two_reloc_expr(ins_c, ins_r, 'Imm')
+        self.compare_two_reloc_expr(ins_c, ins_r, 'Disp')
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:

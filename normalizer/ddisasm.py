@@ -46,7 +46,7 @@ def ddisasm_mapper(reassem_path, tokenizer):
                     is_linker_gen = True
             elif terms[0] in ['.text', '.data', '.bss']:
                 is_linker_gen = False
-            elif re.search('^.*:$', terms[0]):
+            elif re.search('^.*:$', line):
                 xaddr = ddisasm_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
