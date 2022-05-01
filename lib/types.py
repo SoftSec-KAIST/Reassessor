@@ -13,6 +13,13 @@ class CmptTy(Enum):
     OBJREL = 4
     NONE = 5
 
+class ReportTy(Enum):
+    UNKNOWN = 0
+    TP = 1
+    FP = 2
+    FN = 3
+    TF = 4
+
 def cmptTyToStr(ty):
     if ty == CmptTy.ABSOLUTE:
         return 'ABSOLUTE'

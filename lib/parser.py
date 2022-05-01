@@ -261,6 +261,8 @@ class CompGen:
         if value:
             if '@GOTOFF' in op_str:
                 value = (value + self.got_addr) & 0xffffffff
+            elif '@GOT' in op_str:
+                value = (value + self.got_addr) & 0xffffffff
             elif '_GLOBAL_OFFSET_TABLE_' in op_str:
                 #gotoff = self.got_addr - insn.address
                 value = self.got_addr
@@ -385,17 +387,17 @@ class FactorList:
         if self._label_dict is None:
             return 0
 
-        if label.split('@')[0] in self._label_dict:
-            res = self._label_dict[label]
+        keyword = label.split('@')[0]
+        if keyword in self._label_dict:
+            res = self._label_dict[keyword]
             if isinstance(res, list):
-                if len(self._label_dict[label]) == 1:
-                    return self._label_dict[label][0]
+                if len(self._label_dict[keyword]) == 1:
+                    return self._label_dict[keyword][0]
                 else:
                     #if there is duplicated label, we nullify the label
                     return -2
-            return self._label_dict[label]
+            return self._label_dict[keyword]
         else:
-            #there is no relevant label
             return -1
 
     def get_terms(self):
@@ -423,12 +425,11 @@ class FactorList:
                 elif len(self.labels) == 2 and self.labels[-1] == '-_GLOBAL_OFFSET_TABLE_':
                     pass
                 elif len(self.labels) > 1:
-                    import pdb
-                    pdb.set_trace()
                     raise SyntaxError('Unsolved label')
                 addr = self.value - self.num
             elif '@PLT' in label or '@GOTPCREL' in label:
                 addr = 0
+
 
             lbl = Label(label, label_type, addr)
             result.append(lbl)

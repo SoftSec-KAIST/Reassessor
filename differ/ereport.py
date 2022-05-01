@@ -2,17 +2,9 @@ from collections import namedtuple
 import pickle
 import os
 import json
-from lib.types import CmptTy, InstType, DataType
-from enum import Enum
+from lib.types import CmptTy, InstType, DataType, ReportTy
 
 ERec = namedtuple('ERec', ['record', 'gt'])
-
-class ReportTy(Enum):
-    UNKNOWN = 0
-    TP = 1
-    FP = 2
-    FN = 3
-    TF = 4
 
 def my_open(file_path, option='w'):
      if 'w' in option:
