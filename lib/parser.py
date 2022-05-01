@@ -525,7 +525,7 @@ class ATTExParser(ExParser):
 
             # ramblr: movzbl  (label_4744+7)(%rdx),  %esi
             if re.search('^\(.*\)\(.*\)$', expr):
-                expr = re.findall('^\((.*)\)\(.*\)$', expr)
+                expr = re.findall('^\((.*)\)\(.*\)$', expr)[0]
             # ramblr: movl $(label_4299+3), -316(%ebp)
             # ramblr: movw $0x808, (label_1293+2)
             elif ('%' not in expr) and re.search('^\(.*\)$', expr):
