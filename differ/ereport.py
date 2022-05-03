@@ -107,13 +107,13 @@ class Report:
             if addr in self.prog_c.Data and addr in prog_r.Data: # TP or FP
                 data_c = self.prog_c.Data[addr]
                 data_r = prog_r.Data[addr]
-                self.check_data_error(data_c, data_r)
+                self.check_data_error(data_c, data_r, addr)
             elif addr in self.prog_c.Data: # FN
                 data_c = self.prog_c.Data[addr]
-                self.check_data_error(data_c, None)
+                self.check_data_error(data_c, None, addr)
             elif addr in prog_r.Data: # FP
                 data_r = prog_r.Data[addr]
-                self.check_data_error(None, data_r)
+                self.check_data_error(None, data_r, addr)
 
 
 
@@ -130,22 +130,22 @@ class Report:
             ins_r = prog_r.Instrs[addr]
 
             if ins_c.imm or ins_c.disp or ins_r.imm or ins_r.disp:
-                self.check_ins(ins_c, ins_r)
+                self.check_ins(ins_c, ins_r, addr)
 
         fn = ins_addrs_c - ins_addrs_r
         for addr in fn:
             ins_c = self.prog_c.Instrs[addr]
 
             if ins_c.imm or ins_c.disp:
-                self.check_ins(ins_c, None)
+                self.check_ins(ins_c, None, addr)
 
         fp = ins_addrs_r - ins_addrs_c - self.prog_c.unknown_region
         for addr in fp:
             ins_r = prog_r.Instrs[addr]
             if ins_r.imm or ins_r.disp:
-                self.check_ins(None, ins_r)
+                self.check_ins(None, ins_r, addr)
 
-    def compare_two_reloc_expr(self, gt_factor, tool_factor, region):
+    def compare_two_reloc_expr(self, gt_factor, tool_factor, region, addr):
         gt_reloc = None
         tool_reloc = None
         if gt_factor:
@@ -183,20 +183,31 @@ class Report:
                         result = ReportTy.FP
 
                 else: # gt_reloc_type in [1,2,3,4,5,6]:
-                    # -1: does not exist
-                    # -2: duplicated label
-                    #  0: Reloc Symbol (Unknown symbol)
-                    if ( gt_reloc.terms[0].Address != 0 and
+
+                    if gt_reloc_type in [2,4,6] and gt_reloc.num != tool_reloc.num:
+                        result = ReportTy.FP
+
+                    # if valiable is defined with suffix @GOT, compiler will allocate memory region.
+                    elif '@GOT' in tool_reloc.terms[0].get_name() and tool_reloc.terms[0].get_name().split('@')[1] == 'GOT':
+                        result = ReportTy.TP
+
+                    #  Address == 0: Reloc Symbol (Unknown symbol)
+                    elif ( gt_reloc.terms[0].Address != 0 and
                          tool_reloc.terms[0].Address != 0 and
                          gt_reloc.terms[0].Address != tool_reloc.terms[0].Address):
-                        print('%s vs %s'%(hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
-                        print(tool_factor.asm_line)
+
                         result = ReportTy.FP
 
                         if tool_reloc.terms[0].Address < 0:
-                            invalid_label = tool_reloc.terms[0].Address
-                    elif gt_reloc_type in [2,4,6] and gt_reloc.num != tool_reloc.num:
-                        result = ReportTy.FP
+                            # -1: does not exist
+                            # -2: duplicated label
+                            invalid_label = abs(tool_reloc.terms[0].Address)
+                        else:
+                            invalid_label = 3 # label address is diffent
+
+                            if gt_reloc_type in [1,3,5]:
+                                print('%s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
+                                print(tool_factor.asm_line)
 
                     else:
                         result = ReportTy.TP
@@ -221,7 +232,7 @@ class Report:
             self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type)
 
 
-    def check_data_error(self, data_c, data_r):
+    def check_data_error(self, data_c, data_r, addr):
         self.gt += 1
         if data_c and data_r is None:
             # this is reassembler design choice
@@ -233,16 +244,16 @@ class Report:
             elif data_c.r_type and data_c.r_type in ['R_X86_64_JUMP_SLOT']:
                 pass
             else:
-                self.compare_two_reloc_expr(data_c, data_r, 'Data')
+                self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
         else:
-            self.compare_two_reloc_expr(data_c, data_r, 'Data')
+            self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
 
 
-    def check_ins(self, ins_c, ins_r):
+    def check_ins(self, ins_c, ins_r, addr):
         self.gt += 1
 
-        self.compare_two_reloc_expr(ins_c, ins_r, 'Imm')
-        self.compare_two_reloc_expr(ins_c, ins_r, 'Disp')
+        self.compare_two_reloc_expr(ins_c, ins_r, 'Imm', addr)
+        self.compare_two_reloc_expr(ins_c, ins_r, 'Disp', addr)
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
