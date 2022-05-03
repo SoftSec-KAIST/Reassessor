@@ -213,7 +213,11 @@ class CompGen:
         imm_list = []
         for operand in insn.operands:
             if operand.type == X86_OP_MEM:
-                disp_list.append(operand.mem.disp)
+                if operand.mem.base == X86_REG_RIP:
+                    value = operand.mem.disp + insn.address + insn.size
+                else:
+                    value = operand.mem.disp
+                disp_list.append(value)
             elif operand.type == X86_OP_IMM:
                 imm_list.append(operand.imm)
 
@@ -230,7 +234,7 @@ class CompGen:
             if factors.has_label():
                 if self.ex_parser.is_imm:
                     assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
-                    imm = self.create_component(op_str, imm_list[0], insn)
+                    imm = self.create_component(op_str, imm_list[0])
                 else:
                     if len(disp_list) == 0 and len(imm_list) == 1:
                         # assembler might change RIP-relativea addressing to absolute addressing
@@ -238,22 +242,26 @@ class CompGen:
                         #  ->  mov    $0x8c4340,%rdi
                         if '(%rip)' in op_str:
                             assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
-                            imm = self.create_component(op_str.split('(%rip)')[0], imm_list[0], insn)
+                            imm = self.create_component(op_str.split('(%rip)')[0], imm_list[0])
                             continue
                         elif '@GOT(' in op_str:
                             assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
-                            imm = self.create_component(op_str.split('(')[0], imm_list[0], insn)
+                            imm = self.create_component(op_str.split('(')[0], imm_list[0])
                             continue
 
                     #if len(disp_list) != 1 or disp is not None:
                     #    import pdb
                     #    pdb.set_trace()
                     assert len(disp_list) == 1 and disp is None, 'Unexpected operand type'
-                    disp = self.create_component(op_str, disp_list[0], insn)
+
+                    #if '@GOT' in op_str and "@GOTPCREL" not in op_str:
+                    #    disp_list[0] += self.got_addr
+
+                    disp = self.create_component(op_str, disp_list[0])
 
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
 
-    def create_component(self, op_str, value = 0, insn = None):
+    def create_component(self, op_str, value = 0):
 
         tokens = self.ex_parser.parse(op_str)
         is_pcrel = self.ex_parser.has_rip
@@ -261,15 +269,10 @@ class CompGen:
         if value:
             if '@GOTOFF' in op_str:
                 value = (value + self.got_addr) & 0xffffffff
-            elif '@GOT' in op_str:
+            elif '@GOT' in op_str and '@GOTPCREL' not in op_str:
                 value = (value + self.got_addr) & 0xffffffff
             elif '_GLOBAL_OFFSET_TABLE_' in op_str:
-                #gotoff = self.got_addr - insn.address
                 value = self.got_addr
-                pass
-            else:
-                if is_pcrel:
-                    value += insn.address + insn.size
 
             factors = FactorList(tokens, value, is_pcrel = is_pcrel)
         else:
