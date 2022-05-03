@@ -234,7 +234,7 @@ class CompGen:
             if factors.has_label():
                 if self.ex_parser.is_imm:
                     assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
-                    imm = self.create_component(op_str, imm_list[0])
+                    imm = self.create_component(addr, op_str, imm_list[0])
                 else:
                     if len(disp_list) == 0 and len(imm_list) == 1:
                         # assembler might change RIP-relativea addressing to absolute addressing
@@ -242,11 +242,11 @@ class CompGen:
                         #  ->  mov    $0x8c4340,%rdi
                         if '(%rip)' in op_str:
                             assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
-                            imm = self.create_component(op_str.split('(%rip)')[0], imm_list[0])
+                            imm = self.create_component(addr, op_str.split('(%rip)')[0], imm_list[0])
                             continue
                         elif '@GOT(' in op_str:
                             assert len(imm_list) == 1 and imm is None, 'Unexpected operand type'
-                            imm = self.create_component(op_str.split('(')[0], imm_list[0])
+                            imm = self.create_component(addr, op_str.split('(')[0], imm_list[0])
                             continue
 
                     #if len(disp_list) != 1 or disp is not None:
@@ -257,11 +257,11 @@ class CompGen:
                     #if '@GOT' in op_str and "@GOTPCREL" not in op_str:
                     #    disp_list[0] += self.got_addr
 
-                    disp = self.create_component(op_str, disp_list[0])
+                    disp = self.create_component(addr, op_str, disp_list[0])
 
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
 
-    def create_component(self, op_str, value = 0):
+    def create_component(self, addr, op_str, value = 0):
 
         tokens = self.ex_parser.parse(op_str)
         is_pcrel = self.ex_parser.has_rip
@@ -281,7 +281,7 @@ class CompGen:
         if factors.has_label():
             if len(factors.terms) == 3 and factors.terms[0].get_name() == '_GLOBAL_OFFSET_TABLE_':
                 factors.terms[0].Address = self.got_addr
-                factors.terms[1].Address = insn.address
+                factors.terms[1].Address = addr
                 factors.terms[2].Address = self.got_addr - value
             return factors
 
@@ -314,9 +314,9 @@ class CompGen:
             factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel)
             if factors.has_label():
                 if self.ex_parser.is_imm:
-                    imm = self.create_component(op_str)
+                    imm = self.create_component(addr, op_str)
                 else:
-                    disp = self.create_component(op_str)
+                    disp = self.create_component(addr, op_str)
 
         return InstType(addr, asm_path, asm_token, disp=disp, imm=imm)
 

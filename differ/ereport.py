@@ -165,14 +165,20 @@ class Report:
 
         gt_reloc_type = 8
         tool_reloc_type = 8
+
+        invalid_label = 0
+        result = ReportTy.UNKNOWN
+
         if gt_reloc:
             gt_reloc_type = gt_reloc.type
         if tool_reloc:
             tool_reloc_type = tool_reloc.type
 
-        result = ReportTy.UNKNOWN
+            if tool_reloc.terms[0].Address < 0:
+                # -1: does not exist
+                # -2: duplicated label
+                invalid_label = abs(tool_reloc.terms[0].Address)
 
-        invalid_label = 0
 
         if gt_reloc and tool_reloc:
             if gt_reloc_type == tool_reloc.type:
@@ -198,16 +204,10 @@ class Report:
 
                         result = ReportTy.FP
 
-                        if tool_reloc.terms[0].Address < 0:
-                            # -1: does not exist
-                            # -2: duplicated label
-                            invalid_label = abs(tool_reloc.terms[0].Address)
-                        else:
+                        if tool_reloc.terms[0].Address > 0:
                             invalid_label = 3 # label address is diffent
-
-                            if gt_reloc_type in [1,3,5]:
-                                print('%s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
-                                print(tool_factor.asm_line)
+                            print('>> %s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
+                            print('>>>>' , tool_factor.asm_line)
 
                     else:
                         result = ReportTy.TP
