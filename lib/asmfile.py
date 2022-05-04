@@ -214,6 +214,9 @@ class AsmFileInfo:
                 if terms[1][:-1] in [func_name]:
                     #print(self.get_line())
                     break
+            # because of xxxx.cold @function
+            elif terms[0] in ['.cfi_endproc']:
+                break
 
             if self.is_section_directive(terms) and self.section in ['data']:
                 pass
