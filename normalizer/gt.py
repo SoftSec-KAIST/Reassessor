@@ -684,10 +684,12 @@ class NormalizeGT:
             idx += 1
 
         if idx < len(asm_token_list):
-            if debug:
-                pdb.set_trace()
-            #assert False, 'Unexpacted instruction sequence'
-            return []
+            for idx2 in range(idx, len(asm_token_list)):
+                if not isinstance(asm_token_list[idx2], LocInfo):
+                    if debug:
+                        pdb.set_trace()
+                    #assert False, 'Unexpacted instruction sequence'
+                    return []
 
         return addressed_asm_list
 
