@@ -595,6 +595,11 @@ class IntelExParser(ExParser):
         # add BYTE PTR [OFFSET _GLOBAL_OFFSET_TABLE_]
         if re.search('OFFSET .*', expr):
             expr = re.findall('OFFSET (.*)', expr)[0]
+            if expr.startswith('_GLOBAL_OFFSET_TABLE_+'):
+                # clang x86 pie
+                # $_GLOBAL_OFFSET_TABLE_+(.Ltmp266-.L15$pb)
+                expr = '%s+%s-%s'%(re.findall('^(.*)\+\((.*)-(.*)\)$', expr)[0])
+
             self.is_imm = True
 
         return expr
