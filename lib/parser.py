@@ -164,10 +164,11 @@ class Factor:
         raise SyntaxError('Unexpected operator')
 
 class CompGen:
-    def __init__(self, label_dict = None, syntax = capstone.CS_OPT_SYNTAX_ATT, got_addr = 0):
+    def __init__(self, label_dict = None, syntax = capstone.CS_OPT_SYNTAX_ATT, got_addr = 0, label_func=None):
         self.label_dict = dict()
         if label_dict:
             self.label_dict = label_dict
+        self.label_func = label_func
 
         self.syntax = syntax
         if syntax == capstone.CS_OPT_SYNTAX_INTEL:
@@ -187,7 +188,7 @@ class CompGen:
         if additional_dict:
             factors = FactorList(tokens, value, additional_dict)
         else:
-            factors = FactorList(tokens, value, self.label_dict)
+            factors = FactorList(tokens, value, self.label_dict, self.label_func)
         return DataType(addr, asm_path, line, idx, factors, r_type = r_type)
         #return Component(factors)
 
@@ -266,7 +267,7 @@ class CompGen:
         tokens = self.ex_parser.parse(op_str)
         is_pcrel = self.ex_parser.has_rip
 
-        if value:
+        if value:   #in case of GT
             if '@GOTOFF' in op_str:
                 value = (value + self.got_addr) & 0xffffffff
             elif '@GOT' in op_str and '@GOTPCREL' not in op_str:
@@ -275,8 +276,8 @@ class CompGen:
                 value = self.got_addr
 
             factors = FactorList(tokens, value, is_pcrel = is_pcrel)
-        else:
-            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel)
+        else:       #in case of TOOLs
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel, label_func = self.label_func)
 
         if factors.has_label():
             if len(factors.terms) == 3 and factors.terms[0].get_name() == '_GLOBAL_OFFSET_TABLE_':
@@ -301,7 +302,7 @@ class CompGen:
         if asm_token.opcode.startswith('call') or asm_token.opcode in jump_instrs:
             op_str = asm_token.operand_list[0]
             tokens = self.ex_parser.parse(op_str)
-            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel=True)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel=True, label_func = self.label_func)
             if factors.has_label():
                 return InstType(addr, asm_path, asm_token, imm = factors)
             return InstType(addr, asm_path, asm_token)
@@ -311,7 +312,7 @@ class CompGen:
         for op_str in asm_token.operand_list:
             tokens = self.ex_parser.parse(op_str)
             is_pcrel = self.ex_parser.has_rip
-            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel, label_func = self.label_func)
             if factors.has_label():
                 if self.ex_parser.is_imm:
                     imm = self.create_component(addr, op_str)
@@ -322,11 +323,12 @@ class CompGen:
 
 
 class FactorList:
-    def __init__(self, factors, value=0, label_dict=None, is_pcrel=False):
+    def __init__(self, factors, value=0, label_dict=None, label_func=None, is_pcrel=False):
         self.labels = []
         self.num = 0
         self.value = value
         self._label_dict = label_dict
+        self._label_func = label_func
         #self.gotoff = gotoff
         self.is_pcrel = is_pcrel
         for factor in factors:
@@ -342,6 +344,7 @@ class FactorList:
         else:
             self.terms = []
         self._label_dict = None
+        self._label_func = None
         self.type = self.get_type()
 
     def get_type(self):
@@ -400,8 +403,12 @@ class FactorList:
                     #if there is duplicated label, we nullify the label
                     return -2
             return self._label_dict[keyword]
-        else:
-            return -1
+        elif self._label_func:
+            addr = self._label_func(keyword)
+            if addr > 0:
+                return addr
+
+        return -1
 
     def get_terms(self):
         result = []

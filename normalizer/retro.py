@@ -1,12 +1,16 @@
 import re
 import capstone
-
+import os
 from normalizer.tool_base import NormalizeTool
 from lib.parser import parse_att_asm_line, ReasmLabel
 
+HUGE_FILE_SIZE = 1024*1024*1024*10
+
 class NormalizeRetro(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT)
+        super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT, label_func = retro_label_func)
+
+retro_huge_addr_set = set()
 
 def retro_label_to_addr(label):
     if label.startswith('.LC'):
@@ -20,9 +24,57 @@ def retro_label_to_addr(label):
         addr = 0
     return addr
 
+def retro_label_func(label):
+    global retro_huge_addr_set
+    addr = retro_label_to_addr(label)
+    if addr > 0 and addr in retro_huge_addr_set:
+        return addr
+    return 0
+
+def create_huge_addr_set(reassem_path):
+
+    import tempfile
+    _, temp_file = tempfile.mkstemp()
+
+    with open(temp_file, 'w') as fd:
+        cnt = 0
+        print('create temp file: %s'%(temp_file))
+        with open(reassem_path, errors='ignore') as f:
+
+            buf = ''
+            for line in f:
+                line.split()
+                if re.search('^.*:$', line.strip()):
+                    xaddr = retro_label_to_addr(line.strip()[:-1])
+                    if xaddr > 0:
+                        #fd.write(hex(xaddr)+ '\n')
+                        buf += hex(xaddr) + '\n'
+                        cnt += 1
+                        if cnt % 10000000 == 0:
+                            fd.write(buf)
+                            buf = ''
+                            print(cnt)
+            if buf:
+                fd.write(buf)
+                buf = ''
+
+
+    global retro_huge_addr_set
+    retro_huge_addr_set = set(int(line.strip(),16) for line in open(temp_file))
+    #delete file
+    os.unlink(temp_file)
+
+    print('create huge addr set : %d'%(len(retro_huge_addr_set)))
+
 def retro_mapper(reassem_path, tokenizer):
     result = []
     addr = -1
+
+    fsize = os.path.getsize(reassem_path)
+    if fsize > HUGE_FILE_SIZE:
+        create_huge_addr_set(reassem_path)
+        pass
+
     with open(reassem_path, errors='ignore') as f:
         for idx, line in enumerate(f):
             terms = line.split('#')[0].split()
@@ -34,7 +86,16 @@ def retro_mapper(reassem_path, tokenizer):
                     addr = xaddr
 
                 if addr > 0:
-                    result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
+                    #Too many labels might cause OOM errors
+                    #We exclude obvious label if file size is larger than 10G
+                    #Instead we memory the addresses where labels are defined
+                    if fsize > HUGE_FILE_SIZE:
+                        if xaddr == addr:
+                            pass
+                        else:
+                            result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
+                    else:
+                        result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
                 else:
                     result.append(ReasmLabel(terms[0][:-1], 0, idx+1))
                 continue
@@ -49,6 +110,7 @@ def retro_mapper(reassem_path, tokenizer):
             else:
                 continue
             addr = -1
+
     return result
 
 
