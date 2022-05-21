@@ -206,8 +206,8 @@ class Report:
 
                         if tool_reloc.terms[0].Address > 0:
                             invalid_label = 3 # label address is diffent
-                            print('>> %s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
-                            print('>>>>' , tool_factor.asm_line)
+                            #print('>> %s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
+                            #print('>>>>' , tool_factor.asm_line)
 
                     else:
                         result = ReportTy.TP

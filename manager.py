@@ -10,23 +10,25 @@ ERec = namedtuple('ERec', ['record', 'gt'])
 
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 
-def job(conf, multi=True):
+def job(conf, reset=False):
     #diff_option = '--error'
     #diff_option = '--disasm'
     diff_option = ''
-    create_gt(conf, multi)
-    #if create_retro(conf, multi):
-    #    diff_retro(conf, diff_option)
+    create_gt(conf, reset)
 
-    if create_ddisasm(conf, multi):
-        diff_ddisasm(conf, diff_option)
+    '''
+    if create_retro(conf, reset):
+        diff_retro(conf, diff_option, reset)
 
-    #if create_ramblr(conf, multi):
-    #    diff_ramblr(conf, diff_option)
+    if create_ddisasm(conf, reset):
+        diff_ddisasm(conf, diff_option, reset)
 
-    #diff_retro(conf, diff_option)
-    #diff_ddisasm(conf, diff_option)
-    #diff_ramblr(conf, diff_option)
+    if create_ramblr(conf, reset):
+        diff_ramblr(conf, diff_option, reset)
+    '''
+    #diff_retro(conf, diff_option, reset)
+    #diff_ddisasm(conf, diff_option, reset)
+    #diff_ramblr(conf, diff_option, reset)
 
 class RecCounter:
     def __init__(self, tool):
@@ -88,7 +90,7 @@ class RecCounter:
 
 
 class WorkBin:
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result3', retro='/data3/1_reassessor/benchmark', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/ramblr'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result3', retro='/data3/1_reassessor/new_retro', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/new_ramblr'):
         self.bench = bench
         self.out = out
         self.retro = retro
@@ -130,7 +132,7 @@ class WorkBin:
         ramblr_asm = self.get_ramblr(sub_dir, filename)
 
 
-        gt_out = '%s/%s/%s/pickle/gt.dat'%(self.out, sub_dir, filename)
+        gt_out = '%s/%s/%s/pickle/gt2.dat'%(self.out, sub_dir, filename)
         retro_out = '%s/%s/%s/pickle/retro.dat'%(self.out, sub_dir, filename)
         ddisasm_out = '%s/%s/%s/pickle/ddisasm.dat'%(self.out, sub_dir, filename)
         ramblr_out = '%s/%s/%s/pickle/ramblr.dat'%(self.out, sub_dir, filename)
@@ -147,28 +149,27 @@ class WorkBin:
         return BuildConf(binary, reloc, gt_asm, strip, gt_out, retro_asm, retro_out, ddisasm_asm, ddisasm_out, ramblr_asm, ramblr_out, result)
 
 
-def diff_retro(conf, option):
+def diff_retro(conf, option, reset):
     if not conf.retro_asm or not os.path.exists(conf.retro_asm):
         return
     if conf.retro_out:
-        diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result, option)
+        diff('retro', conf.bin, conf.gt_out, conf.retro_out, conf.result, option, reset)
 
-def diff_ddisasm(conf, option):
+def diff_ddisasm(conf, option, reset):
     if not conf.ddisasm_asm or not os.path.exists(conf.ddisasm_asm):
         return
     if conf.ddisasm_out:
-        diff('ddisasm', conf.bin, conf.gt_out, conf.ddisasm_out, conf.result, option)
+        diff('ddisasm', conf.bin, conf.gt_out, conf.ddisasm_out, conf.result, option, reset)
 
-def diff_ramblr(conf, option):
+def diff_ramblr(conf, option, reset):
     if not conf.ramblr_asm or not os.path.exists(conf.ramblr_asm):
         return
     if conf.ramblr_out:
-        diff('ramblr', conf.bin, conf.gt_out, conf.ramblr_out, conf.result, option)
+        diff('ramblr', conf.bin, conf.gt_out, conf.ramblr_out, conf.result, option, reset)
 
 
-def diff(tool_name, binfile, gt_out, tool_out, result, option):
-    if not os.path.exists(tool_out):
-        return
+def diff(tool_name, binfile, gt_out, tool_out, result, option, reset):
+
     if os.path.getsize(tool_out) == 0:
         return
 
@@ -178,36 +179,36 @@ def diff(tool_name, binfile, gt_out, tool_out, result, option):
         pickle_path = result + '/error_pickle/' + tool_name
 
     # create new pickle
-    #if os.path.exists(pickle_path):
-    #    return
+    if not reset and not os.path.exists(pickle_path):
+        return
 
     os.system('mkdir -p %s'%(os.path.dirname(result)))
-    print('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result, tool_name, tool_out, option))
+    #print('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result, tool_name, tool_out, option))
     os.system('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result, tool_name, tool_out, option))
 
 
 
-def create_gt(conf, multi):
-    return create_db('gt',     conf.bin, conf.gt_asm, conf.gt_out, multi, conf.reloc)
+def create_gt(conf, reset):
+    return create_db('gt',     conf.bin, conf.gt_asm, conf.gt_out, reset, conf.reloc)
 
-def create_retro(conf, multi):
+def create_retro(conf, reset):
     if conf.retro_asm:
-        return create_db('retro',  conf.bin, conf.retro_asm, conf.retro_out, multi)
+        return create_db('retro',  conf.bin, conf.retro_asm, conf.retro_out, reset)
     return False
 
-def create_ddisasm(conf, multi):
+def create_ddisasm(conf, reset):
     if conf.ddisasm_asm:
-        return create_db('ddisasm',  conf.bin, conf.ddisasm_asm, conf.ddisasm_out, multi)
+        return create_db('ddisasm',  conf.bin, conf.ddisasm_asm, conf.ddisasm_out, reset)
     return False
 
-def create_ramblr(conf, multi):
+def create_ramblr(conf, reset):
     if conf.ramblr_asm:
-        return create_db('ramblr',  conf.bin, conf.ramblr_asm, conf.ramblr_out, multi)
+        return create_db('ramblr',  conf.bin, conf.ramblr_asm, conf.ramblr_out, reset)
     return False
 
-def create_db(tool_name, bin_file, assem, output, multi=True, reloc=''):
-    #if os.path.exists(output):
-    #    return False
+def create_db(tool_name, bin_file, assem, output, reset=False, reloc=''):
+    if not reset and os.path.exists(output):
+        return False
     option = ''
     if tool_name != 'gt':
         if not os.path.exists(assem):
@@ -218,7 +219,7 @@ def create_db(tool_name, bin_file, assem, output, multi=True, reloc=''):
         option = '--reloc %s'%(reloc)
 
 
-    print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
+    #print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
 
     os.system('mkdir -p %s'%(os.path.dirname(output)))
     os.system('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
@@ -237,8 +238,12 @@ class Manager:
     def gen_option(self, work_dir):
         ret = []
         gen = WorkBin()
-        #for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-        for pack in ['coreutils-8.30']:
+        #for pack in ['binutils-2.31.1']:
+        #for pack in ['spec_cpu2006']:
+        #for pack in ['coreutils-8.30']:
+        #for pack in ['coreutils-8.30']:
+        #for pack in ['binutils-2.31.1', 'spec_cpu2006']:
+        for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
             for arch in ['x86', 'x64']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
@@ -259,7 +264,7 @@ class Manager:
 
         gen = WorkBin()
         conf = gen.gen_tuple(sub_dir, package, arch, pie_opt, target)
-        job(conf, multi=False)
+        job(conf, reset=True)
 
     def run(self):
         if self.multi:
@@ -267,7 +272,7 @@ class Manager:
             p.map(job, (self.conf_list))
         else:
             for conf in self.conf_list:
-                job(conf, self.multi)
+                job(conf)
 
     def merge(self, tool):
         counter = RecCounter(tool)
