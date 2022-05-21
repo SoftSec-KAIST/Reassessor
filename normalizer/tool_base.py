@@ -20,7 +20,7 @@ def load_elf(bin_path):
     return ELFFile(open(bin_path, 'rb'))
 
 class NormalizeTool:
-    def __init__(self, bin_path, reassem_path, map_func, syntax = capstone.CS_OPT_SYNTAX_ATT):
+    def __init__(self, bin_path, reassem_path, map_func, syntax = capstone.CS_OPT_SYNTAX_ATT, label_func = None):
         self.bin_path = bin_path
         self.reassem_path = reassem_path
 
@@ -43,7 +43,7 @@ class NormalizeTool:
 
         self.label_dict = self.make_label_dict()
 
-        self.comp_gen = CompGen(label_dict = self.label_dict, syntax=syntax, got_addr = self.got_addr)
+        self.comp_gen = CompGen(label_dict = self.label_dict, syntax=syntax, got_addr = self.got_addr, label_func=label_func)
 
 
     def make_label_dict(self):
