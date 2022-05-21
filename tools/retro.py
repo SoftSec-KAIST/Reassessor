@@ -10,7 +10,7 @@ def retro_cmd(conf):
 
     cmd1 = 'mkdir -p %s'%(os.path.dirname(rfile))
     cmd_list.append(cmd1)
-    cmd2 = 'python3 -m retrowrite.librw_x64.rw .py %s %s'%(bfile, rfile)
+    cmd2 = 'python3 -m retrowrite.librw_x64.rw  %s %s'%(bfile, rfile)
     cmd_list.append(cmd2)
     return cmd_list
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     mgr = Retro(args.core)
-    mgr.print_conf()
-    #mgr.run()
-    mgr.print_compile_cmd()
+    #mgr.print_conf()
+    mgr.run()
+    #mgr.print_compile_cmd()
     #mgr.compile()
