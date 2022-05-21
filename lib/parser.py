@@ -339,7 +339,7 @@ class FactorList:
             else:
                 self.labels.append(factor.get_str())
         # exclude ddisasm bugs
-        if len(self.labels) == 2 and self.labels[-1] not in ['-_GLOBAL_OFFSET_TABLE_']:
+        if len(self.labels) == 2 and self.labels[-1] not in ['-_GLOBAL_OFFSET_TABLE_', '-.L_0']:
             self.terms = self.get_table_terms()
         elif self.has_label():
             self.terms = self.get_terms()
@@ -452,10 +452,10 @@ class FactorList:
     def get_table_terms(self):
         base_label = self.labels[1][1:]
         base_addr = self.label_to_addr(base_label)
-        if base_addr <= 0:
+        if self.value != 0 and base_addr <= 0:
             import pdb
             pdb.set_trace()
-        assert base_addr > 0, 'This is incorrect jump table base'
+            assert base_addr > 0, 'This is incorrect jump table base'
 
         if self.value == 0:
             addr1 = self.label_to_addr(self.labels[0])
@@ -601,6 +601,9 @@ class IntelExParser(ExParser):
                 expr = '%s+%s-%s'%(re.findall('^(.*)\+\((.*)-(.*)\)$', expr)[0])
 
             self.is_imm = True
+        # give exception to handle ddisasm error
+        elif re.search('\(.*-\.L\_0\)/2', expr) or re.search('\(.*-_GLOBAL_OFFSET_TABLE_\)/2',expr):
+            expr = '%s-%s'%(re.findall('\((.*)-(.*)\)/2', expr)[0])
 
         return expr
 
