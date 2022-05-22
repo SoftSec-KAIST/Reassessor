@@ -22,7 +22,7 @@ class Record:
         self.jdata = []
         self.adata = []
 
-    def add(self, gt, tool, region, tool_reloc_type, invalid_label=0):
+    def add(self, gt, tool, region, tool_reloc_type, invalid_label=0, label_addr1=0, label_addr2=0):
         if gt:
             address     = gt.addr
             asm_info    = gt.path,    gt.asm_idx
@@ -41,18 +41,21 @@ class Record:
             tool_asm    = None
 
 
-        self.adata.append((address, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label))
+        self.adata.append((address, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2))
 
     def dump(self, out_file):
 
-        for (addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label) in sorted(self.adata):
+        for (addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2) in sorted(self.adata):
             gt = ''
             if asm_info:
                 gt = gt_asm
             tool = ''
             if reasm_info:
                 tool = tool_asm
-            print('E%d%2s (%4s:%d:%d) %-8s: %-40s  | %-40s'%(self.stype, self.etype, region, tool_reloc_type, invalid_label, hex(addr), tool, gt), file=out_file)
+            if invalid_label == 3:
+                print('E%d%2s (%4s:%d:%d) %-8s: %-40s  | %-40s (ADDR: %s vs %s)'%(self.stype, self.etype, region, tool_reloc_type, invalid_label, hex(addr), tool, gt, hex(label_addr2), hex(label_addr1)), file=out_file)
+            else:
+                print('E%d%2s (%4s:%d:%d) %-8s: %-40s  | %-40s'%(self.stype, self.etype, region, tool_reloc_type, invalid_label, hex(addr), tool, gt), file=out_file)
 
     def length(self):
         return len(self.adata)
@@ -168,11 +171,15 @@ class Report:
 
         invalid_label = 0
         result = ReportTy.UNKNOWN
+        label_addr1 = 0
+        label_addr2 = 0
 
         if gt_reloc:
             gt_reloc_type = gt_reloc.type
+            label_addr1 = gt_reloc.terms[0].Address
         if tool_reloc:
             tool_reloc_type = tool_reloc.type
+            label_addr2 =  tool_reloc.terms[0].Address
 
             if tool_reloc.terms[0].Address < 0:
                 # -1: does not exist
@@ -221,13 +228,13 @@ class Report:
         elif tool_reloc:
             result = ReportTy.FP
 
-        self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label)
+        self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2)
 
-    def record_result(self, region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label):
+    def record_result(self, region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2):
         if result == ReportTy.TP:
             self.rec[gt_reloc_type].tp += 1
         elif result == ReportTy.FP:
-            self.rec[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label)
+            self.rec[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2)
         elif result == ReportTy.FN:
             self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type)
 
