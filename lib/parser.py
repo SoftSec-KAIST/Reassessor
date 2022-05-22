@@ -202,6 +202,9 @@ class CompGen:
             if insn.operands[0].type == X86_OP_MEM:
                 if insn.operands[0].mem.base == X86_REG_RIP:
                     value = insn.operands[0].mem.disp + insn.address + insn.size
+                elif '@GOTOFF' in op_str:
+                    value = insn.operands[0].mem.disp
+                    value = (value + self.got_addr) & 0xffffffff
                 else:
                     value = insn.operands[0].mem.disp
             else:
