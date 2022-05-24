@@ -341,9 +341,12 @@ class FactorList:
                 self.num += eval(factor.get_str())
             else:
                 self.labels.append(factor.get_str())
-        # exclude ddisasm bugs
-        if len(self.labels) == 2 and self.labels[-1] not in ['-_GLOBAL_OFFSET_TABLE_', '-.L_0']:
-            self.terms = self.get_table_terms()
+        if len(self.labels) == 2:
+            # exclude ddisasm bugs
+            if self.labels[-1] in ['-_GLOBAL_OFFSET_TABLE_']:#, '-.L_0']:
+                self.terms = self.get_ddisasm_got_terms()
+            else:
+                self.terms = self.get_table_terms()
         elif self.has_label():
             self.terms = self.get_terms()
         else:
@@ -354,7 +357,14 @@ class FactorList:
 
     def get_type(self):
         if len(self.labels) == 2:
-            return 7
+            #ddisasm makes type 5/6 symbol like XXX-_GLOBAL_OFFSET_TABLE_
+            if self.labels[1] == '-_GLOBAL_OFFSET_TABLE_':
+                if self.is_composite():
+                    return 6
+                else:
+                    return 5
+            else:
+                return 7
         elif len(self.labels) == 1:
             if ('@GOTOFF' in self.labels[0] or '@GOT' in self.labels[0]) and '@GOTPCREL' not in self.labels[0]:
                 if self.is_composite():
@@ -414,6 +424,20 @@ class FactorList:
                 return addr
 
         return -1
+
+    def get_ddisasm_got_terms(self):
+        assert len(self.labels) == 2 and self.labels[1] == '-_GLOBAL_OFFSET_TABLE_'
+
+        result = []
+
+        addr = self.label_to_addr(self.labels[0])
+        label_type = LblTy.GOTOFF
+        lbl = Label(self.labels[0], label_type, addr)
+        result.append(lbl)
+
+        if self.num:
+            return result + [self.num]
+        return result
 
     def get_terms(self):
         result = []
