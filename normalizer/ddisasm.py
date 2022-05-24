@@ -76,6 +76,19 @@ def ddisasm_mapper(reassem_path, tokenizer):
                     result.append(tokenizer.parse(asm_line, addr, idx+1))
 
             addr = -1
+    #ddisasm debug option has some bugs so we store label to additional assembly files
+    additional_file =  reassem_path.replace('debug_dd', 'debug_dd_expand')
+    import os
+    if os.path.isfile(additional_file):
+        with open(additional_file) as f:
+            for line in f:
+                if re.search('^.*:$', line):
+                    terms = line.split('#')[0].split()
+                    xaddr = ddisasm_label_to_addr(terms[0][:-1])
+                    if xaddr > 0:
+                        result.append(ReasmLabel(terms[0][:-1], xaddr, 0))
+
+
 
     return result
 
