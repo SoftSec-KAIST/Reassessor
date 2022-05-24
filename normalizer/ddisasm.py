@@ -10,7 +10,7 @@ def ddisasm_label_to_addr(label):
     # '.L_587dd0@GOTPCREL'
     label = label.split('@')[0]
     if label.startswith('FUN_'):
-        addr = int(label[4:])
+        addr = int(label[4:],16)
     elif label.startswith('.L_'):
         addr = int(label[3:], 16)
     else:
