@@ -15,6 +15,8 @@ retro_huge_addr_set = set()
 def retro_label_to_addr(label):
     if label.startswith('.LC'):
         addr = int(label[3:], 16)
+    elif label.startswith('.LLC'):
+        addr = int(label[4:], 16)
     elif label.startswith('.L'):
         if '_' in label:
             addr = int(label.split('_')[-1],16)
