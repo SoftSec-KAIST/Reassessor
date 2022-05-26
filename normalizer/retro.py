@@ -34,7 +34,7 @@ def retro_label_func(label):
     return 0
 
 def create_huge_addr_set(reassem_path):
-
+    '''
     import tempfile
     _, temp_file = tempfile.mkstemp()
 
@@ -60,13 +60,23 @@ def create_huge_addr_set(reassem_path):
                 fd.write(buf)
                 buf = ''
 
-
     global retro_huge_addr_set
     retro_huge_addr_set = set(int(line.strip(),16) for line in open(temp_file))
     #delete file
     os.unlink(temp_file)
-
-    print('create huge addr set : %d'%(len(retro_huge_addr_set)))
+    '''
+    global retro_huge_addr_set
+    additional_file =  reassem_path.replace('new_retro_fix', 'new_retro_fix_expand')
+    import os
+    if os.path.isfile(additional_file):
+        print(' [+] read huge addr set %s'%(additional_file))
+        import time
+        tic = time.perf_counter()
+        retro_huge_addr_set = set(retro_label_to_addr(line.strip()[:-1]) for line in open(additional_file))
+        toc = time.perf_counter()
+        print(' [+] complete to make huge addr set (%d) %0.4f'%(len(retro_huge_addr_set), toc-tic))
+    else:
+        print(' [-] %s does not exist'%(additional_file))
 
 def retro_mapper(reassem_path, tokenizer):
     result = []
@@ -113,6 +123,8 @@ def retro_mapper(reassem_path, tokenizer):
                 continue
             addr = -1
 
+    if fsize > HUGE_FILE_SIZE:
+        print(' [+] complete to map the code: %s'%(reassem_path))
     return result
 
 
