@@ -12,7 +12,10 @@ def ddisasm_label_to_addr(label):
     if label.startswith('FUN_'):
         addr = int(label[4:],16)
     elif label.startswith('.L_'):
-        addr = int(label[3:], 16)
+        if label.endswith('_END'):
+            addr = int(label[3:-4], 16)
+        else:
+            addr = int(label[3:], 16)
     else:
         addr = 0
 
@@ -40,7 +43,10 @@ def ddisasm_mapper(reassem_path, tokenizer):
             elif terms[0].startswith('.cfi_'):
                 pass
             elif terms[0] in ['.section']:
-                if terms[1] not in ['.fini', '.init', '.plt.got']:
+                # Ddisam 1.5.3 sometimes does not create section name
+                # .section
+                # 416.gamess and 434.zeusmp
+                if len(terms) > 1 and terms[1] not in ['.fini', '.init', '.plt.got']:
                     is_linker_gen = False
                 else:
                     is_linker_gen = True
@@ -77,7 +83,7 @@ def ddisasm_mapper(reassem_path, tokenizer):
 
             addr = -1
     #ddisasm debug option has some bugs so we store label to additional assembly files
-    additional_file =  reassem_path.replace('debug_dd', 'debug_dd_expand')
+    additional_file =  reassem_path.replace('debug_dd2', 'debug_dd_expand2')
     import os
     if os.path.isfile(additional_file):
         with open(additional_file) as f:
