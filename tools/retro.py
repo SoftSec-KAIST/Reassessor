@@ -10,12 +10,14 @@ def retro_cmd(conf):
 
     cmd1 = 'mkdir -p %s'%(os.path.dirname(rfile))
     cmd_list.append(cmd1)
-    cmd2 = 'python3 -m retrowrite.librw_x64.rw  %s %s'%(bfile, rfile)
+    #cmd2 = 'python3 -m retrowrite.librw_x64.rw  %s %s'%(bfile, rfile)
+    cmd2 = 'python3 -m retro_fix.librw_x64.rw  %s %s'%(bfile, rfile)
     cmd_list.append(cmd2)
     return cmd_list
 
 class Retro(Manager):
-    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_retro', tool_name='retro_sym'):
+    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_retro_fix', tool_name='retro_sym'):
+        self.overwrite = False
         super().__init__(core, bench, tool_path, tool_name)
 
 
@@ -23,8 +25,7 @@ class Retro(Manager):
         ret = []
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
             for arch in ['x64']:
-                #for comp in ['clang', 'gcc']:
-                for comp in ['gcc']:
+                for comp in ['clang', 'gcc']:
                     #for popt in ['nopie', 'pie']:
                     for popt in ['pie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
@@ -33,6 +34,16 @@ class Retro(Manager):
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
                                 for binary in glob.glob('%s/%s/bin/*'%(work_dir, sub_dir)):
                                     filename = os.path.basename(binary)
+
+                                    '''
+                                    if not self.overwrite:
+                                        output = '%s/%s/%s/%s.s'%(self.tool_path, sub_dir, tool_name, filename)
+                                        if os.path.isfile(output):
+                                            continue
+                                        #print(output)
+                                    '''
+                                    if filename in ['416.gamess']:
+                                        continue
 
                                     ret.append(REConf(self.bench, tool_name, self.tool_path, sub_dir, filename, arch, comp, popt, lopt, retro_cmd))
         return ret
@@ -47,6 +58,6 @@ if __name__ == '__main__':
 
     mgr = Retro(args.core)
     #mgr.print_conf()
-    mgr.run()
+    #mgr.run()
     #mgr.print_compile_cmd()
-    #mgr.compile()
+    mgr.compile()

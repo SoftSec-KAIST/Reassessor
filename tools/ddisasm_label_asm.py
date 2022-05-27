@@ -4,7 +4,7 @@ import multiprocessing
 
 
 class Ddisasm:
-    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path1='/data3/1_reassessor/debug_dd', tool_path2='/data3/1_reassessor/new_ddisasm', tool_name='ddisasm', out_path='/data3/1_reassessor/debug_dd_expand'):
+    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path1='/data3/1_reassessor/debug_dd2', tool_path2='/data3/1_reassessor/new_ddisasm2', tool_name='ddisasm', out_path='/data3/1_reassessor/debug_dd_expand2'):
         self.core = core
         if core > 1:
             self.multi = True
