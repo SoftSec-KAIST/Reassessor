@@ -115,7 +115,11 @@ class Report:
                 data_c = self.prog_c.Data[addr]
                 self.check_data_error(data_c, None, addr)
             elif addr in prog_r.Data: # FP
+                # we couldn't decide label-relative addressing
+                # since its reloc info would not be defined in relocation table
                 data_r = prog_r.Data[addr]
+                if data_r.value.type == 7:
+                    continue
                 self.check_data_error(None, data_r, addr)
 
 
@@ -246,9 +250,9 @@ class Report:
             # ddisasm preserve .got section
             # retrowrite delete .got section
             # Thus, we do not check this case
-            if data_c.r_type and data_c.r_type in ['R_X86_64_GLOB_DAT']:
+            if data_c.r_type and data_c.r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT']:
                 pass
-            elif data_c.r_type and data_c.r_type in ['R_X86_64_JUMP_SLOT']:
+            elif data_c.r_type and data_c.r_type in ['R_386_GLOB_DAT','R_386_JUMP_SLOT']:
                 pass
             else:
                 self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
