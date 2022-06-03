@@ -56,7 +56,6 @@ def ddisasm_mapper(reassem_path, tokenizer):
                 xaddr = ddisasm_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
-
                 if addr > 0:
                     result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
                 else:
@@ -83,7 +82,7 @@ def ddisasm_mapper(reassem_path, tokenizer):
 
             addr = -1
     #ddisasm debug option has some bugs so we store label to additional assembly files
-    additional_file =  reassem_path.replace('debug_dd2', 'debug_dd_expand2')
+    additional_file =  reassem_path.replace('debug_dd', 'debug_dd_expand')
     import os
     if os.path.isfile(additional_file):
         with open(additional_file) as f:
