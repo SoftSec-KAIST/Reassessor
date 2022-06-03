@@ -598,7 +598,9 @@ class ATTExParser(ExParser):
             factor = self._factor()
             if factor.op == '+':
                 return Factor('-', factor.data)
-        elif self._is_next(r'[_.a-zA-Z0-9@]*'):
+        #elif self._is_next(r'[_.a-zA-Z0-9@]*'):
+        # for cgc clang 6.4
+        elif self._is_next(r'[_.a-zA-Z0-9@$]*'):
             if self.line == '$pb':
                 self.current += self.line
                 self.line = ''
