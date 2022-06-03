@@ -81,6 +81,9 @@ def ramblr_mapper(reassem_path, tokenizer):
 
 def ramblr_label_to_addr(label):
     if label.startswith('sub_'):
+        # ramblr makes exceptional symbols cgc binary (clang 6)
+        if 'entry_info_list' == label[4:]:
+            return 0
         addr = int(label[4:], 16)
     else:
         addr = 0
