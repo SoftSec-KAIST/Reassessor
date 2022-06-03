@@ -123,7 +123,8 @@ def get_reloc(elf):
                section.name.endswith(".dyn") or \
                section.name.endswith('.init_array') or \
                section.name.endswith('.fini_array') ) ) or \
-            section.name in ['.rela.plt']:
+               section.name in ['.rela.plt'] or \
+               section.name in ['.rel.plt']:
 
             for relocation in section.iter_relocations():
                 addr = relocation['r_offset']
@@ -857,6 +858,7 @@ class NormalizeGT:
                     visited_label.append(label)
 
         for addr in self.relocs:
+
             if addr in self.prog.Data:
                 # composite ms || already processed
                 continue
@@ -868,7 +870,7 @@ class NormalizeGT:
             #    pass
             #elif value == 0:
             #    continue
-            if r_type in ['R_X86_64_COPY', 'R_X86_64_REX_GOTPCRELX']:
+            if r_type in ['R_X86_64_COPY', 'R_X86_64_REX_GOTPCRELX', 'R_386_COPY']:
                 continue
             elif r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT', 'R_386_GLOB_DAT', 'R_386_JUMP_SLOT']:
                 label = 'L%x'%(value)
