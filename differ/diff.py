@@ -41,7 +41,7 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
             json_file_path = '%s/%s'%(json_dir, tool)
             pickle_file_path = '%s/%s'%(pickle_dir, tool)
 
-            report = Report(prog_c)
+            report = Report(bin_path, prog_c)
             report.compare(prog_r)
             report.save_file(out_file_path)
             report.save_pickle(pickle_file_path)

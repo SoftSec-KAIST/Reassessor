@@ -86,13 +86,32 @@ class RecS:
         return res
 
 class Report:
-    def __init__(self, prog_c):
+    def __init__(self, bin_path, prog_c):
+
+        self.excluded_data_list = self.check_data_region(bin_path)
+
         self.prog_c = prog_c
         self.gt = 0
 
         self.rec = dict()
         for stype in range(1, 9):
             self.rec[stype] = RecS(stype)
+
+    def check_data_region(self, bin_path):
+        ex_region_list = []
+        with open(bin_path, 'rb') as fp:
+            from elftools.elf.elffile import ELFFile
+            elf = ELFFile(fp)
+            for section in elf.iter_sections():
+                is_rela = False
+                try:
+                    is_rela = section._is_rela
+                except:
+                    is_rela = False
+                #if section.name in ['.rela.plt', '.rel.plt', '.rel.dyn', '.rela.dyn']:
+                if is_rela:
+                    ex_region_list.append(range(section['sh_addr'], section['sh_addr'] + section['sh_size']))
+        return ex_region_list
 
     def compare(self, prog_r):
         #self.reset()
@@ -118,11 +137,18 @@ class Report:
                 # we couldn't decide label-relative addressing
                 # since its reloc info would not be defined in relocation table
                 data_r = prog_r.Data[addr]
+
+                if not self.is_in_data_region(addr):
+                    continue
                 if data_r.value.type == 7:
                     continue
                 self.check_data_error(None, data_r, addr)
 
-
+    def is_in_data_region(self, addr):
+        for region in self.excluded_data_list:
+            if addr in region:
+                return False
+        return True
 
     def compare_ins_errors(self, prog_r):
 
