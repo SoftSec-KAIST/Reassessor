@@ -16,7 +16,8 @@ def retro_cmd(conf):
     return cmd_list
 
 class Retro(Manager):
-    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_retro_fix', tool_name='retro_sym'):
+    #def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_retro_fix', tool_name='retro_sym'):
+    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_retro_fix3', tool_name='retro_sym'):
         self.overwrite = False
         super().__init__(core, bench, tool_path, tool_name)
 
@@ -24,8 +25,12 @@ class Retro(Manager):
     def gen_option(self, work_dir, tool_name):
         ret = []
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+        #for pack in ['binutils-2.31.1', 'spec_cpu2006']:
+        #for pack in ['binutils-2.31.1']:
+        #for pack in ['coreutils-8.30']:
             for arch in ['x64']:
                 for comp in ['clang', 'gcc']:
+                #for comp in ['clang']:
                     #for popt in ['nopie', 'pie']:
                     for popt in ['pie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
@@ -58,6 +63,6 @@ if __name__ == '__main__':
 
     mgr = Retro(args.core)
     #mgr.print_conf()
-    #mgr.run()
+    mgr.run()
     #mgr.print_compile_cmd()
-    mgr.compile()
+    #mgr.compile()

@@ -15,18 +15,21 @@ def ramblr_cmd(conf):
     return cmd_list
 
 class Ramblr(Manager):
-    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_ramblr', tool_name='ramblr'):
+    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path='/data3/1_reassessor/new_ramblr_origin', tool_name='ramblr'):
         self.overwrite = False
         super().__init__(core, bench, tool_path, tool_name)
 
     def gen_option(self, work_dir, tool_name):
         ret = []
-        for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+        #for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+        for pack in ['coreutils-8.25', 'binutils-2.31.1', 'spec_cpu2006']:
             for arch in ['x64', 'x86']:
-                for comp in ['clang', 'gcc']:
+                #for comp in ['clang', 'gcc']:
+                for comp in ['gcc']:
                     for popt in ['nopie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
-                            for lopt in ['bfd', 'gold']:
+                            #for lopt in ['bfd', 'gold']:
+                            for lopt in ['bfd']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
                                 for binary in glob.glob('%s/%s/bin/*'%(work_dir, sub_dir)):
