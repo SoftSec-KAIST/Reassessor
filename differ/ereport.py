@@ -126,6 +126,14 @@ class Report:
 
         self.data_len = len(data_addrs)
         for addr in data_addrs:
+
+            if addr in self.prog_c.Data:
+                data_c = self.prog_c.Data[addr]
+                if data_c.r_type and data_c.r_type in ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT']:
+                    continue
+                elif data_c.r_type and data_c.r_type in ['R_386_GLOB_DAT','R_386_JUMP_SLOT']:
+                    continue
+
             if addr in self.prog_c.Data and addr in prog_r.Data: # TP or FP
                 data_c = self.prog_c.Data[addr]
                 data_r = prog_r.Data[addr]
