@@ -10,7 +10,10 @@ ERec = namedtuple('ERec', ['record', 'gt'])
 
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 
-black_list = ['Ghost_In_The_CGC', 'Trust_Platform_Module', 'Hug_Game', 'FSK_Messaging_Service', 'Water_Treatment_Facility_Simulator', 'Lazybox', 'ECM_TCM_Simulator', 'Network_File_System', 'Scrum_Database', 'PRU', 'Virtual_Machine', 'LAN_Simulator', 'Thermal_Controller_v2', 'WhackJack', 'Personal_Fitness_Manager', 'Shortest_Path_Tree_Calculator', 'Corinth', 'Monster_Game', 'Network_File_System_v3', '3D_Image_Toolkit', 'Query_Calculator', 'Flash_File_System', 'Filesystem_Command_Shell', 'Thermal_Controller_v3', 'Recipe_and_Pantry_Manager', 'FaceMag', 'Facilities_Access_Control_System', 'REMATCH_1--Hat_Trick--Morris_Worm', 'REMATCH_3--Address_Resolution_Service--SQL_Slammer', 'REMATCH_4--CGCRPC_Server--MS08-067', 'REMATCH_5--File_Explorer--LNK_Bug', 'REMATCH_6--Secure_Server--Heartbleed', 'REMATCH_2--Mail_Server--Crackaddr', 'Multi_User_Calendar', 'Secure_Compression', 'OTPSim', 'Grit', 'Barcoder', 'Childs_Game', 'Pattern_Finder', 'vFilter', 'Messaging', 'Venture_Calculator', 'Space_Attackers', 'Fortress', 'Pac_for_Edges', 'XStore', 'Sorter', 'FailAV', 'BIRC', 'ShoutCTF', 'CML', 'Neural_House', 'Finicky_File_Folder', 'Mount_Filemore', 'One_Amp', 'LazyCalc', 'Blubber', 'Gridder', 'Azurad', 'Terrible_Ticket_Tracker', 'String_Info_Calculator', 'Checkmate', 'Stock_Exchange_Simulator', 'CLOUDCOMPUTE', 'Matchmaker', 'CAT', 'Overflow_Parking', 'One_Vote', 'PTaaS', 'COLLIDEOSCOPE', 'EternalPass', 'Snail_Mail', 'Rejistar', 'On_Sale', 'Dungeon_Master', 'Game_Night', 'OUTLAW', 'Order_Up', 'Multi_Arena_Pursuit_Simulator', 'SBTP', 'A_Game_of_Chance']
+#black_list = ['Ghost_In_The_CGC', 'Trust_Platform_Module', 'Hug_Game', 'FSK_Messaging_Service', 'Water_Treatment_Facility_Simulator', 'Lazybox', 'ECM_TCM_Simulator', 'Network_File_System', 'Scrum_Database', 'PRU', 'Virtual_Machine', 'LAN_Simulator', 'Thermal_Controller_v2', 'WhackJack', 'Personal_Fitness_Manager', 'Shortest_Path_Tree_Calculator', 'Corinth', 'Monster_Game', 'Network_File_System_v3', '3D_Image_Toolkit', 'Query_Calculator', 'Flash_File_System', 'Filesystem_Command_Shell', 'Thermal_Controller_v3', 'Recipe_and_Pantry_Manager', 'FaceMag', 'Facilities_Access_Control_System', 'REMATCH_1--Hat_Trick--Morris_Worm', 'REMATCH_3--Address_Resolution_Service--SQL_Slammer', 'REMATCH_4--CGCRPC_Server--MS08-067', 'REMATCH_5--File_Explorer--LNK_Bug', 'REMATCH_6--Secure_Server--Heartbleed', 'REMATCH_2--Mail_Server--Crackaddr', 'Multi_User_Calendar', 'Secure_Compression', 'OTPSim', 'Grit', 'Barcoder', 'Childs_Game', 'Pattern_Finder', 'vFilter', 'Messaging', 'Venture_Calculator', 'Space_Attackers', 'Fortress', 'Pac_for_Edges', 'XStore', 'Sorter', 'FailAV', 'BIRC', 'ShoutCTF', 'CML', 'Neural_House', 'Finicky_File_Folder', 'Mount_Filemore', 'One_Amp', 'LazyCalc', 'Blubber', 'Gridder', 'Azurad', 'Terrible_Ticket_Tracker', 'String_Info_Calculator', 'Checkmate', 'Stock_Exchange_Simulator', 'CLOUDCOMPUTE', 'Matchmaker', 'CAT', 'Overflow_Parking', 'One_Vote', 'PTaaS', 'COLLIDEOSCOPE', 'EternalPass', 'Snail_Mail', 'Rejistar', 'On_Sale', 'Dungeon_Master', 'Game_Night', 'OUTLAW', 'Order_Up', 'Multi_Arena_Pursuit_Simulator', 'SBTP', 'A_Game_of_Chance']
+
+#black_list = ['444.namd', '447.dealII', '450.soplex', '453.povray', '471.omnetpp', '473.astar', '483.xalancbmk']
+#white_list = ['444.namd', '447.dealII', '450.soplex', '453.povray', '471.omnetpp', '473.astar', '483.xalancbmk']
 
 def job(conf, reset=False):
     #diff_option = '--error'
@@ -109,11 +112,17 @@ class WorkBin:
     #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
     #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
     #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result8', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/new_rmblr2'):
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/final_result', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result6', retro='/data3/1_reassessor/new_retro_fix2', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_ramblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/dataset/result', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', norm_db='/data3/1_reassessor/norm_db', diff_db='/data3/1_reassessor/diff_db', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
         self.bench = bench
 
-        self.another_out_for_test = '/data3/1_reassessor/new_result6'
-        self.out = out
+        self.gt_norm_db = '/data3/1_reassessor/gt_db'
+        #self.gt_norm_db = ''
+        self.norm_db = norm_db
+        self.diff_db = diff_db
         self.retro = retro
         self.ddisasm = ddisasm
         self.ramblr = ramblr
@@ -132,8 +141,12 @@ class WorkBin:
         #print('%s/%s/bin/*'%(self.bench, sub_dir))
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
             #exclude cgc final binaries
+            '''
             if os.path.basename(binary) in black_list:
                 continue
+            if os.path.basename(binary) not in white_list:
+                continue
+            '''
             ret.append(self.gen_tuple(sub_dir, package, arch, pie_opt, binary))
         return ret
 
@@ -155,25 +168,25 @@ class WorkBin:
         ddisasm_asm = self.get_ddisasm(sub_dir, filename)
         ramblr_asm = self.get_ramblr(sub_dir, filename)
 
-        if self.another_out_for_test:
-            gt_out = '%s/%s/%s/pickle/gt2.dat'%(self.another_out_for_test, sub_dir, filename)
+        if self.gt_norm_db:
+            gt_norm_db = '%s/%s/%s/pickle/gt2.dat'%(self.gt_norm_db, sub_dir, filename)
         else:
-            gt_out = '%s/%s/%s/pickle/gt2.dat'%(self.out, sub_dir, filename)
+            gt_norm_db = '%s/%s/%s/pickle/gt2.dat'%(self.norm_db, sub_dir, filename)
 
-        retro_out = '%s/%s/%s/pickle/retro.dat'%(self.out, sub_dir, filename)
-        ddisasm_out = '%s/%s/%s/pickle/ddisasm2.dat'%(self.out, sub_dir, filename)
-        ramblr_out = '%s/%s/%s/pickle/ramblr.dat'%(self.out, sub_dir, filename)
+        retro_norm_db = '%s/%s/%s/pickle/retro.dat'%(self.norm_db, sub_dir, filename)
+        ddisasm_norm_db = '%s/%s/%s/pickle/ddisasm2.dat'%(self.norm_db, sub_dir, filename)
+        ramblr_norm_db = '%s/%s/%s/pickle/ramblr.dat'%(self.norm_db, sub_dir, filename)
 
         if pie_opt in ['pie']:
             ramblr_asm = ''
-            ramblr_out = ''
+            ramblr_norm_db = ''
         if pie_opt in ['nopie'] or arch in ['x86']:
             retro_asm = ''
-            retro_out = ''
+            retro_norm_db = ''
 
-        result = '%s/%s/%s'%(self.out, sub_dir, filename)
+        result = '%s/%s/%s'%(self.diff_db, sub_dir, filename)
 
-        return BuildConf(binary, reloc, gt_asm, strip, gt_out, retro_asm, retro_out, ddisasm_asm, ddisasm_out, ramblr_asm, ramblr_out, result)
+        return BuildConf(binary, reloc, gt_asm, strip, gt_norm_db, retro_asm, retro_norm_db, ddisasm_asm, ddisasm_norm_db, ramblr_asm, ramblr_norm_db, result)
 
 
 def diff_retro(conf, option, reset):
