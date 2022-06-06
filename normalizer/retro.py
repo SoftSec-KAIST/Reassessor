@@ -66,7 +66,7 @@ def create_huge_addr_set(reassem_path):
     os.unlink(temp_file)
     '''
     global retro_huge_addr_set
-    additional_file =  reassem_path.replace('new_retro_fix', 'new_retro_fix_expand')
+    additional_file =  reassem_path.replace('retrowrite', 'retrowrite_expand')
     import os
     if os.path.isfile(additional_file):
         print(' [+] read huge addr set %s'%(additional_file))

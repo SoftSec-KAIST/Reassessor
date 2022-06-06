@@ -82,7 +82,7 @@ def ddisasm_mapper(reassem_path, tokenizer):
 
             addr = -1
     #ddisasm debug option has some bugs so we store label to additional assembly files
-    additional_file =  reassem_path.replace('debug_dd', 'debug_dd_expand')
+    additional_file =  reassem_path.replace('ddisasm_debug', 'ddisasm_debug_expand')
     import os
     if os.path.isfile(additional_file):
         with open(additional_file) as f:
