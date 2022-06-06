@@ -10,13 +10,14 @@ ERec = namedtuple('ERec', ['record', 'gt'])
 
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 
+black_list = ['Ghost_In_The_CGC', 'Trust_Platform_Module', 'Hug_Game', 'FSK_Messaging_Service', 'Water_Treatment_Facility_Simulator', 'Lazybox', 'ECM_TCM_Simulator', 'Network_File_System', 'Scrum_Database', 'PRU', 'Virtual_Machine', 'LAN_Simulator', 'Thermal_Controller_v2', 'WhackJack', 'Personal_Fitness_Manager', 'Shortest_Path_Tree_Calculator', 'Corinth', 'Monster_Game', 'Network_File_System_v3', '3D_Image_Toolkit', 'Query_Calculator', 'Flash_File_System', 'Filesystem_Command_Shell', 'Thermal_Controller_v3', 'Recipe_and_Pantry_Manager', 'FaceMag', 'Facilities_Access_Control_System', 'REMATCH_1--Hat_Trick--Morris_Worm', 'REMATCH_3--Address_Resolution_Service--SQL_Slammer', 'REMATCH_4--CGCRPC_Server--MS08-067', 'REMATCH_5--File_Explorer--LNK_Bug', 'REMATCH_6--Secure_Server--Heartbleed', 'REMATCH_2--Mail_Server--Crackaddr', 'Multi_User_Calendar', 'Secure_Compression', 'OTPSim', 'Grit', 'Barcoder', 'Childs_Game', 'Pattern_Finder', 'vFilter', 'Messaging', 'Venture_Calculator', 'Space_Attackers', 'Fortress', 'Pac_for_Edges', 'XStore', 'Sorter', 'FailAV', 'BIRC', 'ShoutCTF', 'CML', 'Neural_House', 'Finicky_File_Folder', 'Mount_Filemore', 'One_Amp', 'LazyCalc', 'Blubber', 'Gridder', 'Azurad', 'Terrible_Ticket_Tracker', 'String_Info_Calculator', 'Checkmate', 'Stock_Exchange_Simulator', 'CLOUDCOMPUTE', 'Matchmaker', 'CAT', 'Overflow_Parking', 'One_Vote', 'PTaaS', 'COLLIDEOSCOPE', 'EternalPass', 'Snail_Mail', 'Rejistar', 'On_Sale', 'Dungeon_Master', 'Game_Night', 'OUTLAW', 'Order_Up', 'Multi_Arena_Pursuit_Simulator', 'SBTP', 'A_Game_of_Chance']
+
 def job(conf, reset=False):
     #diff_option = '--error'
     #diff_option = '--disasm'
     diff_option = ''
-    create_gt(conf, reset)
+    #create_gt(conf, reset)
 
-    '''
     if create_retro(conf, reset):
         diff_retro(conf, diff_option, reset)
 
@@ -25,7 +26,6 @@ def job(conf, reset=False):
 
     if create_ramblr(conf, reset):
         diff_ramblr(conf, diff_option, reset)
-    '''
     #diff_retro(conf, diff_option, reset)
     #diff_ddisasm(conf, diff_option, reset)
     #diff_ramblr(conf, diff_option, reset)
@@ -37,6 +37,8 @@ class RecCounter:
         for i in range(9):
             self.board.append({'tp':0, 'fp':0, 'fn':0})
 
+        self.no_error = 0
+
         self.error = 0
         self.success = 0
         self.tot_gt = 0
@@ -47,6 +49,7 @@ class RecCounter:
 
     def add(self, pickle_path, disasm_path):
         if not os.path.exists(pickle_path):
+            print(pickle_path)
             self.error += 1
             return
 
@@ -54,11 +57,19 @@ class RecCounter:
             self.success += 1
             rec = pickle.load(fp)
 
-
+            bError = False
             for stype in range(1, 9):
                 self.board[stype]['tp'] += rec.record[stype].tp
                 self.board[stype]['fp'] += rec.record[stype].fp.length()
                 self.board[stype]['fn'] += rec.record[stype].fn.length()
+
+                if rec.record[stype].fp.length():
+                    bError = True
+                if rec.record[stype].fn.length():
+                    bError = True
+
+            if not bError:
+                self.no_error += 1
 
             self.tot_gt += rec.gt
 
@@ -76,8 +87,8 @@ class RecCounter:
             self.disasm_tp += int(disasm_tp)
             self.disasm_fp += int(disasm_fp)
             self.disasm_fn += int(disasm_fn)
-            if 1000 < int(disasm_fn) + int(disasm_fp) :
-                print('> %-110s %7s %7s'%(disasm_path, disasm_fn, disasm_fp))
+            #if 1000 < int(disasm_fn) + int(disasm_fp) :
+            #    print('> %-110s %7s %7s'%(disasm_path, disasm_fn, disasm_fp))
 
 
     def report(self):
@@ -90,8 +101,18 @@ class RecCounter:
 
 
 class WorkBin:
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result3', retro='/data3/1_reassessor/new_retro', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/new_ramblr'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result3', retro='/data3/1_reassessor/new_retro', ddisasm='/data3/1_reassessor/debug_dd2', ramblr='/data3/1_reassessor/new_ramblr'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result4', retro='/data3/1_reassessor/new_retro_fix', ddisasm='/data3/1_reassessor/debug_dd2', ramblr='/data3/1_reassessor/new_ramblr'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result5', retro='/data3/1_reassessor/new_retro_fix', ddisasm='/data3/1_reassessor/debug_dd2', ramblr='/data3/1_reassessor/new_ramblr_origin'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result6', retro='/data3/1_reassessor/new_retro_fix2', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_ramblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix', ddisasm='/data3/1_reassessor/debug_dd2', ramblr='/data3/1_reassessor/new_ramblr'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result8', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd', ramblr='/data3/1_reassessor/new_rmblr2'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result7', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
         self.bench = bench
+
+        self.another_out_for_test = '/data3/1_reassessor/new_result6'
         self.out = out
         self.retro = retro
         self.ddisasm = ddisasm
@@ -110,6 +131,9 @@ class WorkBin:
         ret = []
         #print('%s/%s/bin/*'%(self.bench, sub_dir))
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
+            #exclude cgc final binaries
+            if os.path.basename(binary) in black_list:
+                continue
             ret.append(self.gen_tuple(sub_dir, package, arch, pie_opt, binary))
         return ret
 
@@ -122,7 +146,7 @@ class WorkBin:
 
         strip = '%s/stripbin/%s'%(self.bench, filename)
 
-        if package in ['spec_cpu2006']:
+        if package in ['spec_cpu2006', 'cgc']:
             gt_asm = '%s/%s/asm/%s'%(self.bench, sub_dir, filename)
         else:
             gt_asm = '%s/%s/asm'%(self.bench, sub_dir)
@@ -131,10 +155,13 @@ class WorkBin:
         ddisasm_asm = self.get_ddisasm(sub_dir, filename)
         ramblr_asm = self.get_ramblr(sub_dir, filename)
 
+        if self.another_out_for_test:
+            gt_out = '%s/%s/%s/pickle/gt2.dat'%(self.another_out_for_test, sub_dir, filename)
+        else:
+            gt_out = '%s/%s/%s/pickle/gt2.dat'%(self.out, sub_dir, filename)
 
-        gt_out = '%s/%s/%s/pickle/gt2.dat'%(self.out, sub_dir, filename)
         retro_out = '%s/%s/%s/pickle/retro.dat'%(self.out, sub_dir, filename)
-        ddisasm_out = '%s/%s/%s/pickle/ddisasm.dat'%(self.out, sub_dir, filename)
+        ddisasm_out = '%s/%s/%s/pickle/ddisasm2.dat'%(self.out, sub_dir, filename)
         ramblr_out = '%s/%s/%s/pickle/ramblr.dat'%(self.out, sub_dir, filename)
 
         if pie_opt in ['pie']:
@@ -169,7 +196,6 @@ def diff_ramblr(conf, option, reset):
 
 
 def diff(tool_name, binfile, gt_out, tool_out, result, option, reset):
-
     if os.path.getsize(tool_out) == 0:
         return
 
@@ -179,7 +205,7 @@ def diff(tool_name, binfile, gt_out, tool_out, result, option, reset):
         pickle_path = result + '/error_pickle/' + tool_name
 
     # create new pickle
-    if not reset and not os.path.exists(pickle_path):
+    if not reset and os.path.exists(pickle_path):
         return
 
     os.system('mkdir -p %s'%(os.path.dirname(result)))
@@ -218,8 +244,7 @@ def create_db(tool_name, bin_file, assem, output, reset=False, reloc=''):
     elif tool_name == 'gt' and reloc:
         option = '--reloc %s'%(reloc)
 
-
-    #print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
+    print('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
 
     os.system('mkdir -p %s'%(os.path.dirname(output)))
     os.system('python3 -m normalizer.%s %s %s %s %s'%(tool_name, bin_file, assem, output, option))
@@ -238,11 +263,6 @@ class Manager:
     def gen_option(self, work_dir):
         ret = []
         gen = WorkBin()
-        #for pack in ['binutils-2.31.1']:
-        #for pack in ['spec_cpu2006']:
-        #for pack in ['coreutils-8.30']:
-        #for pack in ['coreutils-8.30']:
-        #for pack in ['binutils-2.31.1', 'spec_cpu2006']:
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
             for arch in ['x86', 'x64']:
                 for comp in ['clang', 'gcc']:
@@ -260,7 +280,7 @@ class Manager:
 
         sub_dir = '/'.join(path.split('/')[-6:-1])
         (package, arch, comp, pie_opt, lopt) = sub_dir.split('/')
-        assert package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006'], 'invalid package'
+        assert package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006', 'cgc'], 'invalid package'
 
         gen = WorkBin()
         conf = gen.gen_tuple(sub_dir, package, arch, pie_opt, target)
@@ -274,29 +294,63 @@ class Manager:
             for conf in self.conf_list:
                 job(conf)
 
-    def merge(self, tool):
+    def merge(self, tool, white_list):
         counter = RecCounter(tool)
+        '''
+        if tool != 'ramblr':
+            return counter
+
+        for arch in ['x86']:
+            for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
+                counterx = RecCounter(tool)
+                sub_dir = '%s/clang/nopie/%s-bfd'%(arch, opt)
+                print(sub_dir)
+                for conf in self.conf_list:
+                    if sub_dir not in conf.ramblr_asm:
+                        continue
+
+                    pickle = conf.result+'/error_pickle/' + tool
+                    disasm = conf.result+'/disasm_diff/' + tool
+                    counterx.add(pickle, disasm)
+
+                counterx.report()
+
+                #print('%7s  # of TPs  %12d  '%('',counterx.disasm_tp))
+                #print('%7s  # of FPs  %12d  '%('Disasm',counterx.disasm_fp))
+                #print('%7s  # of FNs  %12d  '%('',counterx.disasm_fn))
+        '''
+        if white_list:
+            f = open(white_list)
+            my_list = [line for line in f.read().split()]
+
 
         for conf in self.conf_list:
+
+            if white_list:
+                if conf.ddisasm_asm not in my_list:
+                    continue
+
             if tool == 'ramblr' and not conf.ramblr_asm:
                 continue
             if tool == 'retro_sym' and not conf.retro_asm:
                 continue
 
+
             pickle = conf.result+'/error_pickle/' + tool
             disasm = conf.result+'/disasm_diff/' + tool
             counter.add(pickle, disasm)
 
+        #print('no error (%s): %d'%(tool, counter.no_error))
         #counter.report()
         return counter
 
-    def report(self):
+    def report(self, white_list=None):
         #---------------------------------------------
 
-        print('> %-110s %7s %7s'%('', 'FN'.center(7), 'FP'.center(7)))
-        retro = self.merge('retro_sym')
-        ddisasm = self.merge('ddisasm')
-        ramblr = self.merge('ramblr')
+        #print('> %-110s %7s %7s'%('', 'FN'.center(7), 'FP'.center(7)))
+        retro = self.merge('retro_sym', white_list)
+        ddisasm = self.merge('ddisasm', white_list)
+        ramblr = self.merge('ramblr', white_list)
 
         print('                   %12s  %12s  %12s'%('Ramblr', 'RetroWrite', 'Ddisasm'))
         print('-' * 60 )
@@ -321,12 +375,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='manager')
     parser.add_argument('--core', type=int, default=1)
     parser.add_argument('--target', type=str)
+    parser.add_argument('--list', type=str)
     args = parser.parse_args()
 
     mgr = Manager(args.core)
 
     if args.target:
         mgr.single_run(args.target)
+    elif args.list:
+        mgr.report(args.list)
     else:
         mgr.run()
         mgr.report()
