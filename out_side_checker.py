@@ -1,6 +1,5 @@
 import os, pickle, glob
 from elftools.elf.elffile import ELFFile
-#from differ.statistics import Statistics
 
 class Manager:
 
@@ -14,9 +13,9 @@ class Manager:
             if isinstance(term, int):
                 continue
             addrx += term.Address
-        if addrx == 0: return 0
+        if addrx == 0: return 0,0
 
-        return addrx + factor.num
+        return addrx, addrx + factor.num
 
     def get_pickle_path(self, target):
         filename = os.path.basename(target)
@@ -76,30 +75,38 @@ class Manager:
                 asm = rec.Instrs[addr]
                 if asm.disp:
                     if asm.disp.type in [2,4,6]:
-                        addrx = self.get_addr(asm.disp)
+                        base, addrx = self.get_addr(asm.disp)
                         if addrx != 0:
-                            xaddr_list.append((asm, addrx))
+                            xaddr_list.append((asm, base, addrx))
                 if asm.imm:
                     if asm.imm.type in [2,4,6]:
-                        addrx = self.get_addr(asm.imm)
+                        base, addrx = self.get_addr(asm.imm)
                         if addrx != 0:
-                            xaddr_list.append((asm, addrx))
+                            xaddr_list.append((asm, base, addrx))
             for addr in rec.Data:
                 data = rec.Data[addr]
                 if data.value:
                     if data.value.type in [2,4,6]:
-                        addrx = self.get_addr(data.value)
+                        base, addrx = self.get_addr(data.value)
                         if addrx != 0:
-                            xaddr_list.append((asm,addrx))
+                            xaddr_list.append((asm, base, addrx))
 
-            for asm, xaddr in xaddr_list:
+            for asm, base, xaddr in xaddr_list:
                 bFound = False
-                for region in sec_region_list:
+                region1 = -1
+                region2 = -1
+                for idx, region in enumerate(sec_region_list):
+                    if base in region:
+                        retion1 = idx
+                for idx, region in enumerate(sec_region_list):
                     if xaddr in region:
+                        retion2 = idx
                         bFound = True
 
-                if not bFound:
-                    print('%s:%s %s [target:%s]'%(target, hex(asm.addr), asm.asm_line, hex(xaddr)))
+                if region1 != region2:
+                    print('%s:%s %s [from:%s -> to:%s]'%(target, hex(asm.addr), asm.asm_line, hex(base), hex(xaddr)))
+                #if not bFound:
+                #    print('%s:%s %s [target:%s]'%(target, hex(asm.addr), asm.asm_line, hex(xaddr)))
 
 
 import argparse
