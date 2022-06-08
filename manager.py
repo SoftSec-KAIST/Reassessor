@@ -14,6 +14,8 @@ BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out'
 
 #black_list = ['444.namd', '447.dealII', '450.soplex', '453.povray', '471.omnetpp', '473.astar', '483.xalancbmk']
 #white_list = ['444.namd', '447.dealII', '450.soplex', '453.povray', '471.omnetpp', '473.astar', '483.xalancbmk']
+black_list = ['416.gamess', '434.zeusmp']
+#white_list = ['416.gamess', '434.zeusmp']
 
 def job(conf, reset=False):
     #diff_option = '--error'
@@ -21,14 +23,14 @@ def job(conf, reset=False):
     diff_option = ''
     #create_gt(conf, reset)
 
-    if create_retro(conf, reset):
-        diff_retro(conf, diff_option, reset)
+    #if create_retro(conf, reset):
+    #    diff_retro(conf, diff_option, reset)
 
-    if create_ddisasm(conf, reset):
-        diff_ddisasm(conf, diff_option, reset)
+    #if create_ddisasm(conf, reset):
+    #    diff_ddisasm(conf, diff_option, reset)
 
-    if create_ramblr(conf, reset):
-        diff_ramblr(conf, diff_option, reset)
+    #if create_ramblr(conf, reset):
+    #    diff_ramblr(conf, diff_option, reset)
     #diff_retro(conf, diff_option, reset)
     #diff_ddisasm(conf, diff_option, reset)
     #diff_ramblr(conf, diff_option, reset)
@@ -52,7 +54,7 @@ class RecCounter:
 
     def add(self, pickle_path, disasm_path):
         if not os.path.exists(pickle_path):
-            print(pickle_path)
+            #print(pickle_path)
             self.error += 1
             return
 
@@ -79,19 +81,11 @@ class RecCounter:
         with open(disasm_path) as fp:
             data = fp.readline()
             disasm_tp, disasm_fp, disasm_fn = data.strip().split(',')
-            '''
-            if '416.gamess' in disasm_path or '434.zeusmp' in disasm_path:
-                return
-            if '447.dealII' in disasm_path or '483.xalancbmk' in disasm_path:
-                return
-            if '436.cactusADM' in disasm_path or '454.calculix' in disasm_path or '403.gcc' in disasm_path or '435.gromacs' in disasm_path:
-                return
-            '''
             self.disasm_tp += int(disasm_tp)
             self.disasm_fp += int(disasm_fp)
             self.disasm_fn += int(disasm_fn)
-            #if 1000 < int(disasm_fn) + int(disasm_fp) :
-            #    print('> %-110s %7s %7s'%(disasm_path, disasm_fn, disasm_fp))
+            if 1000 < int(disasm_fn) + int(disasm_fp) :
+                print('> %-110s %7s %7s'%(disasm_path, disasm_fn, disasm_fp))
 
 
     def report(self):
@@ -116,7 +110,8 @@ class WorkBin:
     #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/final_result', retro='/data3/1_reassessor/new_retro_fix3', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_rmblr2'):
     #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result6', retro='/data3/1_reassessor/new_retro_fix2', ddisasm='/data3/1_reassessor/debug_dd3', ramblr='/data3/1_reassessor/new_ramblr2'):
     #def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/dataset/result', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
-    def __init__(self, bench='/data3/1_reassessor/benchmark', norm_db='/data3/1_reassessor/norm_db', diff_db='/data3/1_reassessor/diff_db', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
+    #def __init__(self, bench='/data3/1_reassessor/benchmark', norm_db='/data3/1_reassessor/norm_db', diff_db='/data3/1_reassessor/diff_db', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', norm_db='/data3/1_reassessor/new_result6', diff_db='/data3/1_reassessor/new_result6', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
         self.bench = bench
 
         self.gt_norm_db = '/data3/1_reassessor/gt_db'
@@ -141,9 +136,9 @@ class WorkBin:
         #print('%s/%s/bin/*'%(self.bench, sub_dir))
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
             #exclude cgc final binaries
-            '''
             if os.path.basename(binary) in black_list:
                 continue
+            '''
             if os.path.basename(binary) not in white_list:
                 continue
             '''
@@ -250,6 +245,7 @@ def create_db(tool_name, bin_file, assem, output, reset=False, reloc=''):
         return False
     option = ''
     if tool_name != 'gt':
+        #print(assem)
         if not os.path.exists(assem):
             return False
         if os.path.getsize(assem) == 0:
@@ -280,7 +276,8 @@ class Manager:
             for arch in ['x86', 'x64']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
-                        for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
+                        #for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
+                        for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
                             for lopt in ['bfd', 'gold']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)

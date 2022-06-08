@@ -1,5 +1,6 @@
 import capstone
 import re
+import os
 
 from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel
 from normalizer.tool_base import NormalizeTool
@@ -31,6 +32,9 @@ def ddisasm_mapper(reassem_path, tokenizer):
     result = []
     addr = -1
     is_linker_gen = False
+
+    asm_file = os.path.basename(reassem_path)
+
     with open(reassem_path) as f:
         for idx, line in enumerate(f):
 
@@ -46,7 +50,9 @@ def ddisasm_mapper(reassem_path, tokenizer):
                 # Ddisam 1.5.3 sometimes does not create section name
                 # .section
                 # 416.gamess and 434.zeusmp
-                if len(terms) > 1 and terms[1] not in ['.fini', '.init', '.plt.got']:
+                if asm_file in ['416.gamess.s', '434.zeusmp.s']:
+                    is_linker_gen = False
+                elif len(terms) > 1 and terms[1] not in ['.fini', '.init', '.plt.got']:
                     is_linker_gen = False
                 else:
                     is_linker_gen = True
@@ -83,7 +89,6 @@ def ddisasm_mapper(reassem_path, tokenizer):
             addr = -1
     #ddisasm debug option has some bugs so we store label to additional assembly files
     additional_file =  reassem_path.replace('ddisasm_debug', 'ddisasm_debug_expand')
-    import os
     if os.path.isfile(additional_file):
         with open(additional_file) as f:
             for line in f:
