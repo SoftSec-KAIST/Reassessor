@@ -3,7 +3,7 @@ from elftools.elf.elffile import ELFFile
 
 class Manager:
 
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result6'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/gt_db'):
         self.bench = bench
         self.out = out
 
@@ -33,27 +33,33 @@ class Manager:
             elf = ELFFile(fp)
             for section in elf.iter_sections():
                  if section['sh_addr']:
-                    region_list.append(range(section['sh_addr'], section['sh_addr'] + section['sh_size']))
+                    region_list.append((section.name, range(section['sh_addr'], section['sh_addr'] + section['sh_size'])))
+
 
         return region_list
 
 
     def run(self):
         target_list = []
+        for pack in ['spec_cpu2006', 'binutils-2.31.1', 'coreutils-8.30']:
         #for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         #for pack in ['coreutils-8.30']:
         #for pack in ['binutils-2.31.1']:
-        for pack in ['spec_cpu2006']:
-            #for arch in ['x86', 'x64']:
-            for arch in ['x86']:
+        #for pack in ['spec_cpu2006']:
+            for arch in ['x86', 'x64']:
+            #for arch in ['x86']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
-                            for lopt in ['bfd', 'gold']:
+                            #for lopt in ['bfd', 'gold']:
+                            for lopt in ['gold', 'bfd']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
 
-                                for binary in glob.glob('%s/%s/stripbin/*'%(self.bench, sub_dir)):
+                                for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
+                                    filename = os.path.basename(binary)
+                                    #if filename not in ['434.zeusmp']:
+                                    #    continue
                                     target_list.append(binary)
 
         for target in target_list:
@@ -69,7 +75,7 @@ class Manager:
         with open(my_pickle, 'rb') as fp:
             rec = pickle.load(fp)
 
-            print(target)
+            #print(target)
             xaddr_list = []
             for addr in rec.Instrs:
                 asm = rec.Instrs[addr]
@@ -95,16 +101,24 @@ class Manager:
                 bFound = False
                 region1 = -1
                 region2 = -1
-                for idx, region in enumerate(sec_region_list):
+                sec_name1 = ''
+                sec_name2 = ''
+                for idx, (sec_name, region) in enumerate(sec_region_list):
                     if base in region:
-                        retion1 = idx
-                for idx, region in enumerate(sec_region_list):
+                        region1 = idx
+                        sec_name1 = sec_name
+                for idx, (sec_name, region) in enumerate(sec_region_list):
                     if xaddr in region:
-                        retion2 = idx
+                        region2 = idx
                         bFound = True
+                        sec_name2 = sec_name
 
                 if region1 != region2:
-                    print('%s:%s %s [from:%s -> to:%s]'%(target, hex(asm.addr), asm.asm_line, hex(base), hex(xaddr)))
+                    print('%s:%s %s [%d][from: %s -> to: %s ][ %s => %s ]'%(target, hex(asm.addr), asm.asm_line, bFound, hex(base), hex(xaddr), sec_name1, sec_name2))
+                    #print('objdump -d %s | grep " %x:"'%(target, xaddr))
+                    #import sys
+                    #sys.stdout.flush()
+                    #os.system('objdump -d %s | grep %x:'%(target, xaddr))
                 #if not bFound:
                 #    print('%s:%s %s [target:%s]'%(target, hex(asm.addr), asm.asm_line, hex(xaddr)))
 
