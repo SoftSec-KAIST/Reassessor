@@ -10,6 +10,7 @@ from differ.ereport import Report
 
 def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True, disasm_check=True):
 
+    '''
     out_dir = os.path.join(save_dir, 'error_ascii')
     pr_dir = os.path.join(save_dir, 'error_score')
     json_dir = os.path.join(save_dir, 'error_json')
@@ -17,7 +18,7 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
 
     disasm_dir = os.path.join(save_dir, 'disasm_diff')
     type_dir = os.path.join(save_dir, 'sym_dist')
-
+    '''
 
     # Load GT
     if not os.path.exists(pickle_gt_path):
@@ -28,18 +29,22 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
     prog_c = pickle.load(pickle_gt_f)
     stat = Statistics(prog_c)
 
-    gt_type_file_path = '%s/%s'%(type_dir, 'gt')
-    stat.count_symbols(prog_c, gt_type_file_path)
+    #gt_type_file_path = '%s/%s'%(type_dir, 'gt')
+    #stat.count_symbols(prog_c, gt_type_file_path)
 
     for tool, pickle_tool_path in pickle_tool_list.items():
         pickle_tool_f = open(pickle_tool_path, 'rb')
         prog_r = pickle.load(pickle_tool_f)
 
         if error_check:
+            '''
             out_file_path = '%s/%s'%(out_dir, tool)
             pr_file_path = '%s/%s'%(pr_dir, tool)
             json_file_path = '%s/%s'%(json_dir, tool)
             pickle_file_path = '%s/%s'%(pickle_dir, tool)
+            '''
+            out_file_path = save_dir + '/error_ascii.txt'
+            pickle_file_path = save_dir + '/error_pickle.dat'
 
             report = Report(bin_path, prog_c)
             report.compare(prog_r)
@@ -47,8 +52,12 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
             report.save_pickle(pickle_file_path)
 
         if disasm_check:
+            '''
             disasm_file_path = '%s/%s'%(disasm_dir, tool)
             type_file_path = '%s/%s'%(type_dir, tool)
+            '''
+            disasm_file_path = save_dir + '/disasm_diff.txt'
+            type_file_path = save_dir + '/sym_dist.txt'
 
             stat.count_symbols(prog_r, type_file_path)
             stat.count_disasm(prog_r, disasm_file_path)
