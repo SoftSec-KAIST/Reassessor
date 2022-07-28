@@ -8,7 +8,6 @@ import multiprocessing
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
-#BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_out', 'retro_asm', 'retro_out', 'ddisasm_asm', 'ddisasm_out', 'ramblr_asm', 'ramblr_out', 'result'])
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_dir', 'retro_asm', 'retro_dir', 'ddisasm_asm', 'ddisasm_dir', 'ramblr_asm', 'ramblr_dir'])
 
 
@@ -96,14 +95,14 @@ class RecCounter:
 
 
 class WorkBin:
-    #def __init__(self, bench='/data3/1_reassessor/benchmark', norm_db='/data3/1_reassessor/new_result6', diff_db='/data3/1_reassessor/new_result6', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
-    def __init__(self, bench='/data3/1_reassessor/benchmark', result_dir='/data3/1_reassessor/result', retro='/data3/1_reassessor/dataset/retrowrite', ddisasm='/data3/1_reassessor/dataset/ddisasm_debug', ramblr='/data3/1_reassessor/dataset/ramblr'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark',
+                result_dir='/data3/1_reassessor/result',
+                retro  ='/data3/1_reassessor/dataset/retrowrite',
+                ddisasm ='/data3/1_reassessor/dataset/ddisasm_debug',
+                ramblr  ='/data3/1_reassessor/dataset/ramblr'):
+
         self.bench = bench
 
-        #self.gt_norm_db = '/data3/1_reassessor/gt_db'
-        #self.gt_norm_db = ''
-        #self.norm_dir = norm_dir
-        #self.diff_dir = diff_dir
         self.result_dir = result_dir
         self.retro = retro
         self.ddisasm = ddisasm
@@ -120,7 +119,7 @@ class WorkBin:
 
     def get_tuple(self, sub_dir, package, arch, pie_opt):
         ret = []
-        #print('%s/%s/bin/*'%(self.bench, sub_dir))
+
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
             '''
             if os.path.basename(binary) in black_list:
@@ -149,22 +148,6 @@ class WorkBin:
         ddisasm_asm = self.get_ddisasm(sub_dir, filename)
         ramblr_asm = self.get_ramblr(sub_dir, filename)
 
-        '''
-        gt_norm_db      = '%s/%s/%s/%s/pickle/norm.dat'%(self.norm_dir, 'gt', sub_dir, filename)
-        ramblr_norm_db  = '%s/%s/%s/%s/pickle/norm.dat'%(self.norm_dir, 'ramblr', sub_dir, filename)
-        retro_norm_db   = '%s/%s/%s/%s/pickle/norm.dat'%(self.norm_dir, 'retro', sub_dir, filename)
-        ddisasm_norm_db = '%s/%s/%s/%s/pickle/norm.dat'%(self.norm_dir, 'ddisasm', sub_dir, filename)
-
-        if self.gt_norm_db:
-            gt_norm_db = '%s/%s/%s/pickle/gt2.dat'%(self.gt_norm_db, sub_dir, filename)
-        else:
-            gt_norm_db = '%s/%s/%s/pickle/gt2.dat'%(self.norm_db, sub_dir, filename)
-
-        retro_norm_db = '%s/%s/%s/pickle/retro.dat'%(self.norm_db, sub_dir, filename)
-        ddisasm_norm_db = '%s/%s/%s/pickle/ddisasm2.dat'%(self.norm_db, sub_dir, filename)
-        ramblr_norm_db = '%s/%s/%s/pickle/ramblr.dat'%(self.norm_db, sub_dir, filename)
-        '''
-
         gt_dir      = '%s/%s/%s/%s/'%(self.result_dir, 'gt',     sub_dir, filename)
         ramblr_dir  = '%s/%s/%s/%s/'%(self.result_dir, 'ramblr', sub_dir, filename)
         retro_dir   = '%s/%s/%s/%s/'%(self.result_dir, 'retro',  sub_dir, filename)
@@ -172,20 +155,11 @@ class WorkBin:
 
         if pie_opt in ['pie']:
             ramblr_asm = ''
-            #ramblr_norm_db = ''
             ramblr_dir = ''
         if pie_opt in ['nopie'] or arch in ['x86']:
             retro_asm = ''
-            #retro_norm_db = ''
             retro_dir = ''
 
-        #result = '%s/%s/%s'%(self.diff_db, sub_dir, filename)
-        #ramblr_diff_dir  = '%s/%s/%s/%s/pickle/norm.dat'%(self.diff_dir, 'ramblr', sub_dir, filename)
-        #retro_diff_dir   = '%s/%s/%s/%s/pickle/norm.dat'%(self.diff_dir, 'retro', sub_dir, filename)
-        #ddisasm_diff_dir = '%s/%s/%s/%s/pickle/norm.dat'%(self.diff_dir, 'ddisasm', sub_dir, filename)
-
-
-        #return BuildConf(binary, reloc, gt_asm, strip, gt_norm_db, retro_asm, retro_norm_db, ddisasm_asm, ddisasm_norm_db, ramblr_asm, ramblr_norm_db, result)
         return BuildConf(binary, reloc, gt_asm, strip, gt_dir, retro_asm, retro_dir, ddisasm_asm, ddisasm_dir, ramblr_asm, ramblr_dir)
 
 
@@ -216,12 +190,6 @@ def diff(tool_name, binfile, gt_dir, tool_dir, option, reset):
     if os.path.getsize(tool_out) == 0:
         return
 
-    '''
-    if tool_name in ['retro']:
-        pickle_path = result + '/error_pickle/retro_sym'
-    else:
-        pickle_path = result + '/error_pickle/' + tool_name
-    '''
     pickle_path = result_dir + '/error_pickle.dat'
 
     # create new pickle
@@ -229,7 +197,6 @@ def diff(tool_name, binfile, gt_dir, tool_dir, option, reset):
         return
 
     os.system('mkdir -p %s'%(result_dir))
-    #print('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result, tool_name, tool_out, option))
     os.system('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result_dir, tool_name, tool_out, option))
 
 
@@ -287,17 +254,11 @@ class Manager:
         ret = []
         gen = WorkBin()
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-        #for pack in ['coreutils-8.30']:
             for arch in ['x86', 'x64']:
-            #for arch in ['x64']:
                 for comp in ['clang', 'gcc']:
-                #for comp in ['gcc']:
                     for popt in ['pie', 'nopie']:
-                        #for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
                         for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
-                        #for opt in ['ofast']:
                             for lopt in ['bfd', 'gold']:
-                            #for lopt in ['bfd']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
                                 ret.extend(gen.get_tuple(sub_dir, pack, arch, popt))
@@ -325,29 +286,6 @@ class Manager:
 
     def merge(self, tool, white_list):
         counter = RecCounter(tool)
-        '''
-        if tool != 'ramblr':
-            return counter
-
-        for arch in ['x86']:
-            for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
-                counterx = RecCounter(tool)
-                sub_dir = '%s/clang/nopie/%s-bfd'%(arch, opt)
-                print(sub_dir)
-                for conf in self.conf_list:
-                    if sub_dir not in conf.ramblr_asm:
-                        continue
-
-                    pickle = conf.result+'/error_pickle/' + tool
-                    disasm = conf.result+'/disasm_diff/' + tool
-                    counterx.add(pickle, disasm)
-
-                counterx.report()
-
-                #print('%7s  # of TPs  %12d  '%('',counterx.disasm_tp))
-                #print('%7s  # of FPs  %12d  '%('Disasm',counterx.disasm_fp))
-                #print('%7s  # of FNs  %12d  '%('',counterx.disasm_fn))
-        '''
         if white_list:
             f = open(white_list)
             my_list = [line for line in f.read().split()]
@@ -359,33 +297,28 @@ class Manager:
                 if conf.ddisasm_asm not in my_list:
                     continue
 
-            if tool == 'ramblr' and not conf.ramblr_asm:
-                continue
-            if tool == 'retro_sym' and not conf.retro_asm:
-                continue
-            '''
-            pickle = conf.result+'/error_pickle/' + tool
-            disasm = conf.result+'/disasm_diff/' + tool
-            '''
             if tool == 'ramblr':
+                if not conf.ramblr_asm:
+                    continue
                 out_dir = conf.ramblr_dir
             elif tool == 'retro_sym':
+                if not conf.retro_asm:
+                    continue
                 out_dir = conf.retro_dir
             elif tool == 'ddisasm':
+                if not conf.ddisasm_asm:
+                    continue
                 out_dir = conf.ddisasm_dir
 
             pickle = out_dir+'diff/error_pickle.dat'
             disasm = out_dir+'diff/disasm_diff.txt'
             counter.add(pickle, disasm)
 
-        #print('no error (%s): %d'%(tool, counter.no_error))
         #counter.report()
         return counter
 
     def report(self, white_list=None):
         #---------------------------------------------
-
-        #print('> %-110s %7s %7s'%('', 'FN'.center(7), 'FP'.center(7)))
         retro = self.merge('retro_sym', white_list)
         ddisasm = self.merge('ddisasm', white_list)
         ramblr = self.merge('ramblr', white_list)
