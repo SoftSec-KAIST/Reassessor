@@ -1,75 +1,55 @@
 from lib.types import CmptTy
 from differ.ereport import my_open
+import pickle
 
-class Statistics:
-    def __init__(self, prog_c):
-        self.prog_c = prog_c
-        self.reset()
 
-    def reset(self):
-        self.reset_type_stat()
-        self.reset_disasm_stat()
-
-    def reset_type_stat(self):
+class SymStatistics:
+    def __init__(self, pickle_file):
         self.insts      = [0,0,0,0,0,0,0]
         self.data       = [0,0,0,0,0,0,0]
-        self.instarget  = [0,0,0,0,0,0,0]
 
-    def reset_disasm_stat(self):
-        self.disasm     = [0,0,0]
+        with open(pickle_file, 'rb') as f:
+            gt = pickle.load(f)
+            self.count_symbols(gt)
 
-    def update_symbol(self, ty, idx, in_intersect):
+    def update_symbol(self, ty, idx):
         if ty == 'ins':
-            if in_intersect:
-                self.instarget[idx-1] += 1
             self.insts[idx-1] += 1
         else:
             self.data[idx-1] += 1
 
 
-    def count_cmpt_symbol(self, cmpt, ty, in_intersect):
-        if cmpt.is_ms():
-            if cmpt.is_composite(): # Type II, IV, VI, VII
-                if cmpt.Ty == CmptTy.ABSOLUTE: # Type II
-                    self.update_symbol(ty, 2, in_intersect)
-                elif cmpt.Ty == CmptTy.PCREL: # Type IV
-                    self.update_symbol(ty, 4, in_intersect)
-                elif cmpt.Ty == CmptTy.GOTOFF: # Type VI
-                    self.update_symbol(ty, 6, in_intersect)
-                elif cmpt.Ty == CmptTy.OBJREL: # Type VII
-                    self.update_symbol(ty, 7, in_intersect)
-            else: # Type I, III, V
-                if cmpt.Ty == CmptTy.ABSOLUTE: # Type I
-                    self.update_symbol(ty, 1, in_intersect)
-                elif cmpt.Ty == CmptTy.PCREL: # Type III
-                    self.update_symbol(ty, 3, in_intersect)
-                elif cmpt.Ty == CmptTy.GOTOFF: # Type V
-                    self.update_symbol(ty, 5, in_intersect)
-
-    def _count_symbol(self, factors, ty, in_intersect):
+    def _count_symbol(self, factors, ty):
         if factors.has_label():
-            self.update_symbol(ty, factors.type, in_intersect)
+            self.update_symbol(ty, factors.type)
 
-    def count_symbols(self, prog_r, file_path=None):
-        self.reset_type_stat()
-        for addr in prog_r.Instrs:
-            ins_r = prog_r.Instrs[addr]
-            if ins_r.imm:
-                self._count_symbol(ins_r.imm, 'ins', addr in self.prog_c.Instrs and self.prog_c.Instrs[addr].imm is not None)
-            if ins_r.disp:
-                self._count_symbol(ins_r.disp, 'ins', addr in self.prog_c.Instrs and self.prog_c.Instrs[addr].disp is not None)
+    def count_symbols(self, gt):
+        for addr, inst in gt.Instrs.items():
+            inst = gt.Instrs[addr]
+            if inst.imm:
+                self._count_symbol(inst.imm, 'ins')
+            if inst.disp:
+                self._count_symbol(inst.disp, 'ins')
 
-        for addr in prog_r.Data:
-            data = prog_r.Data[addr]
-            #cmpt = data.Component
-            #self.count_cmpt_symbol(cmpt, 'data', True)
-            self._count_symbol(data.value, 'data', True)
+        for addr, data in gt.Data.items():
+            self._count_symbol(data.value, 'data')
 
-        if file_path:
-            with my_open(file_path) as fd:
-                fd.write('%d,%d,%d,%d,%d,%d,%d\n' % tuple(self.insts))
-                fd.write('%d,%d,%d,%d,%d,%d,%d\n' % tuple(self.instarget))
-                fd.write('%d,%d,%d,%d,%d,%d,%d\n' % tuple(self.data))
+    def save(self, output):
+
+        with my_open(output) as fd:
+            fd.write('%d,%d,%d,%d,%d,%d,%d\n' % tuple(self.insts))
+            fd.write('%d,%d,%d,%d,%d,%d,%d\n' % tuple(self.data))
+
+
+
+
+class Statistics:
+    def __init__(self, prog_c):
+        self.prog_c = prog_c
+        self.reset_disasm_stat()
+
+    def reset_disasm_stat(self):
+        self.disasm     = [0,0,0]
 
     def count_disasm(self, prog_r, file_path):
         self.reset_disasm_stat()

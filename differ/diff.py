@@ -20,9 +20,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
     prog_c = pickle.load(pickle_gt_f)
     stat = Statistics(prog_c)
 
-    #gt_type_file_path = '%s/%s'%(type_dir, 'gt')
-    #stat.count_symbols(prog_c, gt_type_file_path)
-
     for tool, pickle_tool_path in pickle_tool_list.items():
         pickle_tool_f = open(pickle_tool_path, 'rb')
         prog_r = pickle.load(pickle_tool_f)
@@ -41,7 +38,6 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
             stat.count_disasm(prog_r, disasm_file_path)
 
         pickle_tool_f.close()
-
 
     pickle_gt_f.close()
 

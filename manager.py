@@ -5,6 +5,7 @@ import glob
 import multiprocessing
 
 #from differ.ereport import ERec
+from differ.statistics import SymStatistics
 
 ERec = namedtuple('ERec', ['record', 'gt'])
 
@@ -200,9 +201,19 @@ def diff(tool_name, binfile, gt_dir, tool_dir, option, reset):
     os.system('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result_dir, tool_name, tool_out, option))
 
 
+def make_symbol_statistics(conf):
+    pickle_file = conf.gt_dir + 'norm/pickle.dat'
+    output = conf.gt_dir + 'norm/symdist.txt'
+    stat = SymStatistics(pickle_file)
+    stat.save(output)
+
 
 def create_gt(conf, reset):
-    return create_db('gt',     conf.bin, conf.gt_asm, conf.gt_dir, reset, conf.reloc)
+    if create_db('gt',     conf.bin, conf.gt_asm, conf.gt_dir, reset, conf.reloc):
+        make_symbol_statistics(conf)
+        return True
+
+    return False
 
 def create_retro(conf, reset):
     if conf.retro_asm:
