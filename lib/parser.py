@@ -451,7 +451,7 @@ class FactorList:
 
         addr = self.label_to_addr(self.labels[0])
         label_type = LblTy.GOTOFF
-        lbl = Label(self.labels[0], label_type, addr)
+        lbl = Label(self.labels[0], label_type, addr, 0)
         result.append(lbl)
 
         if self.num:
@@ -518,8 +518,8 @@ class FactorList:
         else:
             addr1 = (self.value + base_addr ) & 0xffffffff
 
-        lbl1 = Label(self.labels[0], LblTy.LABEL, addr1)
-        lbl2 = Label(self.labels[1], LblTy.LABEL, base_addr)
+        lbl1 = Label(self.labels[0], LblTy.LABEL, addr1, 0)
+        lbl2 = Label(self.labels[1], LblTy.LABEL, base_addr, 0)
 
         return [lbl1, lbl2]
 

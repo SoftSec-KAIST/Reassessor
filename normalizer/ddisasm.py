@@ -36,7 +36,7 @@ def ddisasm_set_label_parser(line, label_to_addr):
     new_exprs = []
     new_labels = []
     for expr in exprs:
-        if expr.isdigit() or expr in ['+', '-', '*']:
+        if expr.isdigit() or expr in ['+', '-', '*'] or expr.startswith('0x'):
             new_exprs.append(expr)
         elif expr[0] in ['.'] or expr[0].isalpha():
             new_exprs.append('0')

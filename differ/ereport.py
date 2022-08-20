@@ -169,10 +169,16 @@ class Report:
                 # since its reloc info would not be defined in relocation table
                 data_r = prog_r.Data[addr]
 
+                # if the label does not has address, we consider it as constant
+                # the label can be defined as constant like ".set L1234, 0x1234"
+                # Thus, it is not a FP error
+                if data_r.value.terms[0].Address < 0:
+                    continue
                 if not self.is_in_data_region(addr):
                     continue
                 if data_r.value.type == 7:
                     continue
+
                 self.check_data_error(None, data_r, addr)
 
     def is_in_data_region(self, addr):
@@ -196,6 +202,8 @@ class Report:
             if ins_c.imm or ins_c.disp or ins_r.imm or ins_r.disp:
                 self.check_ins(ins_c, ins_r, addr)
 
+        # exclude disassembly errors
+        '''
         fn = ins_addrs_c - ins_addrs_r
         for addr in fn:
             ins_c = self.prog_c.Instrs[addr]
@@ -208,6 +216,7 @@ class Report:
             ins_r = prog_r.Instrs[addr]
             if ins_r.imm or ins_r.disp:
                 self.check_ins(None, ins_r, addr)
+        '''
 
     def compare_two_reloc_expr(self, gt_factor, tool_factor, region, addr):
         gt_reloc = None
@@ -237,15 +246,24 @@ class Report:
 
         if gt_reloc:
             gt_reloc_type = gt_reloc.type
-            label_addr1 = gt_reloc.terms[0].Address
+            #label_addr1 = gt_reloc.terms[0].Address
+            label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
         if tool_reloc:
             tool_reloc_type = tool_reloc.type
-            label_addr2 =  tool_reloc.terms[0].Address
+            #label_addr2 =  tool_reloc.terms[0].Address
+            label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
 
             if tool_reloc.terms[0].Address < 0:
                 # -1: does not exist
                 # -2: duplicated label
                 invalid_label = abs(tool_reloc.terms[0].Address)
+
+            elif (gt_reloc and label_addr1 != label_addr2):
+                invalid_label = 3 # label address is diffent
+
+            elif tool_reloc.terms[0].Num:
+                invalid_label = 4 # composite .set label
+
 
 
         if gt_reloc and tool_reloc:
@@ -272,12 +290,6 @@ class Report:
 
                         result = ReportTy.FP
 
-                        if (tool_reloc.terms[0].Address > 0 and
-                            (gt_reloc.terms[0].Address != (tool_reloc.terms[0].Address+tool_reloc.terms[0].Num))):
-                            invalid_label = 3 # label address is diffent
-                            #print('>> %s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
-                            #print('>>>>' , tool_factor.asm_line)
-
                     else:
                         result = ReportTy.TP
 
@@ -291,6 +303,7 @@ class Report:
             result = ReportTy.FP
 
         if result == ReportTy.FP:
+
             if gt_reloc is None:
                 criticality = ErrorType.CLASSIC_FP
             elif invalid_label == 1:
@@ -299,19 +312,18 @@ class Report:
                 criticality = ErrorType.LABEL_DUP
             else:
                 criticality = self.check_fp_criticality(gt_reloc, tool_reloc)
-                if invalid_label != 3 and criticality == ErrorType.DIFF_ADDRS:
-                    label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
-                    label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
-
-                if tool_reloc.terms[0].Num:
-                    invalid_label = 4 # composite .set label
 
         elif result == ReportTy.FN:
             criticality = ErrorType.FN
         else: # TP
             criticality = ErrorType.TP
 
+        #exclude label errors (undefined label or duplicated label)
+        if invalid_label in [1, 2]:
+            return False
+
         self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2, criticality)
+        return True
 
     def get_sec_name(self, addr):
         for region, sec_name in self.included_region_list:
@@ -368,7 +380,8 @@ class Report:
 
 
     def check_data_error(self, data_c, data_r, addr):
-        self.gt += 1
+
+        check = False
         if data_c and data_r is None:
             # this is reassembler design choice
             # ddisasm preserve .got section
@@ -379,16 +392,23 @@ class Report:
             elif data_c.r_type and data_c.r_type in ['R_386_GLOB_DAT','R_386_JUMP_SLOT']:
                 pass
             else:
-                self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
+                check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
         else:
-            self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
+            check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
+
+        if check:
+            self.gt += 1
 
 
     def check_ins(self, ins_c, ins_r, addr):
-        self.gt += 1
 
-        self.compare_two_reloc_expr(ins_c, ins_r, 'Imm', addr)
-        self.compare_two_reloc_expr(ins_c, ins_r, 'Disp', addr)
+        assert ins_c is not None and ins_r is not None
+
+        check1 = self.compare_two_reloc_expr(ins_c, ins_r, 'Imm', addr)
+        check2 = self.compare_two_reloc_expr(ins_c, ins_r, 'Disp', addr)
+
+        if check1 or check2:
+            self.gt += 1
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
