@@ -790,6 +790,13 @@ class NormalizeGT:
         for i in range(20):
             t = "*/" * i
             srcs += glob.glob(self.asm_dir + t + "*.s")
+
+        # give a first priority to a main source code when it comes to coreutils
+        if 'coreutils-8.30' in self.bin_path:
+            main_src = '%s/src/%s.s'%(self.asm_dir, os.path.basename(self.bin_path))
+            if main_src in srcs:
+                srcs.remove(main_src)
+                srcs.insert(0, main_src)
         return srcs
 
     def has_func_assem_file(self, func_name):
