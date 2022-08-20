@@ -2,7 +2,7 @@ import capstone
 import re
 import os
 
-from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel
+from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel
 from normalizer.tool_base import NormalizeTool
 
 SYM_BLK = ['__rela_iplt_end']
@@ -36,8 +36,8 @@ def ddisasm_mapper(reassem_path, tokenizer):
     asm_file = os.path.basename(reassem_path)
 
     with open(reassem_path) as f:
+        unknown_label_idx = -1
         for idx, line in enumerate(f):
-
             terms = line.split('#')[0].split()
             if len(terms) == 0:
                 continue
@@ -62,10 +62,15 @@ def ddisasm_mapper(reassem_path, tokenizer):
                 xaddr = ddisasm_label_to_addr(terms[0][:-1])
                 if xaddr > 0:
                     addr = xaddr
+                    if unknown_label_idx + 1 == idx and isinstance(result[-1], ReasmLabel):
+                        prev_label, _, prev_idx = result[-1]
+                        assert prev_idx == unknown_label_idx + 1
+                        result[-1] = ReasmLabel(prev_label, addr, prev_idx)
                 if addr > 0:
                     result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
                 else:
                     result.append(ReasmLabel(terms[0][:-1], 0, idx+1))
+                    unknown_label_idx = idx
 
                 continue
             elif is_linker_gen or terms[0] in SKIP_DIRECTIVE:
@@ -76,6 +81,10 @@ def ddisasm_mapper(reassem_path, tokenizer):
                 pass
             else:
                 addr = int(re.search('^([0-9a-f]*)', terms[0][:-1])[0],16)
+                if unknown_label_idx + 1 == idx and isinstance(result[-1], ReasmLabel):
+                    prev_label, _, prev_idx = result[-1]
+                    assert prev_idx == unknown_label_idx + 1
+                    result[-1] = ReasmLabel(prev_label, addr, prev_idx)
                 if terms[1] in DATA_DIRECTIVE:
                     if terms[1] in ['.long', '.quad']:
                         expr = ''.join(terms[2:])

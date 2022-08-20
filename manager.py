@@ -15,30 +15,32 @@ BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_dir'
 #black_list = []
 #white_list = []
 
-def job(conf, reset=False):
-    #diff_option = '--error'
+def job(conf, reset=True):
+    diff_option = '--error'
     #diff_option = '--disasm'
-    diff_option = ''
-    create_gt(conf, reset)
+    #diff_option = ''
+    #create_gt(conf, reset)
 
+    '''
     if create_retro(conf, reset):
         diff_retro(conf, diff_option, reset)
-
+    '''
     if create_ddisasm(conf, reset):
         diff_ddisasm(conf, diff_option, reset)
-
+    '''
     if create_ramblr(conf, reset):
         diff_ramblr(conf, diff_option, reset)
-    diff_retro(conf, diff_option, reset)
-    diff_ddisasm(conf, diff_option, reset)
-    diff_ramblr(conf, diff_option, reset)
+    '''
+    #diff_retro(conf, diff_option, reset)
+    #diff_ddisasm(conf, diff_option, reset)
+    #diff_ramblr(conf, diff_option, reset)
 
 class RecCounter:
     def __init__(self, tool):
         self.tool = tool
         self.board = list()
         for i in range(9):
-            self.board.append({'tp':0, 'fp':0, 'fn':0})
+            self.board.append({'tp':0, 'fp':0, 'critical_fp':0, 'fn':0})
 
         self.no_error = 0
 
@@ -64,6 +66,7 @@ class RecCounter:
             for stype in range(1, 9):
                 self.board[stype]['tp'] += rec.record[stype].tp
                 self.board[stype]['fp'] += rec.record[stype].fp.length()
+                self.board[stype]['critical_fp'] += rec.record[stype].fp.critical_errors()
                 self.board[stype]['fn'] += rec.record[stype].fn.length()
 
                 if rec.record[stype].fp.length():
@@ -89,7 +92,7 @@ class RecCounter:
     def report(self):
         print('        %8s %8s %8s'%('TP', 'FP', 'FN'))
         for stype in range(1, 9):
-            print('Type %d: %8d %8d %8d'%(stype, self.board[stype]['tp'] , self.board[stype]['fp'] , self.board[stype]['fn']))
+            print('Type %d: %8d %8d(%8d) %8d'%(stype, self.board[stype]['tp'] , self.board[stype]['fp'] , self.board[stype]['critical_fp'], self.board[stype]['fn']))
 
         print('Total : %8d'%(self.tot_gt))
 
@@ -118,10 +121,12 @@ class WorkBin:
     def get_ramblr(self, sub_dir, filename):
         return '%s/%s/ramblr/%s.s'%(self.ramblr, sub_dir, filename)
 
-    def get_tuple(self, sub_dir, package, arch, pie_opt):
+    def get_tuple(self, sub_dir, package, arch, pie_opt, rerun_list=None):
         ret = []
 
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
+            if rerun_list and binary not in rerun_list:
+                continue
             '''
             if os.path.basename(binary) in black_list:
                 continue
@@ -252,12 +257,17 @@ def create_db(tool_name, bin_file, assem, output_dir, reset=False, reloc=''):
     return True
 
 class Manager:
-    def __init__(self, core):
+    def __init__(self, core, rerun):
         self.core = core
         if core > 1:
             self.multi = True
         else:
             self.multi = False
+
+        self.rerun_list = []
+        if rerun:
+            with open(rerun) as f:
+                self.rerun_list = [line for line in f.read().split()]
 
         self.conf_list = self.gen_option('/data2/benchmark')
 
@@ -265,6 +275,8 @@ class Manager:
         ret = []
         gen = WorkBin()
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+        #for pack in ['coreutils-8.30']:
+        #for pack in ['binutils-2.31.1', 'spec_cpu2006']:
             for arch in ['x86', 'x64']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
@@ -272,7 +284,7 @@ class Manager:
                             for lopt in ['bfd', 'gold']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
-                                ret.extend(gen.get_tuple(sub_dir, pack, arch, popt))
+                                ret.extend(gen.get_tuple(sub_dir, pack, arch, popt, rerun_list=self.rerun_list))
         return ret
 
     def single_run(self, target):
@@ -344,6 +356,7 @@ class Manager:
         for stype in range(1, 9):
             print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
             print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
+            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['critical_fp'], retro.board[stype]['critical_fp'], ddisasm.board[stype]['critical_fp']))
             print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
             print('-' * 60 )
 
@@ -358,9 +371,10 @@ if __name__ == '__main__':
     parser.add_argument('--core', type=int, default=1)
     parser.add_argument('--target', type=str)
     parser.add_argument('--list', type=str)
+    parser.add_argument('--rerun', type=str)
     args = parser.parse_args()
 
-    mgr = Manager(args.core)
+    mgr = Manager(args.core, args.rerun)
 
     if args.target:
         mgr.single_run(args.target)
