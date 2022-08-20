@@ -37,20 +37,21 @@ class Record:
 
         self.adata = []
 
-    def add(self, gt, tool, region, tool_reloc_type, invalid_label=0, label_addr1=0, label_addr2=0, criticality=ErrorType.UNDEF):
-        if gt:
-            address     = gt.addr
-            asm_info    = gt.path,    gt.asm_idx
-            gt_asm      = gt.asm_line.strip()
+    def add(self, gt_factor, tool_factor, region, tool_reloc_type, invalid_label=0, label_addr1=0, label_addr2=0, criticality=ErrorType.UNDEF):
+
+        if gt_factor:
+            address     = gt_factor.addr
+            asm_info    = gt_factor.path,    gt_factor.asm_idx
+            gt_asm      = gt_factor.asm_line.strip()
         else:
-            address     = tool.addr
+            address     = tool_factor.addr
             asm_info    = None
             gt_asm      = None
 
         #reasm_type = 0
-        if tool:
-            reasm_info  = tool.path,  tool.asm_idx
-            tool_asm    = tool.asm_line.strip()
+        if tool_factor:
+            reasm_info  = tool_factor.path,  tool_factor.asm_idx
+            tool_asm    = tool_factor.asm_line.strip()
         else:
             reasm_info  = None
             tool_asm    = None
@@ -271,7 +272,8 @@ class Report:
 
                         result = ReportTy.FP
 
-                        if tool_reloc.terms[0].Address > 0:
+                        if (tool_reloc.terms[0].Address > 0 and
+                            (gt_reloc.terms[0].Address != (tool_reloc.terms[0].Address+tool_reloc.terms[0].Num))):
                             invalid_label = 3 # label address is diffent
                             #print('>> %s (%d): %s vs %s'%(hex(addr), gt_reloc_type, hex(gt_reloc.terms[0].Address), hex(tool_reloc.terms[0].Address)))
                             #print('>>>>' , tool_factor.asm_line)
@@ -298,8 +300,12 @@ class Report:
             else:
                 criticality = self.check_fp_criticality(gt_reloc, tool_reloc)
                 if invalid_label != 3 and criticality == ErrorType.DIFF_ADDRS:
-                    label_addr1 = gt_reloc.terms[0].Address+gt_reloc.num
-                    label_addr2 = tool_reloc.terms[0].Address+tool_reloc.num
+                    label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
+                    label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
+
+                if tool_reloc.terms[0].Num:
+                    invalid_label = 4 # composite .set label
+
         elif result == ReportTy.FN:
             criticality = ErrorType.FN
         else: # TP
@@ -321,17 +327,19 @@ class Report:
             #print('invalid type 7')
             return ErrorType.DIFF_BASES
 
-        if gt_reloc.type == tool_reloc.type:
-            if gt_reloc.type in [1,3,5]:
-                #print('different atomic relocatable expressions')
-                return ErrorType.DIFF_ADDRS #diff addr
-        else:
+        if gt_reloc.type != tool_reloc.type:
             if int((gt_reloc.type-1)/2) != int((tool_reloc.type-1)/2):
                 #print('different semantics')
                 return ErrorType.LABEL_SEMANTICS #diff semantics
+        '''
+        else:
+            if gt_reloc.type in [1,3,5]:
+                #print('different atomic relocatable expressions')
+                #return ErrorType.DIFF_ADDRS #diff addr
+        '''
 
         # check target addresses
-        if (gt_reloc.terms[0].Address+gt_reloc.num) != (tool_reloc.terms[0].Address+tool_reloc.num):
+        if (gt_reloc.terms[0].Address+gt_reloc.num) != ((tool_reloc.terms[0].Address+tool_reloc.terms[0].Num) +tool_reloc.num):
             return ErrorType.DIFF_ADDRS #diff addr
 
         # check target section

@@ -33,10 +33,11 @@ def cmptTyToStr(ty):
         return 'NONE'
 
 class Label:
-    def __init__(self, name, ty, addr):
+    def __init__(self, name, ty, addr, implicit_num):
         self.Address = addr
         self.Name = name
         self.Ty = ty
+        self.Num = implicit_num
 
     def get_value(self):
         return self.Address
@@ -63,6 +64,10 @@ class Label:
             s = 'GOTOFF'
         else:
             s = 'LABEL'
+
+        if self.Num:
+            return 'Label ' + '%s+(%d)'%(hex(addr), self.Num) + ' ' + s
+
         return 'Label ' + hex(addr) + ' ' + s
 
 class InstType:

@@ -28,6 +28,38 @@ class NormalizeDdisasm(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
         super().__init__(bin_path, reassem_path, ddisasm_mapper, capstone.CS_OPT_SYNTAX_INTEL)
 
+def ddisasm_set_label_parser(line, label_to_addr):
+
+    label = line.split(',')[0].split()[1]
+    exprs = line.split(',')[1].split()
+
+    new_exprs = []
+    new_labels = []
+    for expr in exprs:
+        if expr.isdigit() or expr in ['+', '-', '*']:
+            new_exprs.append(expr)
+        elif expr[0] in ['.'] or expr[0].isalpha():
+            new_exprs.append('0')
+            new_labels.append(expr)
+        else:
+            assert False, 'Unknown expression'
+
+    num = eval(''.join(new_exprs))
+
+    assert len(new_labels) < 2, 'Invalid expression'
+
+    xaddr = -1
+    if new_labels:
+        if '.' == new_labels[0]:
+            # .set FUN_804a3f0, . - 10
+            # FUN_804a3f0 = . - 10
+            # . = FUN_804a3f0 - (- 10)
+            xaddr = label_to_addr(label) - num
+        else:
+            xaddr = label_to_addr(new_labels[0])
+
+    return xaddr, num
+
 def ddisasm_mapper(reassem_path, tokenizer):
     result = []
     addr = -1
@@ -58,6 +90,11 @@ def ddisasm_mapper(reassem_path, tokenizer):
                     is_linker_gen = True
             elif terms[0] in ['.text', '.data', '.bss']:
                 is_linker_gen = False
+            elif terms[0] in ['.set']:
+                # ex) .set FUN_804a3f0, . - 10
+                # ex) .set L_0, 0
+                addr, num = ddisasm_set_label_parser(line, ddisasm_label_to_addr)
+                result.append(ReasmSetLabel(terms[1][:-1], addr, num, idx+1))
             elif re.search('^.*:$', line):
                 xaddr = ddisasm_label_to_addr(terms[0][:-1])
                 if xaddr > 0:

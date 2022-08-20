@@ -3,7 +3,7 @@ import capstone
 from collections import namedtuple
 import pickle
 from lib.types import Program, LblTy
-from lib.parser import AsmTokenizer, ReasmInst, ReasmData, ReasmLabel, CompGen
+from lib.parser import AsmTokenizer, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, CompGen
 from collections import defaultdict
 
 from elftools.elf.elffile import ELFFile
@@ -41,9 +41,9 @@ class NormalizeTool:
 
         self.mapper(map_func)
 
-        self.label_dict = self.make_label_dict()
+        self.label_dict, self.set_label_dict = self.make_label_dict()
 
-        self.comp_gen = CompGen(label_dict = self.label_dict, syntax=syntax, got_addr = self.got_addr, label_func=label_func)
+        self.comp_gen = CompGen(label_dict = self.label_dict, syntax=syntax, got_addr = self.got_addr, label_func=label_func, set_label_dict = self.set_label_dict)
 
 
     def make_label_dict(self):
@@ -52,10 +52,16 @@ class NormalizeTool:
         label_dict = defaultdict(list)
         for label in self.addressed_label:
             label_dict[label.label].append(label.addr)
+
         for label in self.relocs:
             if label not in label_dict:
                 label_dict[label].append(0)
-        return label_dict
+
+        set_label_dict = defaultdict(list)
+        for label in self.addressed_set_label:
+            set_label_dict[label.label].append((label.addr, label.num))
+
+        return label_dict, set_label_dict
 
 
     def mapper(self, map_func):
@@ -66,6 +72,7 @@ class NormalizeTool:
         self.addressed_asms = [asm for asm in addressed_lines if isinstance(asm, ReasmInst)]
         self.addressed_data = [asm for asm in addressed_lines if isinstance(asm, ReasmData)]
         self.addressed_label = [asm for asm in addressed_lines if isinstance(asm, ReasmLabel)]
+        self.addressed_set_label = [asm for asm in addressed_lines if isinstance(asm, ReasmSetLabel)]
 
     def get_reloc_symbs(self):
         names = {}
@@ -131,8 +138,6 @@ class NormalizeTool:
         for reasm_data in self.addressed_data:
             data = self.comp_gen.get_data(reasm_data.addr, self.reassem_path, reasm_data.asm_line, reasm_data.idx)
             self.prog.Data[reasm_data.addr] = data
-            #component = self.comp_gen.get_data_components(reasm_data.expr)
-            #self.prog.Data[reasm_data.addr] = Data(reasm_data.addr, component, self.reassem_path, reasm_data.idx, reasm_data.asm_line)
 
     @abstractmethod
     def address_src_file(self):

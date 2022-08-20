@@ -24,6 +24,7 @@ jump_instrs =  ["jo","jno","js","jns","je", "jz","jne", "jnz","jb", "jna", "jc",
 ReasmInst = namedtuple('ReasmInst', ['asm_line', 'opcode', 'operand_list', 'addr', 'idx'])
 ReasmData = namedtuple('ReasmData', ['asm_line', 'directive', 'expr', 'addr', 'idx'])
 ReasmLabel = namedtuple('ReasmLabel', ['label', 'addr', 'idx'])
+ReasmSetLabel = namedtuple('ReasmSetLabel', ['label', 'addr', 'num', 'idx'])
 
 class AsmTokenizer:
     def __init__(self, syntax):
@@ -166,10 +167,15 @@ class Factor:
         raise SyntaxError('Unexpected operator')
 
 class CompGen:
-    def __init__(self, label_dict = None, syntax = capstone.CS_OPT_SYNTAX_ATT, got_addr = 0, label_func=None):
+    def __init__(self, label_dict = None, syntax = capstone.CS_OPT_SYNTAX_ATT, got_addr = 0, label_func=None, set_label_dict = None):
         self.label_dict = dict()
         if label_dict:
             self.label_dict = label_dict
+
+        self.set_label_dict = dict()
+        if set_label_dict:
+            self.set_label_dict = set_label_dict
+
         self.label_func = label_func
 
         self.syntax = syntax
@@ -190,7 +196,7 @@ class CompGen:
         if additional_dict:
             factors = FactorList(tokens, value, additional_dict)
         else:
-            factors = FactorList(tokens, value, self.label_dict, self.label_func)
+            factors = FactorList(tokens, value, self.label_dict, self.label_func, set_label_dict = self.set_label_dict)
         return DataType(addr, asm_path, line, idx, factors, r_type = r_type)
         #return Component(factors)
 
@@ -209,7 +215,7 @@ class CompGen:
                     value = insn.operands[0].mem.disp
             else:
                 value = insn.operands[0].imm
-            factors = FactorList(tokens, value, is_pcrel=True)
+            factors = FactorList(tokens, value, is_pcrel=True, set_label_dict = self.set_label_dict)
             if factors.has_label():
                 return InstType(addr, asm_path, asm_token, imm = factors)
             return InstType(addr, asm_path, asm_token)
@@ -282,7 +288,7 @@ class CompGen:
 
             factors = FactorList(tokens, value, is_pcrel = is_pcrel)
         else:       #in case of TOOLs
-            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel, label_func = self.label_func)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel, label_func = self.label_func, set_label_dict= self.set_label_dict)
 
         if factors.has_label():
             if len(factors.terms) == 3 and factors.terms[0].get_name() == '_GLOBAL_OFFSET_TABLE_':
@@ -307,7 +313,7 @@ class CompGen:
         if asm_token.opcode.startswith('call') or asm_token.opcode in jump_instrs:
             op_str = asm_token.operand_list[0]
             tokens = self.ex_parser.parse(op_str)
-            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel=True, label_func = self.label_func)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel=True, label_func = self.label_func, set_label_dict= self.set_label_dict)
             if factors.has_label():
                 return InstType(addr, asm_path, asm_token, imm = factors)
             return InstType(addr, asm_path, asm_token)
@@ -317,7 +323,7 @@ class CompGen:
         for op_str in asm_token.operand_list:
             tokens = self.ex_parser.parse(op_str)
             is_pcrel = self.ex_parser.has_rip
-            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel, label_func = self.label_func)
+            factors = FactorList(tokens, label_dict = self.label_dict, is_pcrel = is_pcrel, label_func = self.label_func, set_label_dict = self.set_label_dict)
             if factors.has_label():
                 if self.ex_parser.is_imm:
                     imm = self.create_component(addr, op_str)
@@ -328,11 +334,12 @@ class CompGen:
 
 
 class FactorList:
-    def __init__(self, factors, value=0, label_dict=None, label_func=None, is_pcrel=False):
+    def __init__(self, factors, value=0, label_dict=None, label_func=None, is_pcrel=False, set_label_dict=None):
         self.labels = []
         self.num = 0
         self.value = value
         self._label_dict = label_dict
+        self._set_label_dict = set_label_dict
         self._label_func = label_func
         #self.gotoff = gotoff
         self.is_pcrel = is_pcrel
@@ -341,6 +348,9 @@ class FactorList:
                 self.num += eval(factor.get_str())
             else:
                 self.labels.append(factor.get_str())
+
+
+
         if len(self.labels) == 2:
             # exclude ddisasm bugs
             if self.labels[-1] in ['-_GLOBAL_OFFSET_TABLE_']:#, '-.L_0']:
@@ -352,6 +362,7 @@ class FactorList:
         else:
             self.terms = []
         self._label_dict = None
+        self._set_label_dict = None
         self._label_func = None
         self.type = self.get_type()
 
@@ -389,7 +400,7 @@ class FactorList:
         return len(self.labels) > 0
 
     def is_composite(self):
-        return self.has_label() and (len(self.terms) > 1 or self.num != 0)
+        return self.has_label() and (len(self.terms) > 1 or self.num + self.terms[0].Num != 0)
 
     def get_str(self):
         ret = ''
@@ -425,6 +436,14 @@ class FactorList:
 
         return -1
 
+    def is_set_label(self, label):
+        keyword = label.split('@')[0]
+        if keyword in self._set_label_dict:
+            return True
+        return False
+
+
+
     def get_ddisasm_got_terms(self):
         assert len(self.labels) == 2 and self.labels[1] == '-_GLOBAL_OFFSET_TABLE_'
 
@@ -443,19 +462,29 @@ class FactorList:
         result = []
 
         for label in self.labels:
+            keyword = ''
+            implicit_num = 0
+
             if '_GLOBAL_OFFSET_TABLE_' in label:
                 #addr = self.gotoff
                 addr = 0
                 label_type = LblTy.LABEL
             elif '@GOTOFF' in label:
-                addr = self.label_to_addr(label.split('@GOTOFF')[0])
+                keyword = label.split('@GOTOFF')[0]
                 label_type = LblTy.GOTOFF
             else:
                 if label[0] == '-':
-                    addr = self.label_to_addr(label[1:])
+                    keyword = label[1:]
                 else:
-                    addr = self.label_to_addr(label)
+                    keyword = label
                 label_type = LblTy.LABEL
+
+            if keyword:
+                addr = self.label_to_addr(keyword)
+
+                #check whether the label is defined by .set directive
+                if addr in [0,-1] and self.is_set_label(keyword):
+                    addr, implicit_num = self._set_label_dict[keyword][0]
 
             if addr <= 0 and self.value:
                 if len(self.labels) == 3 and '_GLOBAL_OFFSET_TABLE_' in self.labels[0]:
@@ -470,7 +499,7 @@ class FactorList:
                 addr = 0
 
 
-            lbl = Label(label, label_type, addr)
+            lbl = Label(label, label_type, addr, implicit_num)
             result.append(lbl)
         if self.num:
             return result + [self.num]
