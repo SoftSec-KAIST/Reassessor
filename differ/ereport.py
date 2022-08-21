@@ -20,7 +20,8 @@ class ErrorType(Enum):
     DIFF_SECTIONS=7
     CODE_REGION=8
     DIFF_BASES=9
-    UNDEF=10
+    FIXED_ADDR=10
+    UNDEF=11
 
 def my_open(file_path, option='w'):
      if 'w' in option:
@@ -253,17 +254,21 @@ class Report:
             #label_addr2 =  tool_reloc.terms[0].Address
             label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
 
-            if tool_reloc.terms[0].Address < 0:
-                # -1: does not exist
-                # -2: duplicated label
-                invalid_label = abs(tool_reloc.terms[0].Address)
+            if tool_reloc_type > 0:
+                if  tool_reloc.terms[0].Address < 0:
+                    # -1: does not exist
+                    # -2: duplicated label
+                    invalid_label = abs(tool_reloc.terms[0].Address)
 
-            elif (gt_reloc and label_addr1 != label_addr2):
-                invalid_label = 3 # label address is diffent
+                elif ((gt_reloc and label_addr1 != label_addr2) and
+                       not tool_reloc.terms[0].get_name().endswith('@GOT') ):
 
-            elif tool_reloc.terms[0].Num:
-                invalid_label = 4 # composite .set label
+                    invalid_label = 3 # label address is diffent
 
+                elif tool_reloc.terms[0].Num:
+                    invalid_label = 4 # composite .set label
+            else:
+                invalid_label = 5 # the label refers fix address
 
 
         if gt_reloc and tool_reloc:
@@ -293,6 +298,8 @@ class Report:
                     else:
                         result = ReportTy.TP
 
+            #elif tool_reloc.type == 0:
+            #    result = ReportTy.FN
             else:
                 result = ReportTy.FP
 
@@ -310,6 +317,8 @@ class Report:
                 criticality = ErrorType.LABEL_UNDEF
             elif invalid_label == 2:
                 criticality = ErrorType.LABEL_DUP
+            elif tool_reloc.type == 0:
+                criticality = ErrorType.FIXED_ADDR
             else:
                 criticality = self.check_fp_criticality(gt_reloc, tool_reloc)
 
@@ -319,7 +328,7 @@ class Report:
             criticality = ErrorType.TP
 
         #exclude label errors (undefined label or duplicated label)
-        if invalid_label in [1, 2]:
+        if result == ReportTy.FP and invalid_label in [1, 2]:
             return False
 
         self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2, criticality)
@@ -343,27 +352,32 @@ class Report:
             if int((gt_reloc.type-1)/2) != int((tool_reloc.type-1)/2):
                 #print('different semantics')
                 return ErrorType.LABEL_SEMANTICS #diff semantics
-        '''
+
+        #if label is consist with @GOT, reassessor only checks referring region
+        if tool_reloc.terms[0].get_name().endswith('@GOT'):
+            sec2 = self.get_sec_name(tool_reloc.terms[0].Address)
+
+            if sec2 in ['.text', '.init', '.fini', '.plt']:
+                return ErrorType.CODE_REGION #text section
+
         else:
-            if gt_reloc.type in [1,3,5]:
-                #print('different atomic relocatable expressions')
-                #return ErrorType.DIFF_ADDRS #diff addr
-        '''
+            label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
+            label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
 
-        # check target addresses
-        if (gt_reloc.terms[0].Address+gt_reloc.num) != ((tool_reloc.terms[0].Address+tool_reloc.terms[0].Num) +tool_reloc.num):
-            return ErrorType.DIFF_ADDRS #diff addr
+            # check target addresses
+            if (label_addr1 != label_addr2):
+                return ErrorType.DIFF_ADDRS #diff addr
 
-        # check target section
-        sec1 = self.get_sec_name(gt_reloc.terms[0].Address)
-        sec2 = self.get_sec_name(tool_reloc.terms[0].Address)
+            # check target section
+            sec1 = self.get_sec_name(gt_reloc.terms[0].Address)
+            sec2 = self.get_sec_name(tool_reloc.terms[0].Address)
 
-        # if two target point to same data region, it can be considered as non-critical!!!!
-        if sec1 != sec2:
-            return ErrorType.DIFF_SECTIONS #diff section
+            # if two target point to same data region, it can be considered as non-critical!!!!
+            if sec1 != sec2:
+                return ErrorType.DIFF_SECTIONS #diff section
 
-        if sec1 in ['.text', '.init', '.fini', '.plt']:
-            return ErrorType.CODE_REGION #text section
+            if sec1 in ['.text', '.init', '.fini', '.plt']:
+                return ErrorType.CODE_REGION #text section
 
         # non-critical FP
         return ErrorType.SAFE_FP
@@ -376,7 +390,7 @@ class Report:
         elif result == ReportTy.FP:
             self.rec[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality)
         elif result == ReportTy.FN:
-            self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, criticality=ErrorType.FN)
+            self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, criticality=ErrorType.FN)
 
 
     def check_data_error(self, data_c, data_r, addr):

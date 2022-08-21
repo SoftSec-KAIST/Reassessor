@@ -367,16 +367,24 @@ class FactorList:
         self.type = self.get_type()
 
     def get_type(self):
+
         if len(self.labels) == 2:
             #ddisasm makes type 5/6 symbol like XXX-_GLOBAL_OFFSET_TABLE_
             if self.labels[1] == '-_GLOBAL_OFFSET_TABLE_':
-                if self.is_composite():
+
+                if self.terms[0].Address == -1:
+                    return 0
+                elif self.is_composite():
                     return 6
                 else:
                     return 5
             else:
                 return 7
         elif len(self.labels) == 1:
+
+            if self.terms[0].Address == -1:
+                return 0
+
             if ('@GOTOFF' in self.labels[0] or '@GOT' in self.labels[0]) and '@GOTPCREL' not in self.labels[0]:
                 if self.is_composite():
                     return 6
@@ -436,8 +444,7 @@ class FactorList:
 
         return -1
 
-    def is_set_label(self, label):
-        keyword = label.split('@')[0]
+    def is_set_label(self, keyword):
         if keyword in self._set_label_dict:
             return True
         return False
@@ -469,8 +476,10 @@ class FactorList:
                 #addr = self.gotoff
                 addr = 0
                 label_type = LblTy.LABEL
-            elif '@GOTOFF' in label:
-                keyword = label.split('@GOTOFF')[0]
+            #elif '@GOTOFF' in label:
+            elif '@GOT' in label:
+                #keyword = label.split('@GOTOFF')[0]
+                keyword = label.split('@GOT')[0]
                 label_type = LblTy.GOTOFF
             else:
                 if label[0] == '-':
