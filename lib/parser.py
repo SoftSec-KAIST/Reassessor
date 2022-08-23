@@ -372,9 +372,9 @@ class FactorList:
             #ddisasm makes type 5/6 symbol like XXX-_GLOBAL_OFFSET_TABLE_
             if self.labels[1] == '-_GLOBAL_OFFSET_TABLE_':
 
-                if self.terms[0].Address == -1:
-                    return 0
-                elif self.is_composite():
+                #if self.terms[0].Address == -1:
+                #    return 0
+                if self.is_composite():
                     return 6
                 else:
                     return 5
@@ -382,8 +382,8 @@ class FactorList:
                 return 7
         elif len(self.labels) == 1:
 
-            if self.terms[0].Address == -1:
-                return 0
+            #if self.terms[0].Address == -1:
+            #    return 0
 
             if ('@GOTOFF' in self.labels[0] or '@GOT' in self.labels[0]) and '@GOTPCREL' not in self.labels[0]:
                 if self.is_composite():
@@ -408,7 +408,7 @@ class FactorList:
         return len(self.labels) > 0
 
     def is_composite(self):
-        return self.has_label() and (len(self.terms) > 1 or self.num + self.terms[0].Num != 0)
+        return self.has_label() and (len(self.terms) > 1 or self.num != 0 or (self.terms[0].Num != 0 and self.terms[0].Address != -1))
 
     def get_str(self):
         ret = ''

@@ -83,7 +83,7 @@ class Record:
         return len(self.adata)
 
     def critical_errors(self):
-        return len([item for item in self.adata if item.criticality])
+        return len([item for item in self.adata if item.criticality not in [ErrorType.SAFE_FP, ErrorType.TP]])
 
 
 class RecS:
@@ -254,21 +254,21 @@ class Report:
             #label_addr2 =  tool_reloc.terms[0].Address
             label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
 
-            if tool_reloc_type > 0:
-                if  tool_reloc.terms[0].Address < 0:
+            if  tool_reloc.terms[0].Address < 0:
+                if tool_reloc.terms[0].Num == 0:
                     # -1: does not exist
                     # -2: duplicated label
                     invalid_label = abs(tool_reloc.terms[0].Address)
-
-                elif ((gt_reloc and label_addr1 != label_addr2) and
+                else:
+                    invalid_label = 5 # the label refers fix address
+            else:
+                if ((gt_reloc and label_addr1 != label_addr2) and
                        not tool_reloc.terms[0].get_name().endswith('@GOT') ):
 
                     invalid_label = 3 # label address is diffent
 
                 elif tool_reloc.terms[0].Num:
                     invalid_label = 4 # composite .set label
-            else:
-                invalid_label = 5 # the label refers fix address
 
 
         if gt_reloc and tool_reloc:
@@ -307,18 +307,26 @@ class Report:
             result = ReportTy.FN
 
         elif tool_reloc:
-            result = ReportTy.FP
+            #We allow numerical label when it is used for absolute addressing
+            if invalid_label == 5 and tool_reloc_type in [1,2]:
+                criticality = ErrorType.TP
+                result = ReportTy.TP
+            else:
+                result = ReportTy.FP
+
 
         if result == ReportTy.FP:
-
             if gt_reloc is None:
                 criticality = ErrorType.CLASSIC_FP
             elif invalid_label == 1:
                 criticality = ErrorType.LABEL_UNDEF
             elif invalid_label == 2:
                 criticality = ErrorType.LABEL_DUP
-            elif tool_reloc.type == 0:
+            elif invalid_label == 3:
+                criticality = ErrorType.DIFF_ADDRS
+            elif invalid_label == 5:
                 criticality = ErrorType.FIXED_ADDR
+                result = ReportTy.FN
             else:
                 criticality = self.check_fp_criticality(gt_reloc, tool_reloc)
 
@@ -361,13 +369,6 @@ class Report:
                 return ErrorType.CODE_REGION #text section
 
         else:
-            label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
-            label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
-
-            # check target addresses
-            if (label_addr1 != label_addr2):
-                return ErrorType.DIFF_ADDRS #diff addr
-
             # check target section
             sec1 = self.get_sec_name(gt_reloc.terms[0].Address)
             sec2 = self.get_sec_name(tool_reloc.terms[0].Address)
@@ -390,7 +391,7 @@ class Report:
         elif result == ReportTy.FP:
             self.rec[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality)
         elif result == ReportTy.FN:
-            self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, criticality=ErrorType.FN)
+            self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, criticality=criticality)
 
 
     def check_data_error(self, data_c, data_r, addr):
