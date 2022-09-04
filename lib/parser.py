@@ -26,6 +26,41 @@ ReasmData = namedtuple('ReasmData', ['asm_line', 'directive', 'expr', 'addr', 'i
 ReasmLabel = namedtuple('ReasmLabel', ['label', 'addr', 'idx'])
 ReasmSetLabel = namedtuple('ReasmSetLabel', ['label', 'addr', 'num', 'idx'])
 
+
+def parse_set_directive(line, label_to_addr):
+
+    label = line.split(',')[0].split()[1]
+    exprs = line.split(',')[1].split()
+
+    new_exprs = []
+    new_labels = []
+    for expr in exprs:
+        if expr.isdigit() or expr in ['+', '-', '*'] or expr.startswith('0x'):
+            new_exprs.append(expr)
+        elif expr[0] in ['.'] or expr[0].isalpha():
+            new_exprs.append('0')
+            new_labels.append(expr)
+        else:
+            assert False, 'Unknown expression'
+
+    num = eval(''.join(new_exprs))
+
+    assert len(new_labels) < 2, 'Invalid expression'
+
+    xaddr = -1
+    if new_labels:
+        if '.' == new_labels[0]:
+            # .set FUN_804a3f0, . - 10
+            # FUN_804a3f0 = . - 10
+            # . = FUN_804a3f0 - (- 10)
+            xaddr = label_to_addr(label) - num
+        else:
+            xaddr = label_to_addr(new_labels[0])
+
+    return xaddr, num
+
+
+
 class AsmTokenizer:
     def __init__(self, syntax):
         self.syntax = syntax
@@ -378,6 +413,9 @@ class FactorList:
                     return 6
                 else:
                     return 5
+            # .quad FUN_40b230-.L_0
+            elif self.terms[1].Address == -1 and self.terms[1].Num == 0:
+                return 1
             else:
                 return 7
         elif len(self.labels) == 1:

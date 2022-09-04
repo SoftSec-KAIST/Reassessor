@@ -2,7 +2,7 @@ import re
 import capstone
 import os
 from normalizer.tool_base import NormalizeTool
-from lib.parser import parse_att_asm_line, ReasmLabel
+from lib.parser import parse_att_asm_line, ReasmLabel, parse_set_directive
 
 HUGE_FILE_SIZE = 1024*1024*1024*10
 
@@ -34,37 +34,6 @@ def retro_label_func(label):
     return 0
 
 def create_huge_addr_set(reassem_path):
-    '''
-    import tempfile
-    _, temp_file = tempfile.mkstemp()
-
-    with open(temp_file, 'w') as fd:
-        cnt = 0
-        print('create temp file: %s'%(temp_file))
-        with open(reassem_path, errors='ignore') as f:
-
-            buf = ''
-            for line in f:
-                line.split()
-                if re.search('^.*:$', line.strip()):
-                    xaddr = retro_label_to_addr(line.strip()[:-1])
-                    if xaddr > 0:
-                        #fd.write(hex(xaddr)+ '\n')
-                        buf += hex(xaddr) + '\n'
-                        cnt += 1
-                        if cnt % 10000000 == 0:
-                            fd.write(buf)
-                            buf = ''
-                            print(cnt)
-            if buf:
-                fd.write(buf)
-                buf = ''
-
-    global retro_huge_addr_set
-    retro_huge_addr_set = set(int(line.strip(),16) for line in open(temp_file))
-    #delete file
-    os.unlink(temp_file)
-    '''
     global retro_huge_addr_set
     additional_file =  reassem_path.replace('retrowrite', 'retrowrite_expand')
     import os
@@ -116,6 +85,11 @@ def retro_mapper(reassem_path, tokenizer):
                 #if re.search('.[+|-]', expr):
                 if [term for term in re.split('[+|-]', expr) if re.match('[._a-zA-Z]', term) ]:
                     result.append(tokenizer.parse_data(terms[0] + ' ' + expr, addr, idx+1))
+            elif terms[0] in ['.set']:
+                # ex) .set FUN_804a3f0, . - 10
+                # ex) .set L_0, 0
+                label_addr, num = parse_set_directive(line, retro_label_to_addr)
+                result.append(ReasmSetLabel(terms[1][:-1], label_addr, num, idx+1))
             elif re.search('^[a-zA-Z].*', terms[0]):
                 asm_line = ' '.join(terms)
                 result.append(tokenizer.parse(asm_line, addr, idx+1))

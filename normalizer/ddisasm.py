@@ -2,7 +2,7 @@ import capstone
 import re
 import os
 
-from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel
+from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, parse_set_directive
 from normalizer.tool_base import NormalizeTool
 
 SYM_BLK = ['__rela_iplt_end']
@@ -27,38 +27,6 @@ def ddisasm_label_to_addr(label):
 class NormalizeDdisasm(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
         super().__init__(bin_path, reassem_path, ddisasm_mapper, capstone.CS_OPT_SYNTAX_INTEL)
-
-def ddisasm_set_label_parser(line, label_to_addr):
-
-    label = line.split(',')[0].split()[1]
-    exprs = line.split(',')[1].split()
-
-    new_exprs = []
-    new_labels = []
-    for expr in exprs:
-        if expr.isdigit() or expr in ['+', '-', '*'] or expr.startswith('0x'):
-            new_exprs.append(expr)
-        elif expr[0] in ['.'] or expr[0].isalpha():
-            new_exprs.append('0')
-            new_labels.append(expr)
-        else:
-            assert False, 'Unknown expression'
-
-    num = eval(''.join(new_exprs))
-
-    assert len(new_labels) < 2, 'Invalid expression'
-
-    xaddr = -1
-    if new_labels:
-        if '.' == new_labels[0]:
-            # .set FUN_804a3f0, . - 10
-            # FUN_804a3f0 = . - 10
-            # . = FUN_804a3f0 - (- 10)
-            xaddr = label_to_addr(label) - num
-        else:
-            xaddr = label_to_addr(new_labels[0])
-
-    return xaddr, num
 
 def ddisasm_mapper(reassem_path, tokenizer):
     result = []
@@ -93,8 +61,8 @@ def ddisasm_mapper(reassem_path, tokenizer):
             elif terms[0] in ['.set']:
                 # ex) .set FUN_804a3f0, . - 10
                 # ex) .set L_0, 0
-                addr, num = ddisasm_set_label_parser(line, ddisasm_label_to_addr)
-                result.append(ReasmSetLabel(terms[1][:-1], addr, num, idx+1))
+                label_addr, num = parse_set_directive(line, ddisasm_label_to_addr)
+                result.append(ReasmSetLabel(terms[1][:-1], label_addr, num, idx+1))
             elif re.search('^.*:$', line):
                 xaddr = ddisasm_label_to_addr(terms[0][:-1])
                 if xaddr > 0:

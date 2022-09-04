@@ -1,7 +1,7 @@
 import re
 import capstone
 
-from lib.parser import ReasmLabel, DATA_DIRECTIVE, SKIP_DIRECTIVE
+from lib.parser import ReasmLabel, DATA_DIRECTIVE, SKIP_DIRECTIVE, parse_set_directive
 from normalizer.tool_base import NormalizeTool
 
 
@@ -68,6 +68,12 @@ def ramblr_mapper(reassem_path, tokenizer):
                     if [term for term in re.split('[+|-]', expr) if re.match('[._a-zA-Z]', term) ]:
                         result.append(tokenizer.parse_data(terms[0] + ' ' + expr, addr, idx+1))
                 addr += get_data_size(line)
+
+            elif terms[0] in ['.set']:
+                # ex) .set FUN_804a3f0, . - 10
+                # ex) .set L_0, 0
+                label_addr, num = parse_set_directive(line, ramblr_label_to_addr)
+                result.append(ReasmSetLabel(terms[1][:-1], label_addr, num, idx+1))
             else:
                 # ramblr sometimes creates duplicated code
                 if addr in visited_addr:
