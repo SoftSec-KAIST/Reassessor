@@ -31,6 +31,113 @@ def my_open(file_path, option='w'):
      fd = open(file_path, option)
      return fd
 
+class ErrorRecord:
+    def __init__(self, stype, etype):
+        self.stype = stype
+        self.etype = etype
+
+    def to_ascii(self, data):
+        addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality = data
+        gt = ''
+        if asm_info:
+            gt = gt_asm
+        tool = ''
+        if reasm_info:
+            tool = tool_asm
+        if invalid_label == 3 or criticality == ErrorType.DIFF_ADDRS:
+            return ('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-44s (ADDR: %s vs %s)'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt, hex(label_addr2), hex(label_addr1)))
+
+        return ('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-40s'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt))
+
+    def to_json(self, data):
+
+        addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality = data
+        gt = ''
+        if asm_info:
+            gt = gt_asm
+        tool = ''
+        if reasm_info:
+            tool = tool_asm
+
+        rec = dict()
+        rec['addr'] = hex(addr)
+        rec['region'] = self.get_region(region) #value, disp, imm
+        #rec['error_type'] = 'E%d%2s'%(self.stype, self.etype)
+        rec['fatality'] = self.get_fatality(criticality)
+
+        gt_info = dict()
+        gt_info['asm'] = gt
+        gt_info['reloc_expr_type'] = self.get_reloc_type(self.stype)
+        gt_info['target_addr'] = hex(label_addr1)
+        rec['gt'] = gt_info
+
+        tool_info = dict()
+        tool_info['asm'] = tool
+        tool_info['reloc_expr_type'] = self.get_reloc_type(tool_reloc_type)
+        tool_info['target_addr'] = hex(label_addr2)
+        tool_info['label_style'] = self.get_label_style(invalid_label)
+
+        rec['tool'] = tool_info
+
+        return rec
+
+    def get_fatality(self, criticality):
+        mydict = dict()
+        mydict['is_fatal'] = True
+
+        if self.etype == 'FN':
+            mydict['reason'] = 'omit symbolization'
+        elif self.etype ==  'FP':
+            if self.stype in [1,2,3,4,5,6,7]:
+                if criticality == ErrorType.SAFE_FP:
+                    mydict['is_fatal'] = False
+                    mydict['reason'] = ''
+                elif criticality in [ErrorType.LABEL_SEMANTICS, ErrorType.DIFF_ADDRS, ErrorType.DIFF_BASE]:
+                    mydict['reason'] = 'refer wrong addr'
+                elif criticality in [ErrorType.DIFF_SECTIONS]:
+                    mydict['reason'] = 'refer different section'
+                elif criticality in [ErrorType.CODE_REGION]:
+                    mydict['reason'] = 'refer different code'
+                elif criticality in [ErrorType.FIXED_ADDR]:
+                    mydict['reason'] = 'use fixed addr'
+                else:
+                    assert False, 'Unknown FP'
+            elif self.stype in [8]:
+                mydict['reason'] = 'corrupt data'
+            else:
+                assert False, 'Unknown Error'
+        return mydict
+
+    def get_region(self, region):
+        if region == 'Disp':
+            return 'Code.disp'
+        elif region == 'Imm':
+            return 'Code.imm'
+        elif region == 'Data':
+            return 'Data.value'
+
+
+    def get_reloc_type(self, reloc_type):
+        if reloc_type in [1,2,3,4,5,6,7]:
+            return 'Type %d'%(reloc_type)
+        return 'Literal'
+
+    def get_label_style(self, label):
+        if label == 1:
+            return 'Invalid label (The definition of label does not exist)'
+        elif label == 2:
+            return 'Invalid label (The label has multiple definitions)'
+        elif label == 3:
+            return 'Relocatable label (The target address of relocatable expression is wrong)'
+        elif label == 4:
+            return 'Relocatable label (The label is defined by .set directive)'
+        elif label == 5:
+            return 'Not a relocatable label (The label is defined as a fixed address)'
+
+        return 'Relocatable Label'
+
+
+
 class Record:
     def __init__(self, stype, etype):
         self.stype = stype      #1-8
@@ -64,20 +171,9 @@ class Record:
                                 criticality))
 
     def dump(self, out_file):
-
-        for (addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality) in sorted(self.adata):
-            gt = ''
-            if asm_info:
-                gt = gt_asm
-            tool = ''
-            if reasm_info:
-                tool = tool_asm
-            if invalid_label == 3:
-                print('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-44s (ADDR: %s vs %s)'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt, hex(label_addr2), hex(label_addr1)), file=out_file)
-            elif criticality == ErrorType.DIFF_ADDRS:
-                print('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-44s (ADDR: %s vs %s)'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt, hex(label_addr2), hex(label_addr1)), file=out_file)
-            else:
-                print('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-40s'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt), file=out_file)
+        rec = ErrorRecord(self.stype, self.etype)
+        for item in sorted(self.adata):
+            print(rec.to_ascii(item), file=out_file)
 
     def length(self):
         return len(self.adata)
@@ -85,6 +181,13 @@ class Record:
     def critical_errors(self):
         return len([item for item in self.adata if item.criticality not in [ErrorType.SAFE_FP, ErrorType.TP]])
 
+    def get_errors(self):
+
+        mylist = list()
+        rec = ErrorRecord(self.stype, self.etype)
+        for item in sorted(self.adata):
+            mylist.append(rec.to_json(item))
+        return mylist
 
 class RecS:
     def __init__(self, stype):
@@ -103,6 +206,20 @@ class RecS:
         print('Relocatable Expression Type %d [FP: %d(%d) / FN: %d]'%(self.stype, num_fp, num_critical_fp, num_fn), file = out_file)
         self.fp.dump(out_file)
         self.fn.dump(out_file)
+
+    def get_errors(self):
+        if 0 == self.fp.length() + self.fn.length():
+            return None
+
+        mydict = dict()
+        mydict['total_fp'] = self.fp.length()
+        mydict['fatal_fp'] = self.fp.critical_errors()
+        mydict['total_fn'] = self.fn.length()
+        #print('Relocatable Expression Type %d [FP: %d(%d) / FN: %d]'%(self.stype, num_fp, num_critical_fp, num_fn), file = out_file)
+
+        mydict['fp'] = self.fp.get_errors()
+        mydict['fn'] = self.fn.get_errors()
+        return mydict
 
 
 class Report:
@@ -431,11 +548,14 @@ class Report:
             pickle.dump(data, fd)
 
     def save_file(self, file_path, option='ascii'):
+        if option not in ['ascii', 'json']:
+            raise SyntaxError("Unsupported save format")
+
         with my_open(file_path, 'w') as fd:
             if option == 'ascii':
                 self.save_ascii_file(fd)
-            else:
-                raise SyntaxError("Unsupported save format")
+            elif option == 'json':
+                self.save_json_file(fd)
 
     def save_ascii_file(self, out_file):
         print('# Instrs to check:', self.ins_len, file = out_file)
@@ -443,4 +563,41 @@ class Report:
         for stype in range(1,9):
             self.rec[stype].dump(out_file)
 
+    def save_json_file(self, out_file):
+        mydict = dict()
+        for stype in range(1, 9):
+            category = 'E%d'%(stype)
+            rec = self.rec[stype].get_errors()
+            if rec:
+                mydict[category] = rec
+        print(json.dumps(mydict), file = out_file)
 
+
+
+def transform_json(pickle_file, json_file):
+    if not os.path.exists(pickle_file):
+        print('%s does not exist'%(pickle_file))
+        return
+
+    with open(pickle_file, 'rb') as fp:
+        data = pickle.load(fp)
+        mydict = dict()
+        for stype in range(1, 9):
+            category = 'E%d'%(stype)
+            rec = data.record[stype].get_errors()
+            if rec:
+                mydict[category] = rec
+
+        with open(json_file, 'w') as out_file:
+            print(json.dumps(mydict, indent=1), file = out_file)
+
+
+import argparse
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='error report')
+    parser.add_argument('pickle_file', type=str)
+    parser.add_argument('json_file', type=str)
+    args = parser.parse_args()
+
+    transform_json(args.pickle_file, args.json_file)
