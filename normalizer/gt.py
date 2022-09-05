@@ -197,7 +197,7 @@ class NormalizeGT:
         self.instruction_addrs = list(self.instructions.keys())
         self.instruction_addrs.sort()
 
-        self.prog = Program(self.elf, self.cs)
+        self.prog = Program(self.elf, self.cs, asm_path=asm_dir)
 
         self.match_src_to_bin()
 

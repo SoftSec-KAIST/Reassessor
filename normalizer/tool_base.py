@@ -19,6 +19,8 @@ def get_disassembler(arch):
 def load_elf(bin_path):
     return ELFFile(open(bin_path, 'rb'))
 
+
+
 class NormalizeTool:
     def __init__(self, bin_path, reassem_path, map_func, syntax = capstone.CS_OPT_SYNTAX_ATT, label_func = None):
         self.bin_path = bin_path
@@ -35,7 +37,7 @@ class NormalizeTool:
         self.cs.detail = True
         self.cs.syntax = syntax
 
-        self.prog = Program(self.elf, self.cs)
+        self.prog = Program(self.elf, self.cs, asm_path=reassem_path)
 
         self.relocs = self.get_reloc_symbs()
 

@@ -483,6 +483,8 @@ class FactorList:
         return -1
 
     def is_set_label(self, keyword):
+        if not self._set_label_dict:
+            return False
         if keyword in self._set_label_dict:
             return True
         return False

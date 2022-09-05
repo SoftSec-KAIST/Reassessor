@@ -114,10 +114,11 @@ def get_reloc_addrs(elf):
     return reloc_addrs
 
 class Program:
-    def __init__(self, elf, cs):
+    def __init__(self, elf, cs, asm_path=''):
         self.Instrs = {}
         self.Data = {}
         #self.Tables = {}
+        self.asm_path = asm_path
 
         text_base, text_data = get_text(elf)
 

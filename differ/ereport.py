@@ -5,7 +5,7 @@ import json
 from lib.types import CmptTy, InstType, DataType, ReportTy
 from enum import Enum
 
-ERec = namedtuple('ERec', ['record', 'gt'])
+ERec = namedtuple('ERec', ['record', 'gt', 'bin_path', 'gt_path', 'tool_path'])
 EData = namedtuple('EData', ['address', 'asm_info', 'reasm_info', 'region', 'gt_asm', 'tool_asm', 'tool_reloc_type', 'invalid_label', 'label_addr1', 'label_addr2', 'criticality'])
 
 class ErrorType(Enum):
@@ -63,50 +63,62 @@ class ErrorRecord:
         rec['addr'] = hex(addr)
         rec['region'] = self.get_region(region) #value, disp, imm
         #rec['error_type'] = 'E%d%2s'%(self.stype, self.etype)
-        rec['fatality'] = self.get_fatality(criticality)
+        rec['fatality'] = self.get_fatality(criticality, invalid_label)
 
         gt_info = dict()
         gt_info['asm'] = gt
         gt_info['reloc_expr_type'] = self.get_reloc_type(self.stype)
         gt_info['target_addr'] = hex(label_addr1)
+        if asm_info:
+            gt_info['path'] = '%s:%d'%(asm_info[0], asm_info[1]+1)
         rec['gt'] = gt_info
 
         tool_info = dict()
         tool_info['asm'] = tool
         tool_info['reloc_expr_type'] = self.get_reloc_type(tool_reloc_type)
         tool_info['target_addr'] = hex(label_addr2)
-        tool_info['label_style'] = self.get_label_style(invalid_label)
+        if reasm_info:
+            tool_info['path'] = '%s:%d'%(reasm_info)
 
         rec['tool'] = tool_info
 
         return rec
 
-    def get_fatality(self, criticality):
+    def get_fatality(self, criticality, invalid_label):
         mydict = dict()
         mydict['is_fatal'] = True
 
+        mydict['description1'] = self.get_description(criticality)
+        mydict['description2'] = self.get_label_style(invalid_label)
+
+        if not mydict['description1']:
+            mydict['is_fatal'] = False
+        return mydict
+
+    def get_description(self, criticality):
         if self.etype == 'FN':
-            mydict['reason'] = 'omit symbolization'
+            return 'omit symbolization'
         elif self.etype ==  'FP':
             if self.stype in [1,2,3,4,5,6,7]:
                 if criticality == ErrorType.SAFE_FP:
-                    mydict['is_fatal'] = False
-                    mydict['reason'] = ''
-                elif criticality in [ErrorType.LABEL_SEMANTICS, ErrorType.DIFF_ADDRS, ErrorType.DIFF_BASE]:
-                    mydict['reason'] = 'refer wrong addr'
+                    return ''
+                elif criticality in [ErrorType.LABEL_SEMANTICS, ErrorType.DIFF_ADDRS, ErrorType.DIFF_BASES]:
+                    return 'The relocatable expression in a_r refers a wrong addr'
                 elif criticality in [ErrorType.DIFF_SECTIONS]:
-                    mydict['reason'] = 'refer different section'
+                    return 'The relocatable expression in a_r refers a different section'
                 elif criticality in [ErrorType.CODE_REGION]:
-                    mydict['reason'] = 'refer different code'
+                    return 'The relocatable expression in a_r refers a different code'
                 elif criticality in [ErrorType.FIXED_ADDR]:
-                    mydict['reason'] = 'use fixed addr'
+                    return 'The relocatable expression in a_r uses the label that refers a fixed addr'
                 else:
                     assert False, 'Unknown FP'
             elif self.stype in [8]:
-                mydict['reason'] = 'corrupt data'
-            else:
-                assert False, 'Unknown Error'
-        return mydict
+                return 'The relocatable expression in a_r corrupts data'
+
+        assert False, 'Unknown Error'
+
+
+
 
     def get_region(self, region):
         if region == 'Disp':
@@ -124,17 +136,17 @@ class ErrorRecord:
 
     def get_label_style(self, label):
         if label == 1:
-            return 'Invalid label (The definition of label does not exist)'
+            return 'The definition of label in a_r does not exist'
         elif label == 2:
-            return 'Invalid label (The label has multiple definitions)'
+            return 'The label in a_r has multiple definitions'
         elif label == 3:
-            return 'Relocatable label (The target address of relocatable expression is wrong)'
+            return 'The target address of relocatable expression in a_r is wrong'
         elif label == 4:
-            return 'Relocatable label (The label is defined by .set directive)'
+            return 'The label in a_r is defined by .set directive'
         elif label == 5:
-            return 'Not a relocatable label (The label is defined as a fixed address)'
+            return 'The label in a_r is defined as a fixed address'
 
-        return 'Relocatable Label'
+        return ''
 
 
 
@@ -230,6 +242,9 @@ class Report:
         self.prog_c = prog_c
         self.gt = 0
 
+        self.bin_path = bin_path
+        self.gt_path = prog_c.asm_path
+
         self.rec = dict()
         for stype in range(1, 9):
             self.rec[stype] = RecS(stype)
@@ -256,6 +271,7 @@ class Report:
 
     def compare(self, prog_r):
         #self.reset()
+        self.tool_path = prog_r.asm_path
         self.compare_ins_errors(prog_r)
         self.compare_data_errors(prog_r)
 
@@ -544,7 +560,7 @@ class Report:
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
-            data = ERec(self.rec, self.gt)
+            data = ERec(self.rec, self.gt, self.bin_path, self.gt_path, self.tool_path)
             pickle.dump(data, fd)
 
     def save_file(self, file_path, option='ascii'):
@@ -582,6 +598,11 @@ def transform_json(pickle_file, json_file):
     with open(pickle_file, 'rb') as fp:
         data = pickle.load(fp)
         mydict = dict()
+
+        mydict['bin_path'] = data.bin_path
+        mydict['gt_path'] = data.gt_path
+        mydict['tool_path'] = data.tool_path
+
         for stype in range(1, 9):
             category = 'E%d'%(stype)
             rec = data.record[stype].get_errors()
