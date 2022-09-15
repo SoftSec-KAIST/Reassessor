@@ -6,7 +6,7 @@ from lib.types import CmptTy, InstType, DataType, ReportTy, Label
 from enum import Enum
 
 ERec = namedtuple('ERec', ['record', 'gt', 'bin_path', 'gt_path', 'tool_path'])
-EData = namedtuple('EData', ['addr', 'gt_factor', 'tool_factor', 'region', 'tool_reloc_type', 'invalid_label', 'label_addr1', 'label_addr2', 'criticality', 'sec_mgr'])
+EData = namedtuple('EData', ['addr', 'gt_factor', 'tool_factor', 'region', 'tool_reloc_type', 'invalid_label', 'gt_target_label', 'tool_target_label', 'criticality', 'sec_mgr'])
 
 class ErrorType(Enum):
     TP=0
@@ -136,7 +136,7 @@ class ErrorRecord:
 
         rec = dict()
 
-        #addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality  = data
+        #addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, gt_target_label, tool_target_label, criticality  = data
 
         rec['addr'] = hex(data.addr)
         rec['section'] = data.sec_mgr.get_sec_name(data.addr)
@@ -144,8 +144,8 @@ class ErrorRecord:
         rec['region'] = self.get_region(data.region) #value, disp, imm
         rec['fatality'] = self.get_fatality(data.criticality, data.invalid_label)
 
-        rec['gt'] = self.create_asm_info(data.gt_factor, self.stype, data.label_addr1, data.region, data.sec_mgr)
-        rec['tool'] = self.create_asm_info(data.tool_factor, data.tool_reloc_type, data.label_addr2, data.region, data.sec_mgr)
+        rec['gt'] = self.create_asm_info(data.gt_factor, self.stype, data.gt_target_label, data.region, data.sec_mgr)
+        rec['tool'] = self.create_asm_info(data.tool_factor, data.tool_reloc_type, data.tool_target_label, data.region, data.sec_mgr)
 
         return rec
 
@@ -225,14 +225,14 @@ class Record:
 
         self.adata = []
 
-    def add(self, gt_factor, tool_factor, region, tool_reloc_type, invalid_label=0, label_addr1=0, label_addr2=0, criticality=ErrorType.UNDEF):
+    def add(self, gt_factor, tool_factor, region, tool_reloc_type, invalid_label=0, gt_target_label=0, tool_target_label=0, criticality=ErrorType.UNDEF):
 
         if gt_factor:
             addr     = gt_factor.addr
         else:
             addr     = tool_factor.addr
 
-        self.adata.append(EData(addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality, self.sec_mgr))
+        self.adata.append(EData(addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, gt_target_label, tool_target_label, criticality, self.sec_mgr))
 
     def dump(self, out_file):
         rec = ErrorRecord(self.stype, self.etype)
@@ -325,7 +325,7 @@ class Report:
                 elif data_c.r_type and data_c.r_type in ['R_386_GLOB_DAT','R_386_JUMP_SLOT']:
                     continue
                 elif data_c.r_type and data_c.r_type in ['R_X86_64_64']:
-                    pass
+                    continue
 
             if addr in self.prog_c.Data and addr in prog_r.Data: # TP or FP
                 data_c = self.prog_c.Data[addr]
@@ -398,19 +398,20 @@ class Report:
 
         invalid_label = 0
         result = ReportTy.UNKNOWN
-        label_addr1 = 0
-        label_addr2 = 0
+        gt_target_label = 0
+        tool_target_label = 0
 
         if gt_reloc:
             gt_reloc_type = gt_reloc.type
             if gt_reloc.terms[0].Address > 0:
-                label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
+                gt_target_label = gt_reloc.terms[0].Address + gt_reloc.num
             else:
-                label_addr1 = gt_reloc.num
+                gt_target_label = gt_reloc.num
+
         if tool_reloc:
             tool_reloc_type = tool_reloc.type
-            #label_addr2 =  tool_reloc.terms[0].Address
-            label_addr2 = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
+            #tool_target_label =  tool_reloc.terms[0].Address
+            tool_target_label = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
 
             if  tool_reloc.terms[0].Address < 0:
                 if tool_reloc.terms[0].Num == 0:
@@ -420,7 +421,7 @@ class Report:
                 else:
                     invalid_label = 5 # the label refers fix address
             else:
-                if ((gt_reloc and label_addr1 != label_addr2) and
+                if ((gt_reloc and gt_target_label != tool_target_label) and
                        not tool_reloc.terms[0].get_name().endswith('@GOT') ):
 
                     invalid_label = 3 # label address is diffent
@@ -484,7 +485,7 @@ class Report:
                 criticality = ErrorType.FIXED_ADDR
                 result = ReportTy.FN
             else:
-                criticality = self.check_fp_criticality(gt_reloc, tool_reloc, label_addr1, label_addr2)
+                criticality = self.check_fp_criticality(gt_reloc, tool_reloc, gt_target_label, tool_target_label)
 
         elif result == ReportTy.FN:
             criticality = ErrorType.FN
@@ -495,7 +496,7 @@ class Report:
         if result == ReportTy.FP and invalid_label in [1, 2]:
             return False
 
-        self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2, criticality)
+        self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, gt_target_label, tool_target_label, criticality)
         return True
 
     def check_fp_criticality(self, gt_reloc, tool_reloc, gt_target_addr, tool_target_addr):
@@ -548,11 +549,11 @@ class Report:
 
 
 
-    def record_result(self, region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2, criticality):
+    def record_result(self, region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, gt_target_label, tool_target_label, criticality):
         if result == ReportTy.TP:
             self.record[gt_reloc_type].tp += 1
         elif result == ReportTy.FP:
-            self.record[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality)
+            self.record[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, gt_target_label, tool_target_label, criticality)
         elif result == ReportTy.FN:
             self.record[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, criticality=criticality)
 
