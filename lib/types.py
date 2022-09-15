@@ -67,7 +67,10 @@ class Label:
         else:
             suffix = ''
 
-        label = 'L%x%s'%(addr, suffix)
+        if addr > 0:
+            label = 'L%x%s'%(addr, suffix)
+        else:
+            label = 'L0%s'%(suffix)
 
         if self.Num:
             if self.Num < 0:

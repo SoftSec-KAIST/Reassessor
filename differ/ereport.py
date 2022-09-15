@@ -400,8 +400,10 @@ class Report:
 
         if gt_reloc:
             gt_reloc_type = gt_reloc.type
-            #label_addr1 = gt_reloc.terms[0].Address
-            label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
+            if gt_reloc.terms[0].Address > 0:
+                label_addr1 = gt_reloc.terms[0].Address + gt_reloc.num
+            else:
+                label_addr1 = gt_reloc.num
         if tool_reloc:
             tool_reloc_type = tool_reloc.type
             #label_addr2 =  tool_reloc.terms[0].Address
