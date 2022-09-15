@@ -448,6 +448,18 @@ class FactorList:
     def is_composite(self):
         return self.has_label() and (len(self.terms) > 1 or self.num != 0 or (self.terms[0].Num != 0 and self.terms[0].Address != -1))
 
+    def get_norm_str(self):
+        ret = ''
+        for term in self.terms:
+            if isinstance(term, Label):
+                ret += str(term)
+            elif term < 0:
+                ret += '-%s'%(hex(-term))
+            else:
+                ret += '+%s'%(hex(term))
+        return ret
+
+
     def get_str(self):
         ret = ''
         for label in self.labels:

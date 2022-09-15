@@ -56,19 +56,26 @@ class Label:
         return (self.Address == other.Address or other.Address == -1) and self.Ty == other.Ty
 
     def __str__(self):
+
         if self.Address is None:
             addr = 0
         else:
             addr = self.Address
+
         if self.Ty == LblTy.GOTOFF:
-            s = 'GOTOFF'
+            suffix = '@GOTOFF'
         else:
-            s = 'LABEL'
+            suffix = ''
+
+        label = 'L%x%s'%(addr, suffix)
 
         if self.Num:
-            return 'Label ' + '%s+(%d)'%(hex(addr), self.Num) + ' ' + s
+            if self.Num < 0:
+                return '(L%s-%s)'%(label, hex(-self.Num))
+            else:
+                return '(L%s+%s)'%(label, hex(self.Num))
 
-        return 'Label ' + hex(addr) + ' ' + s
+        return label
 
 class InstType:
     def __init__(self, addr, path, asm_token=None, imm=None, disp=None):

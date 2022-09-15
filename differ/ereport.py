@@ -2,11 +2,11 @@ from collections import namedtuple
 import pickle
 import os
 import json
-from lib.types import CmptTy, InstType, DataType, ReportTy
+from lib.types import CmptTy, InstType, DataType, ReportTy, Label
 from enum import Enum
 
 ERec = namedtuple('ERec', ['record', 'gt', 'bin_path', 'gt_path', 'tool_path'])
-EData = namedtuple('EData', ['address', 'asm_info', 'reasm_info', 'region', 'gt_asm', 'tool_asm', 'tool_reloc_type', 'invalid_label', 'label_addr1', 'label_addr2', 'criticality'])
+EData = namedtuple('EData', ['addr', 'gt_factor', 'tool_factor', 'region', 'tool_reloc_type', 'invalid_label', 'label_addr1', 'label_addr2', 'criticality', 'sec_mgr'])
 
 class ErrorType(Enum):
     TP=0
@@ -21,7 +21,8 @@ class ErrorType(Enum):
     CODE_REGION=8
     DIFF_BASES=9
     FIXED_ADDR=10
-    UNDEF=11
+    SEC_OUTSIDE=11
+    UNDEF=12
 
 def my_open(file_path, option='w'):
      if 'w' in option:
@@ -31,56 +32,120 @@ def my_open(file_path, option='w'):
      fd = open(file_path, option)
      return fd
 
+def get_expr(factor, region):
+    if region == 'Imm':
+        return factor.imm
+    elif region == 'Disp':
+        return factor.disp
+    elif region == 'Data':
+        return factor.value
+
+    assert False
+
+
+class SecManager:
+
+    def __init__(self, bin_path):
+        self.ex_region_list = []
+        self.inc_region_list = []
+
+        with open(bin_path, 'rb') as fp:
+            from elftools.elf.elffile import ELFFile
+            elf = ELFFile(fp)
+            for section in elf.iter_sections():
+                is_rela = False
+                try:
+                    is_rela = section._is_rela
+                except:
+                    is_rela = False
+                #if section.name in ['.rela.plt', '.rel.plt', '.rel.dyn', '.rela.dyn']:
+                if is_rela:
+                    self.ex_region_list.append(range(section['sh_addr'], section['sh_addr'] + section['sh_size']))
+                elif section['sh_size'] > 0:
+                    self.inc_region_list.append((range(section['sh_addr'], section['sh_addr'] + section['sh_size']), section.name))
+
+    def get_sec_name(self, addr):
+        if addr <= 0:
+            return 'unknown'
+
+        for region, sec_name in self.inc_region_list:
+            if addr in region:
+                return sec_name
+
+        return 'unknown'
+
+    def is_in_data_region(self, addr):
+        for region in self.ex_region_list:
+            if addr in region:
+                return False
+        return True
+
+
+
+
 class ErrorRecord:
     def __init__(self, stype, etype):
         self.stype = stype
         self.etype = etype
 
     def to_ascii(self, data):
-        addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality = data
-        gt = ''
-        if asm_info:
-            gt = gt_asm
-        tool = ''
-        if reasm_info:
-            tool = tool_asm
-        if invalid_label == 3 or criticality == ErrorType.DIFF_ADDRS:
-            return ('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-44s (ADDR: %s vs %s)'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt, hex(label_addr2), hex(label_addr1)))
 
-        return ('E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-40s'%(self.stype, self.etype, criticality.value, region, tool_reloc_type, invalid_label, hex(addr), tool, gt))
+        err_info = self.create_dict(data)
 
-    def to_json(self, data):
+        msg = 'E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-44s'%(self.stype, self.etype,
+            data.criticality.value, data.region, data.tool_reloc_type, data.invalid_label,
+            err_info['addr'], err_info['tool']['asm'], err_info['gt']['asm'])
 
-        addr, asm_info, reasm_info, region, gt_asm, tool_asm, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality = data
-        gt = ''
-        if asm_info:
-            gt = gt_asm
-        tool = ''
-        if reasm_info:
-            tool = tool_asm
+        if data.invalid_label == 3 or data.criticality == ErrorType.DIFF_ADDRS:
+            msg += ' (ADDR: %s vs %s)'%(err_info['tool']['target_addr'], err_info['gt']['target_addr'])
+
+        return msg
+
+    def get_asm_info(self, factor):
+        if factor:
+            return factor.path, factor.asm_idx, factor.asm_line.strip()
+        return '', 0, ''
+
+
+    def create_asm_info(self, factor, sym_type, target_addr, region, sec_mgr):
+
+        info = dict()
+        info['reloc_expr_type'] = self.get_reloc_type(sym_type)
+        info['target_addr'] = hex(target_addr)
+        info['target_sec'] = sec_mgr.get_sec_name(target_addr)
+
+        info['asm'] = ''
+        info['path'] = ''
+        info['normalize'] = ''
+
+        if factor:
+            info['asm'] = factor.asm_line.strip()
+            info['path'] = '%s:%d'%(factor.path, factor.asm_idx)
+
+            expr = get_expr(factor, region)
+            if expr:
+                info['normalize'] = expr.get_norm_str()
+                for idx, term in enumerate(expr.terms):
+                    if isinstance(term, Label):
+                        info['label%d_sec'%(idx+1)] = sec_mgr.get_sec_name(term.Address)
+
+
+        return info
+
+    def create_dict(self, data):
 
         rec = dict()
-        rec['addr'] = hex(addr)
-        rec['region'] = self.get_region(region) #value, disp, imm
-        #rec['error_type'] = 'E%d%2s'%(self.stype, self.etype)
-        rec['fatality'] = self.get_fatality(criticality, invalid_label)
 
-        gt_info = dict()
-        gt_info['asm'] = gt
-        gt_info['reloc_expr_type'] = self.get_reloc_type(self.stype)
-        gt_info['target_addr'] = hex(label_addr1)
-        if asm_info:
-            gt_info['path'] = '%s:%d'%(asm_info[0], asm_info[1]+1)
-        rec['gt'] = gt_info
+        #addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality  = data
 
-        tool_info = dict()
-        tool_info['asm'] = tool
-        tool_info['reloc_expr_type'] = self.get_reloc_type(tool_reloc_type)
-        tool_info['target_addr'] = hex(label_addr2)
-        if reasm_info:
-            tool_info['path'] = '%s:%d'%(reasm_info)
+        rec['addr'] = hex(data.addr)
+        rec['section'] = data.sec_mgr.get_sec_name(data.addr)
 
-        rec['tool'] = tool_info
+        rec['region'] = self.get_region(data.region) #value, disp, imm
+        rec['fatality'] = self.get_fatality(data.criticality, data.invalid_label)
+
+        rec['gt'] = self.create_asm_info(data.gt_factor, self.stype, data.label_addr1, data.region, data.sec_mgr)
+        rec['tool'] = self.create_asm_info(data.tool_factor, data.tool_reloc_type, data.label_addr2, data.region, data.sec_mgr)
 
         return rec
 
@@ -103,13 +168,15 @@ class ErrorRecord:
                 if criticality == ErrorType.SAFE_FP:
                     return ''
                 elif criticality in [ErrorType.LABEL_SEMANTICS, ErrorType.DIFF_ADDRS, ErrorType.DIFF_BASES]:
-                    return 'The relocatable expression in a_r refers a wrong addr'
+                    return 'The relocatable expression in a_r refers to a wrong addr'
                 elif criticality in [ErrorType.DIFF_SECTIONS]:
-                    return 'The relocatable expression in a_r refers a different section'
+                    return 'The relocatable expression in a_r refers to a different section'
+                elif criticality in [ErrorType.SEC_OUTSIDE]:
+                    return 'The relocatable expression in a_c refers to outside of a section'
                 elif criticality in [ErrorType.CODE_REGION]:
-                    return 'The relocatable expression in a_r refers a different code'
+                    return 'The relocatable expression in a_r refers to out-side of section'
                 elif criticality in [ErrorType.FIXED_ADDR]:
-                    return 'The relocatable expression in a_r uses the label that refers a fixed addr'
+                    return 'The relocatable expression in a_r uses the label that refers to a fixed addr'
                 else:
                     assert False, 'Unknown FP'
             elif self.stype in [8]:
@@ -151,39 +218,25 @@ class ErrorRecord:
 
 
 class Record:
-    def __init__(self, stype, etype):
+    def __init__(self, stype, etype, sec_mgr):
         self.stype = stype      #1-8
         self.etype = etype      #FP/FN
+        self.sec_mgr = sec_mgr
 
         self.adata = []
 
     def add(self, gt_factor, tool_factor, region, tool_reloc_type, invalid_label=0, label_addr1=0, label_addr2=0, criticality=ErrorType.UNDEF):
 
         if gt_factor:
-            address     = gt_factor.addr
-            asm_info    = gt_factor.path,    gt_factor.asm_idx
-            gt_asm      = gt_factor.asm_line.strip()
+            addr     = gt_factor.addr
         else:
-            address     = tool_factor.addr
-            asm_info    = None
-            gt_asm      = None
+            addr     = tool_factor.addr
 
-        #reasm_type = 0
-        if tool_factor:
-            reasm_info  = tool_factor.path,  tool_factor.asm_idx
-            tool_asm    = tool_factor.asm_line.strip()
-        else:
-            reasm_info  = None
-            tool_asm    = None
-
-
-        self.adata.append(EData(address, asm_info, reasm_info, region,
-                                gt_asm, tool_asm, tool_reloc_type,
-                                invalid_label, label_addr1, label_addr2,
-                                criticality))
+        self.adata.append(EData(addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality, self.sec_mgr))
 
     def dump(self, out_file):
         rec = ErrorRecord(self.stype, self.etype)
+
         for item in sorted(self.adata):
             print(rec.to_ascii(item), file=out_file)
 
@@ -198,14 +251,14 @@ class Record:
         mylist = list()
         rec = ErrorRecord(self.stype, self.etype)
         for item in sorted(self.adata):
-            mylist.append(rec.to_json(item))
+            mylist.append(rec.create_dict(item))
         return mylist
 
 class RecS:
-    def __init__(self, stype):
+    def __init__(self, stype, sec_mgr):
         self.stype = stype
-        self.fp = Record(stype, 'FP')
-        self.fn = Record(stype, 'FN')
+        self.fp = Record(stype, 'FP', sec_mgr)
+        self.fn = Record(stype, 'FN', sec_mgr)
         self.tp = 0
 
     def dump(self, out_file):
@@ -237,7 +290,7 @@ class RecS:
 class Report:
     def __init__(self, bin_path, prog_c):
 
-        self.excluded_data_list, self.included_region_list = self.check_data_region(bin_path)
+        self.sec_mgr = SecManager(bin_path)
 
         self.prog_c = prog_c
         self.gt = 0
@@ -245,29 +298,10 @@ class Report:
         self.bin_path = bin_path
         self.gt_path = prog_c.asm_path
 
-        self.rec = dict()
+        self.record = dict()
         for stype in range(1, 9):
-            self.rec[stype] = RecS(stype)
+            self.record[stype] = RecS(stype, self.sec_mgr)
 
-    def check_data_region(self, bin_path):
-        ex_region_list = []
-        inc_region_list = []
-        with open(bin_path, 'rb') as fp:
-            from elftools.elf.elffile import ELFFile
-            elf = ELFFile(fp)
-            for section in elf.iter_sections():
-                is_rela = False
-                try:
-                    is_rela = section._is_rela
-                except:
-                    is_rela = False
-                #if section.name in ['.rela.plt', '.rel.plt', '.rel.dyn', '.rela.dyn']:
-                if is_rela:
-                    ex_region_list.append(range(section['sh_addr'], section['sh_addr'] + section['sh_size']))
-                elif section['sh_size'] > 0:
-                    inc_region_list.append((range(section['sh_addr'], section['sh_addr'] + section['sh_size']), section.name))
-
-        return ex_region_list, inc_region_list
 
     def compare(self, prog_r):
         #self.reset()
@@ -308,18 +342,12 @@ class Report:
                 # Thus, it is not a FP error
                 if data_r.value.terms[0].Address < 0:
                     continue
-                if not self.is_in_data_region(addr):
+                if not self.sec_mgr.is_in_data_region(addr):
                     continue
                 if data_r.value.type == 7:
                     continue
 
                 self.check_data_error(None, data_r, addr)
-
-    def is_in_data_region(self, addr):
-        for region in self.excluded_data_list:
-            if addr in region:
-                return False
-        return True
 
     def compare_ins_errors(self, prog_r):
 
@@ -356,19 +384,9 @@ class Report:
         gt_reloc = None
         tool_reloc = None
         if gt_factor:
-            if region == 'Imm':
-                gt_reloc = gt_factor.imm
-            elif region == 'Disp':
-                gt_reloc = gt_factor.disp
-            elif region == 'Data':
-                gt_reloc = gt_factor.value
+            gt_reloc = get_expr(gt_factor, region)
         if tool_factor:
-            if region == 'Imm':
-                tool_reloc = tool_factor.imm
-            elif region == 'Disp':
-                tool_reloc = tool_factor.disp
-            elif region == 'Data':
-                tool_reloc = tool_factor.value
+            tool_reloc = get_expr(tool_factor, region)
 
         gt_reloc_type = 8
         tool_reloc_type = 8
@@ -461,7 +479,7 @@ class Report:
                 criticality = ErrorType.FIXED_ADDR
                 result = ReportTy.FN
             else:
-                criticality = self.check_fp_criticality(gt_reloc, tool_reloc)
+                criticality = self.check_fp_criticality(gt_reloc, tool_reloc, label_addr1, label_addr2)
 
         elif result == ReportTy.FN:
             criticality = ErrorType.FN
@@ -475,14 +493,7 @@ class Report:
         self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2, criticality)
         return True
 
-    def get_sec_name(self, addr):
-        for region, sec_name in self.included_region_list:
-            if addr in region:
-                return sec_name
-
-        return 'unknown'
-
-    def check_fp_criticality(self, gt_reloc, tool_reloc):
+    def check_fp_criticality(self, gt_reloc, tool_reloc, gt_target_addr, tool_target_addr):
 
         # check types
         if gt_reloc.type == 7 and tool_reloc.type == 7:
@@ -494,23 +505,37 @@ class Report:
                 #print('different semantics')
                 return ErrorType.LABEL_SEMANTICS #diff semantics
 
+
         #if label is consist with @GOT, reassessor only checks referring region
         if tool_reloc.terms[0].get_name().endswith('@GOT'):
-            sec2 = self.get_sec_name(tool_reloc.terms[0].Address)
+            tool_label_sec = self.sec_mgr.get_sec_name(tool_reloc.terms[0].Address)
 
-            if sec2 in ['.text', '.init', '.fini', '.plt']:
-                return ErrorType.CODE_REGION #text section
+            tool_target_sec = self.sec_mgr.get_sec_name(tool_target_addr)
+
+            # label & target address should be in same section.
+            if tool_label_sec != tool_target_sec:
+                return ErrorType.SEC_OUTSIDE
+
+            #if tool_label_sec in ['.text', '.init', '.fini', '.plt']:
+            #    return ErrorType.CODE_REGION #text section
 
         else:
             # check target section
-            sec1 = self.get_sec_name(gt_reloc.terms[0].Address)
-            sec2 = self.get_sec_name(tool_reloc.terms[0].Address)
+            gt_label_sec = self.sec_mgr.get_sec_name(gt_reloc.terms[0].Address)
+            tool_label_sec = self.sec_mgr.get_sec_name(tool_reloc.terms[0].Address)
+
 
             # if two target point to same data region, it can be considered as non-critical!!!!
-            if sec1 != sec2:
+            if gt_label_sec != tool_label_sec:
                 return ErrorType.DIFF_SECTIONS #diff section
 
-            if sec1 in ['.text', '.init', '.fini', '.plt']:
+            gt_target_sec = self.sec_mgr.get_sec_name(gt_target_addr)
+
+            # label & target address should be in same section.
+            if gt_label_sec != gt_target_sec:
+                return ErrorType.SEC_OUTSIDE
+
+            if gt_label_sec in ['.text', '.init', '.fini', '.plt']:
                 return ErrorType.CODE_REGION #text section
 
         # non-critical FP
@@ -520,16 +545,24 @@ class Report:
 
     def record_result(self, region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, label_addr1, label_addr2, criticality):
         if result == ReportTy.TP:
-            self.rec[gt_reloc_type].tp += 1
+            self.record[gt_reloc_type].tp += 1
         elif result == ReportTy.FP:
-            self.rec[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality)
+            self.record[gt_reloc_type].fp.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, label_addr1, label_addr2, criticality)
         elif result == ReportTy.FN:
-            self.rec[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, criticality=criticality)
+            self.record[gt_reloc_type].fn.add(gt_factor, tool_factor, region, tool_reloc_type, invalid_label, criticality=criticality)
 
 
     def check_data_error(self, data_c, data_r, addr):
 
         check = False
+
+        # skip .init_array, .fini_array
+        # we cannot decide whether the symbolization errors affect program behavior
+        # some missing symbol can be filled by compiler.
+        sec = self.sec_mgr.get_sec_name(addr)
+        if sec in ['.init_array', '.fini_array']:
+            return
+
         if data_c and data_r is None:
             # this is reassembler design choice
             # ddisasm preserve .got section
@@ -560,7 +593,7 @@ class Report:
 
     def save_pickle(self, file_path):
         with my_open(file_path, 'wb') as fd:
-            data = ERec(self.rec, self.gt, self.bin_path, self.gt_path, self.tool_path)
+            data = ERec(self.record, self.gt, self.bin_path, self.gt_path, self.tool_path)
             pickle.dump(data, fd)
 
     def save_file(self, file_path, option='ascii'):
@@ -577,18 +610,11 @@ class Report:
         print('# Instrs to check:', self.ins_len, file = out_file)
         print('# Data to check:', self.data_len, file = out_file)
         for stype in range(1,9):
-            self.rec[stype].dump(out_file)
+            self.record[stype].dump(out_file)
 
     def save_json_file(self, out_file):
-        mydict = dict()
-        for stype in range(1, 9):
-            category = 'E%d'%(stype)
-            rec = self.rec[stype].get_errors()
-            if rec:
-                mydict[category] = rec
-        print(json.dumps(mydict), file = out_file)
-
-
+        mydict = get_errors(self)
+        print(json.dumps(mydict, indent=1), file = out_file)
 
 def transform_json(pickle_file, json_file):
     if not os.path.exists(pickle_file):
@@ -597,20 +623,25 @@ def transform_json(pickle_file, json_file):
 
     with open(pickle_file, 'rb') as fp:
         data = pickle.load(fp)
-        mydict = dict()
-
-        mydict['bin_path'] = data.bin_path
-        mydict['gt_path'] = data.gt_path
-        mydict['tool_path'] = data.tool_path
-
-        for stype in range(1, 9):
-            category = 'E%d'%(stype)
-            rec = data.record[stype].get_errors()
-            if rec:
-                mydict[category] = rec
-
+        mydict = get_errors(data)
         with open(json_file, 'w') as out_file:
             print(json.dumps(mydict, indent=1), file = out_file)
+
+
+def get_errors(data):
+    mydict = dict()
+
+    mydict['bin_path'] = data.bin_path
+    mydict['gt_path'] = data.gt_path
+    mydict['tool_path'] = data.tool_path
+
+    for stype in range(1, 9):
+        category = 'E%d'%(stype)
+        rec = data.record[stype].get_errors()
+        if rec:
+            mydict[category] = rec
+
+    return mydict
 
 
 import argparse
