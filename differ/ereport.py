@@ -575,7 +575,10 @@ class Report:
             else:
                 check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
         else:
-            check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
+            if data_c.r_type and data_c.r_type in ['R_X86_64_64']:
+                pass
+            else:
+                check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
 
         if check:
             self.gt += 1
