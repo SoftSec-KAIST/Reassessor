@@ -324,6 +324,8 @@ class Report:
                     continue
                 elif data_c.r_type and data_c.r_type in ['R_386_GLOB_DAT','R_386_JUMP_SLOT']:
                     continue
+                elif data_c.r_type and data_c.r_type in ['R_X86_64_64']:
+                    pass
 
             if addr in self.prog_c.Data and addr in prog_r.Data: # TP or FP
                 data_c = self.prog_c.Data[addr]
@@ -575,10 +577,7 @@ class Report:
             else:
                 check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
         else:
-            if data_c.r_type and data_c.r_type in ['R_X86_64_64']:
-                pass
-            else:
-                check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
+            check = self.compare_two_reloc_expr(data_c, data_r, 'Data', addr)
 
         if check:
             self.gt += 1
