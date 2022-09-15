@@ -174,7 +174,7 @@ class ErrorRecord:
                 elif criticality in [ErrorType.SEC_OUTSIDE]:
                     return 'The relocatable expression in a_c refers to outside of a section'
                 elif criticality in [ErrorType.CODE_REGION]:
-                    return 'The relocatable expression in a_r refers to out-side of section'
+                    return 'The different relocatable expression in a_r refers to code region'
                 elif criticality in [ErrorType.FIXED_ADDR]:
                     return 'The relocatable expression in a_r uses the label that refers to a fixed addr'
                 else:
@@ -390,6 +390,9 @@ class Report:
         if tool_factor:
             tool_reloc = get_expr(tool_factor, region)
 
+        if gt_reloc is None and tool_reloc is None:
+            return False
+
         gt_reloc_type = 8
         tool_reloc_type = 8
 
@@ -424,7 +427,6 @@ class Report:
 
                 elif tool_reloc.terms[0].Num:
                     invalid_label = 4 # composite .set label
-
 
         if gt_reloc and tool_reloc:
             if gt_reloc_type == tool_reloc.type:
@@ -468,7 +470,6 @@ class Report:
                 result = ReportTy.TP
             else:
                 result = ReportTy.FP
-
 
         if result == ReportTy.FP:
             if gt_reloc is None:
