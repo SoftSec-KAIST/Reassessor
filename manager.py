@@ -7,40 +7,30 @@ import multiprocessing
 #from differ.ereport import ERec
 from differ.statistics import SymStatistics
 
-ERec = namedtuple('ERec', ['record', 'gt'])
+ERec = namedtuple('ERec', ['record', 'gt', 'bin_path', 'gt_path', 'tool_path'])
 
 BuildConf = namedtuple('BuildConf', ['bin', 'reloc', 'gt_asm', 'strip', 'gt_dir', 'retro_asm', 'retro_dir', 'ddisasm_asm', 'ddisasm_dir', 'ramblr_asm', 'ramblr_dir'])
 
 
-#black_list = []
-#white_list = []
+black_list = []
+white_list = []
 
-def job(conf, reset=True):
-    diff_option = '--error'
-    #diff_option = '--disasm'
-    #diff_option = ''
-    #create_gt(conf, reset)
-
-    '''
+def job(conf, reset=False):
+    diff_option = ''
+    create_gt(conf, reset)
     if create_retro(conf, reset):
         diff_retro(conf, diff_option, reset)
-    '''
     if create_ddisasm(conf, reset):
         diff_ddisasm(conf, diff_option, reset)
-    '''
     if create_ramblr(conf, reset):
         diff_ramblr(conf, diff_option, reset)
-    '''
-    #diff_retro(conf, diff_option, reset)
-    #diff_ddisasm(conf, diff_option, reset)
-    #diff_ramblr(conf, diff_option, reset)
 
 class RecCounter:
     def __init__(self, tool):
         self.tool = tool
         self.board = list()
         for i in range(9):
-            self.board.append({'tp':0, 'fp':0, 'critical_fp':0, 'fn':0})
+            self.board.append({'tp':0, 'fp':0, 'fatal_fp':0, 'non-fatal_fp':0, 'fn':0})
 
         self.no_error = 0
 
@@ -54,7 +44,6 @@ class RecCounter:
 
     def add(self, pickle_path, disasm_path):
         if not os.path.exists(pickle_path):
-            #print(pickle_path)
             self.error += 1
             return
 
@@ -66,7 +55,8 @@ class RecCounter:
             for stype in range(1, 9):
                 self.board[stype]['tp'] += rec.record[stype].tp
                 self.board[stype]['fp'] += rec.record[stype].fp.length()
-                self.board[stype]['critical_fp'] += rec.record[stype].fp.critical_errors()
+                self.board[stype]['fatal_fp'] += rec.record[stype].fp.critical_errors()
+                self.board[stype]['non-fatal_fp'] += rec.record[stype].fp.length() - rec.record[stype].fp.critical_errors()
                 self.board[stype]['fn'] += rec.record[stype].fn.length()
 
                 if rec.record[stype].fp.length():
@@ -85,25 +75,23 @@ class RecCounter:
             self.disasm_tp += int(disasm_tp)
             self.disasm_fp += int(disasm_fp)
             self.disasm_fn += int(disasm_fn)
-            if 1000 < int(disasm_fn) + int(disasm_fp) :
-                print('> %-110s %7s %7s'%(disasm_path, disasm_fn, disasm_fp))
 
 
     def report(self):
         print('        %8s %8s %8s'%('TP', 'FP', 'FN'))
         for stype in range(1, 9):
-            print('Type %d: %8d %8d(%8d) %8d'%(stype, self.board[stype]['tp'] , self.board[stype]['fp'] , self.board[stype]['critical_fp'], self.board[stype]['fn']))
+            print('Type %d: %8d %8d(%8d) %8d'%(stype, self.board[stype]['tp'] , self.board[stype]['fp'] , self.board[stype]['fatal_fp'], self.board[stype]['fn']))
 
         print('Total : %8d'%(self.tot_gt))
 
 
 
 class WorkBin:
-    def __init__(self, bench='/data3/1_reassessor/benchmark',
-                result_dir='/data3/1_reassessor/result',
-                retro  ='/data3/1_reassessor/dataset/retrowrite',
-                ddisasm ='/data3/1_reassessor/dataset/ddisasm_debug',
-                ramblr  ='/data3/1_reassessor/dataset/ramblr'):
+    def __init__(self, bench,
+                result_dir,
+                retro,
+                ddisasm,
+                ramblr):
 
         self.bench = bench
 
@@ -127,12 +115,10 @@ class WorkBin:
         for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
             if rerun_list and binary not in rerun_list:
                 continue
-            '''
-            if os.path.basename(binary) in black_list:
+            if black_list and os.path.basename(binary) in black_list:
                 continue
-            if os.path.basename(binary) not in white_list:
+            if white_list and os.path.basename(binary) not in white_list:
                 continue
-            '''
             ret.append(self.gen_tuple(sub_dir, package, arch, pie_opt, binary))
         return ret
 
@@ -202,6 +188,8 @@ def diff(tool_name, binfile, gt_dir, tool_dir, option, reset):
     if not reset and os.path.exists(pickle_path):
         return
 
+    print('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result_dir, tool_name, tool_out, option))
+
     os.system('mkdir -p %s'%(result_dir))
     os.system('python3 -m differ.diff %s %s %s --%s %s %s'%(binfile, gt_out, result_dir, tool_name, tool_out, option))
 
@@ -257,7 +245,19 @@ def create_db(tool_name, bin_file, assem, output_dir, reset=False, reloc=''):
     return True
 
 class Manager:
-    def __init__(self, core, rerun):
+    def __init__(self, core, rerun,
+                bench='/data3/1_reassessor/benchmark',
+                result_dir='/data3/1_reassessor/bugs',
+                retro  ='/data3/1_reassessor/dataset/retrowrite',
+                ddisasm ='/data3/1_reassessor/dataset/ddisasm_debug',
+                ramblr  ='/data3/1_reassessor/dataset/ramblr'):
+
+        self.bench = bench
+        self.result_dir = result_dir
+        self.retro = retro
+        self.ddisasm = ddisasm
+        self.ramblr = ramblr
+
         self.core = core
         if core > 1:
             self.multi = True
@@ -269,20 +269,17 @@ class Manager:
             with open(rerun) as f:
                 self.rerun_list = [line for line in f.read().split()]
 
-        self.conf_list = self.gen_option('/data2/benchmark')
+        self.conf_list = self.gen_option(self.bench)
 
     def gen_option(self, work_dir):
         ret = []
-        gen = WorkBin()
+        gen = WorkBin(self.bench, self.result_dir, retro = self.retro, ddisasm = self.ddisasm, ramblr = self.ramblr)
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-        #for pack in ['coreutils-8.30']:
-        #for pack in ['binutils-2.31.1', 'spec_cpu2006']:
             for arch in ['x86', 'x64']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
                         for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
                             for lopt in ['bfd', 'gold']:
-
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
                                 ret.extend(gen.get_tuple(sub_dir, pack, arch, popt, rerun_list=self.rerun_list))
         return ret
@@ -295,7 +292,7 @@ class Manager:
         (package, arch, comp, pie_opt, lopt) = sub_dir.split('/')
         assert package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006', 'cgc'], 'invalid package'
 
-        gen = WorkBin()
+        gen = WorkBin(self.bench, self.result_dir, retro = self.retro, ddisasm = self.ddisasm, ramblr = self.ramblr)
         conf = gen.gen_tuple(sub_dir, package, arch, pie_opt, target)
         job(conf, reset=True)
 
@@ -335,18 +332,22 @@ class Manager:
 
             pickle = out_dir+'diff/error_pickle.dat'
             disasm = out_dir+'diff/disasm_diff.txt'
+
             counter.add(pickle, disasm)
 
-        #counter.report()
         return counter
 
-    def report(self, white_list=None):
+    def report_sum(self, white_list=None):
         #---------------------------------------------
         retro = self.merge('retro_sym', white_list)
         ddisasm = self.merge('ddisasm', white_list)
         ramblr = self.merge('ramblr', white_list)
+        self.report(ramblr, retro, ddisasm)
 
+    def report(self, ramblr, retro, ddisasm):
+        print('-' * 60 )
         print('                   %12s  %12s  %12s'%('Ramblr', 'RetroWrite', 'Ddisasm'))
+        print('%7s  # of Succ %12d  %12d  %12d'%('',ramblr.no_error, retro.no_error, ddisasm.no_error))
         print('-' * 60 )
         print('# of Bins          %12d  %12d  %12d'%(ramblr.success, retro.success, ddisasm.success))
         print('# of Bins (FAIL)   %12d  %12d  %12d'%(ramblr.error, retro.error, ddisasm.error))
@@ -356,7 +357,8 @@ class Manager:
         for stype in range(1, 9):
             print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
             print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
-            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['critical_fp'], retro.board[stype]['critical_fp'], ddisasm.board[stype]['critical_fp']))
+            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fatal_fp'], retro.board[stype]['fatal_fp'], ddisasm.board[stype]['fatal_fp']))
+            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['non-fatal_fp'], retro.board[stype]['non-fatal_fp'], ddisasm.board[stype]['non-fatal_fp']))
             print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
             print('-' * 60 )
 
@@ -365,13 +367,16 @@ class Manager:
         print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.disasm_fn, retro.disasm_fn, ddisasm.disasm_fn))
         print('-' * 60 )
 
+
+
+
 import argparse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='manager')
-    parser.add_argument('--core', type=int, default=1)
-    parser.add_argument('--target', type=str)
-    parser.add_argument('--list', type=str)
-    parser.add_argument('--rerun', type=str)
+    parser.add_argument('--core', type=int, default=1, help='Number of cores to use')
+    parser.add_argument('--target', type=str, help='Target Binary')
+    parser.add_argument('--list', type=str, help='Whitelist file for Report')
+    parser.add_argument('--rerun', type=str, help='Whitelist file for Run')
     args = parser.parse_args()
 
     mgr = Manager(args.core, args.rerun)
@@ -379,8 +384,8 @@ if __name__ == '__main__':
     if args.target:
         mgr.single_run(args.target)
     elif args.list:
-        mgr.report(args.list)
+        mgr.report_sum(args.list)
     else:
         mgr.run()
-        mgr.report()
+        mgr.report_sum()
 
