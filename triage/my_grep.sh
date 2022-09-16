@@ -6,7 +6,7 @@ function classify
     arch=$2
     pie_option=$3
     mkdir -p $arch/$pie_option
-    echo "grep '^$error_type' /data3/1_reassessor/result/*/*/$arch/*/$pie_option/*/*/diff/error_ascii.txt > $arch/$pie_option/$error_type.txt &"
+    echo "grep '^$error_type' /data3/1_reassessor/bugs/*/*/$arch/*/$pie_option/*/*/diff/error_ascii.txt > $arch/$pie_option/$error_type.txt &"
     #grep '^$error_type' ../../new_result4/*/$arch/*/$pie_option/*/*/error_ascii/* > $arch/$pie_option/$error_type.txt &
 
 }

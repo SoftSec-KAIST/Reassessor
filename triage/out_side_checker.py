@@ -3,7 +3,7 @@ from elftools.elf.elffile import ELFFile
 
 class Manager:
 
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/gt_db'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/bugs/gt'):
         self.bench = bench
         self.out = out
 
@@ -23,7 +23,7 @@ class Manager:
         (package, arch, comp, pie_opt, lopt) = sub_dir.split('/')
         assert package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006', 'cgc'], 'invalid package'
 
-        pickle_path = '%s/%s/%s/pickle/gt2.dat'%(self.out, sub_dir, filename)
+        pickle_path = '%s/%s/%s/norm/pickle.dat'%(self.out, sub_dir, filename)
         return pickle_path
 
 
@@ -42,24 +42,16 @@ class Manager:
     def run(self):
         target_list = []
         for pack in ['spec_cpu2006', 'binutils-2.31.1', 'coreutils-8.30']:
-        #for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-        #for pack in ['coreutils-8.30']:
-        #for pack in ['binutils-2.31.1']:
-        #for pack in ['spec_cpu2006']:
             for arch in ['x86', 'x64']:
-            #for arch in ['x86']:
                 for comp in ['clang', 'gcc']:
                     for popt in ['pie', 'nopie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
-                            #for lopt in ['bfd', 'gold']:
                             for lopt in ['gold', 'bfd']:
 
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
 
                                 for binary in glob.glob('%s/%s/bin/*'%(self.bench, sub_dir)):
                                     filename = os.path.basename(binary)
-                                    #if filename not in ['434.zeusmp']:
-                                    #    continue
                                     target_list.append(binary)
 
         for target in target_list:
@@ -75,7 +67,6 @@ class Manager:
         with open(my_pickle, 'rb') as fp:
             rec = pickle.load(fp)
 
-            #print(target)
             xaddr_list = []
             for addr in rec.Instrs:
                 asm = rec.Instrs[addr]
@@ -115,12 +106,6 @@ class Manager:
 
                 if region1 != region2:
                     print('%s:%s %s [%d][from: %s -> to: %s ][ %s => %s ]'%(target, hex(asm.addr), asm.asm_line, bFound, hex(base), hex(xaddr), sec_name1, sec_name2))
-                    #print('objdump -d %s | grep " %x:"'%(target, xaddr))
-                    #import sys
-                    #sys.stdout.flush()
-                    #os.system('objdump -d %s | grep %x:'%(target, xaddr))
-                #if not bFound:
-                #    print('%s:%s %s [target:%s]'%(target, hex(asm.addr), asm.asm_line, hex(xaddr)))
 
 
 import argparse
