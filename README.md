@@ -13,7 +13,8 @@ will appear in USENIX Security 2023.
 ### Dataset
 
 ### Authors
-This research project has been conducted by [SoftSec Lab](https://softsec.kais.ac.kr) at KAIST and CSG at UT Dallas.
+This research project has been conducted by [SoftSec Lab](https://softsec.kais.ac.kr)
+at KAIST and [CSG](https://cs.utdallas.edu/tag/computer-security-group-csg/) at UT Dallas.
 - Hyungseok Kim
 - [Soomin Kim](https://softsec.kaist.ac.kr/~soomink/)
 - Junoh Lee
@@ -21,4 +22,5 @@ This research project has been conducted by [SoftSec Lab](https://softsec.kais.a
 - [Sang Kil Cha](https://softsec.kaist.ac.kr/~sangkilc/)
 
 ### Citation
-If you plan to use Reassessor in your own research, please consider citing our paper
+If you plan to use Reassessor in your own research, please consider citing our
+paper
