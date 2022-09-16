@@ -1,10 +1,9 @@
 import os, pickle, glob
 from elftools.elf.elffile import ELFFile
-#from differ.statistics import Statistics
 
 class Manager:
 
-    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/new_result6'):
+    def __init__(self, bench='/data3/1_reassessor/benchmark', out='/data3/1_reassessor/bugs/gt'):
         self.bench = bench
         self.out = out
 
@@ -22,9 +21,8 @@ class Manager:
         filename = os.path.basename(target)
         sub_dir = '/'.join(target.split('/')[-7:-2])
         (package, arch, comp, pie_opt, lopt) = sub_dir.split('/')
-        assert package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006', 'cgc'], 'invalid package'
 
-        pickle_path = '%s/%s/%s/pickle/gt2.dat'%(self.out, sub_dir, filename)
+        pickle_path = '%s/%s/%s/norm/pickle.dat'%(self.out, sub_dir, filename)
         return pickle_path
 
 
@@ -42,31 +40,26 @@ class Manager:
     def run(self):
         target_list = []
         for pack in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-            #for arch in ['x86', 'x64']:
             for arch in ['x64']:
                 for comp in ['clang', 'gcc']:
-                    #for popt in ['nopie']:
-                    for popt in ['pie']:
+                    for popt in ['nopie', 'pie']:
                         for opt in ['ofast', 'os', 'o3', 'o2', 'o1', 'o0']:
                             for lopt in ['bfd', 'gold']:
-
                                 sub_dir = '%s/%s/%s/%s/%s-%s'%(pack, arch, comp, popt, opt, lopt)
-
                                 for binary in glob.glob('%s/%s/stripbin/*'%(self.bench, sub_dir)):
                                     target_list.append(binary)
-
 
         abs_rel=0
         pc_rel=0
         rel_rel = 0
         tot_gt = 0
         for target in target_list:
-            #rec = self.single_run(target)
             rec = self.single_run_for_count(target)
             abs_rel += rec[0]
             pc_rel += rec[1]
             rel_rel += rec[2]
             tot_gt += rec[3]
+
         print('%8d %8d %8d %8d'%(abs_rel, pc_rel, rel_rel, tot_gt))
 
     def single_run_for_count(self, target):
