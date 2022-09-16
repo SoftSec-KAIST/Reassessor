@@ -4,9 +4,7 @@ import multiprocessing
 
 
 class Ddisasm:
-    #def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path1='/data3/1_reassessor/debug_dd2', tool_path2='/data3/1_reassessor/new_ddisasm2', tool_name='ddisasm', out_path='/data3/1_reassessor/debug_dd_expand2'):
-    #def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path1='/data3/1_reassessor/debug_dd3', tool_path2='/data3/1_reassessor/new_ddisasm3', tool_name='ddisasm', out_path='/data3/1_reassessor/debug_dd_expand3'):
-    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path1='/data3/1_reassessor/debug_dd', tool_path2='/data3/1_reassessor/new_ddisasm', tool_name='ddisasm', out_path='/data3/1_reassessor/debug_dd_expand'):
+    def __init__(self, core, bench='/data3/1_reassessor/benchmark', tool_path1='/data3/1_reassessor/dataset/ddisasm_debug', tool_path2='/data3/1_reassessor/dataset/ddisasm', tool_name='ddisasm', out_path='/data3/1_reassessor/dataset/ddisasm_debug_expand'):
         self.core = core
         if core > 1:
             self.multi = True
@@ -50,18 +48,12 @@ class Ddisasm:
                                     cmd3 = "comm -13 %s %s > %s"%(output1, output2, output3)
                                     cmd4 = "rm %s %s"%(output1, output2)
 
-                                    #print(cmd0)
-                                    #print(cmd1)
-                                    #print(cmd2)
-                                    #print(cmd3)
-                                    #print(cmd4)
                                     ddisasm_cmd = []
                                     ddisasm_cmd.append(cmd0)
                                     ddisasm_cmd.append(cmd1)
                                     ddisasm_cmd.append(cmd2)
                                     ddisasm_cmd.append(cmd3)
                                     ddisasm_cmd.append(cmd4)
-                                    #ret.append(REConf(self.bench, tool_name, self.tool_path, sub_dir, filename, arch, comp, popt, lopt, ddisasm_cmd))
                                     ret.append(ddisasm_cmd)
         return ret
 

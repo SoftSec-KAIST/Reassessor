@@ -16,8 +16,6 @@ def compile(conf):
         except subprocess.CalledProcessError as e:
             print(cmd)
             print('exit code: {}'.format(e.returncode))
-            #print('stdout: {}'.format(e.output.decode(sys.getfilesystemencoding())))
-            #print('stderr: {}'.format(e.stderr.decode(sys.getfilesystemencoding())))
 
             logfile = '%s/%s/%s/log/%s.log'%(conf.tool_path, conf.sub_dir, conf.tool_name, conf.filename)
             print(logfile)
@@ -40,6 +38,7 @@ def compile_cmd(conf):
             compiler = 'g++'
         elif conf.compiler in ['clang']:
             compiler = 'clang++-12'
+            compiler = 'g++'
     elif conf.filename.split('.')[0] in ['410','416','434','435','436','437','454','459','465','481']:
         compiler = 'gfortran'
     else:
@@ -47,6 +46,7 @@ def compile_cmd(conf):
             compiler = 'gcc'
         elif conf.compiler in ['clang']:
             compiler = 'clang-12'
+            compiler = 'gcc'
 
     res = os.popen('ldd %s'%(bfile)).read()
     libs = ''
