@@ -25,15 +25,15 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
         prog_r = pickle.load(pickle_tool_f)
 
         if error_check:
-            out_file_path = save_dir + '/error_ascii.txt'
-            json_file_path = save_dir + '/errors.json'
-            pickle_file_path = save_dir + '/error_pickle.dat'
+            sym_diff_file_path = save_dir + '/sym_diff.txt'
+            error_json_file_path = save_dir + '/sym_errors.json'
+            error_pickle_file_path = save_dir + '/sym_errors.dat'
 
             report = Report(bin_path, prog_c)
             report.compare(prog_r)
-            report.save_file(out_file_path)
-            report.save_file(json_file_path, option='json')
-            report.save_pickle(pickle_file_path)
+            report.save_file(sym_diff_file_path)
+            report.save_file(error_json_file_path, option='json')
+            report.save_pickle(error_pickle_file_path)
 
         if disasm_check:
             disasm_file_path = save_dir + '/disasm_diff.txt'

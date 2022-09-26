@@ -1,0 +1,15 @@
+binutils/addr2line
+binutils/ar
+gas/as-new
+binutils/cxxfilt
+binutils/elfedit
+gprof/gprof
+ld/ld-new
+binutils/nm-new
+binutils/objcopy
+binutils/objdump
+binutils/ranlib
+binutils/readelf
+binutils/size
+binutils/strings
+binutils/strip-new
