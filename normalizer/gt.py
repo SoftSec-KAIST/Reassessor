@@ -179,7 +179,7 @@ class NormalizeGT:
         self.text = self.elf.get_section_by_name(".text")
         self.text_base = self.text.header["sh_addr"]
 
-        if "x64" in self.bin_path.split('/'):
+        if self.elf['e_machine'] in  ('EM_X86_64'):
             self.cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         else:
             self.cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
@@ -694,9 +694,6 @@ class NormalizeGT:
         fname, faddress, fsize = func_info
         if not self.has_func_assem_file(fname):
             return None
-
-        #if len(self.func_dict[fname]) == 1:
-        #    return self.func_dict[fname][0]
 
         ret = []
         candidate_list = self.get_assem_file(fname)
