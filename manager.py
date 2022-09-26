@@ -182,7 +182,7 @@ def diff(tool_name, binfile, gt_dir, tool_dir, option, reset):
     if os.path.getsize(tool_out) == 0:
         return
 
-    pickle_path = result_dir + '/error_pickle.dat'
+    pickle_path = result_dir + '/sym_errors.dat'
 
     # create new pickle
     if not reset and os.path.exists(pickle_path):
@@ -330,7 +330,7 @@ class Manager:
                     continue
                 out_dir = conf.ddisasm_dir
 
-            pickle = out_dir+'diff/error_pickle.dat'
+            pickle = out_dir+'diff/sym_errors.dat'
             disasm = out_dir+'diff/disasm_diff.txt'
 
             counter.add(pickle, disasm)
