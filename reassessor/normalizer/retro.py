@@ -1,14 +1,14 @@
 import re
 import capstone
 import os
-from normalizer.tool_base import NormalizeTool
-from lib.parser import parse_att_asm_line, ReasmLabel, parse_set_directive
+from .tool_base import NormalizeTool
+from reassessor.lib.parser import parse_att_asm_line, ReasmLabel, parse_set_directive
 
 HUGE_FILE_SIZE = 1024*1024*1024*10
 
 class NormalizeRetro(NormalizeTool):
-    def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT, label_func = retro_label_func)
+    def __init__(self, bin_path, reassem_path, supplement_file=''):
+        super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT, label_func = retro_label_func, supplement_file=supplement_file)
 
 retro_huge_addr_set = set()
 
@@ -33,27 +33,29 @@ def retro_label_func(label):
         return addr
     return 0
 
-def create_huge_addr_set(reassem_path):
+def create_huge_addr_set(reassem_path, supplement_file):
     global retro_huge_addr_set
-    additional_file =  reassem_path.replace('retrowrite', 'retrowrite_expand')
+    #additional_file =  reassem_path.replace('retrowrite', 'retrowrite_expand')
     import os
-    if os.path.isfile(additional_file):
-        print(' [+] read huge addr set %s'%(additional_file))
-        import time
-        tic = time.perf_counter()
-        retro_huge_addr_set = set(retro_label_to_addr(line.strip()[:-1]) for line in open(additional_file))
-        toc = time.perf_counter()
-        print(' [+] complete to make huge addr set (%d) %0.4f'%(len(retro_huge_addr_set), toc-tic))
-    else:
-        print(' [-] %s does not exist'%(additional_file))
+    if not os.path.isfile(supplement_file):
+        print(' [+] create additional file (%s) for optimization'%(supplement_file))
+        os.system('mkdir -p %s'%(os.path.dirname(supplement_file)))
+        os.system("grep '^\.L.*:$' %s > %s"%(reassem_path, supplement_file))
 
-def retro_mapper(reassem_path, tokenizer):
+    print(' [+] read huge addr set %s'%(supplement_file))
+    import time
+    tic = time.perf_counter()
+    retro_huge_addr_set = set(retro_label_to_addr(line.strip()[:-1]) for line in open(supplement_file))
+    toc = time.perf_counter()
+    print(' [+] complete to make huge addr set (%d) %0.4f'%(len(retro_huge_addr_set), toc-tic))
+
+def retro_mapper(reassem_path, tokenizer, supplement_file):
     result = []
     addr = -1
 
     fsize = os.path.getsize(reassem_path)
     if fsize > HUGE_FILE_SIZE:
-        create_huge_addr_set(reassem_path)
+        create_huge_addr_set(reassem_path, supplement_file)
         pass
 
     with open(reassem_path, errors='ignore') as f:

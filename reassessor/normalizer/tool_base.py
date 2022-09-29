@@ -2,8 +2,8 @@ from abc import abstractmethod
 import capstone
 from collections import namedtuple
 import pickle
-from lib.types import Program, LblTy
-from lib.parser import AsmTokenizer, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, CompGen
+from reassessor.lib.types import Program, LblTy
+from reassessor.lib.parser import AsmTokenizer, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, CompGen
 from collections import defaultdict
 
 from elftools.elf.elffile import ELFFile
@@ -22,9 +22,10 @@ def load_elf(bin_path):
 
 
 class NormalizeTool:
-    def __init__(self, bin_path, reassem_path, map_func, syntax = capstone.CS_OPT_SYNTAX_ATT, label_func = None):
+    def __init__(self, bin_path, reassem_path, map_func, syntax = capstone.CS_OPT_SYNTAX_ATT, label_func = None, supplement_file=''):
         self.bin_path = bin_path
         self.reassem_path = reassem_path
+        self.supplement_file = supplement_file
 
         self.elf = load_elf(self.bin_path)
 
@@ -69,7 +70,7 @@ class NormalizeTool:
     def mapper(self, map_func):
 
         tokenizer = AsmTokenizer(self.cs.syntax)
-        addressed_lines = map_func(self.reassem_path, tokenizer)
+        addressed_lines = map_func(self.reassem_path, tokenizer, self.supplement_file)
 
         self.addressed_asms = [asm for asm in addressed_lines if isinstance(asm, ReasmInst)]
         self.addressed_data = [asm for asm in addressed_lines if isinstance(asm, ReasmData)]

@@ -2,8 +2,8 @@ import capstone
 import re
 import os
 
-from lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, parse_set_directive
-from normalizer.tool_base import NormalizeTool
+from reassessor.lib.parser import parse_intel_asm_line, DATA_DIRECTIVE, SKIP_DIRECTIVE, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, parse_set_directive
+from .tool_base import NormalizeTool
 
 SYM_BLK = ['__rela_iplt_end']
 
@@ -25,10 +25,10 @@ def ddisasm_label_to_addr(label):
 
 
 class NormalizeDdisasm(NormalizeTool):
-    def __init__(self, bin_path, reassem_path):
-        super().__init__(bin_path, reassem_path, ddisasm_mapper, capstone.CS_OPT_SYNTAX_INTEL)
+    def __init__(self, bin_path, reassem_path, supplement_file=''):
+        super().__init__(bin_path, reassem_path, ddisasm_mapper, capstone.CS_OPT_SYNTAX_INTEL, supplement_file=supplement_file)
 
-def ddisasm_mapper(reassem_path, tokenizer):
+def ddisasm_mapper(reassem_path, tokenizer, supplement_file):
     result = []
     addr = -1
     is_linker_gen = False
@@ -102,9 +102,8 @@ def ddisasm_mapper(reassem_path, tokenizer):
 
             addr = -1
     #ddisasm debug option has some bugs so we store label to additional assembly files
-    additional_file =  reassem_path.replace('ddisasm_debug', 'ddisasm_debug_expand')
-    if os.path.isfile(additional_file):
-        with open(additional_file) as f:
+    if supplement_file and os.path.isfile(supplement_file):
+        with open(supplement_file) as f:
             for line in f:
                 if re.search('^.*:$', line):
                     terms = line.split('#')[0].split()

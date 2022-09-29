@@ -2,7 +2,7 @@ from collections import namedtuple
 import pickle
 import os
 import json
-from lib.types import CmptTy, InstType, DataType, ReportTy, Label
+from reassessor.lib.types import CmptTy, InstType, DataType, ReportTy, Label
 from enum import Enum
 
 ERec = namedtuple('ERec', ['record', 'gt', 'bin_path', 'gt_path', 'tool_path'])

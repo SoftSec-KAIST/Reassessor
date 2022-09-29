@@ -1,14 +1,11 @@
 import os
 import pickle
-import normalizer.retro
-import normalizer.ramblr
-import normalizer.ddisasm
-import normalizer.gt
-from differ.statistics import Statistics
-from differ.ereport import Report
+from reassessor.normalizer import retro, ramblr, ddisasm, gt
+from .statistics import Statistics
+from .ereport import Report
 
 
-def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True, disasm_check=True):
+def diff(bin_path, pickle_gt_path, pickle_tool_dict, save_dir, error_check=True, disasm_check=True):
 
 
     # Load GT
@@ -20,14 +17,14 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
     prog_c = pickle.load(pickle_gt_f)
     stat = Statistics(prog_c)
 
-    for tool, pickle_tool_path in pickle_tool_list.items():
+    for tool, pickle_tool_path in pickle_tool_dict.items():
         pickle_tool_f = open(pickle_tool_path, 'rb')
         prog_r = pickle.load(pickle_tool_f)
 
         if error_check:
-            sym_diff_file_path = save_dir + '/sym_diff.txt'
-            error_json_file_path = save_dir + '/sym_errors.json'
-            error_pickle_file_path = save_dir + '/sym_errors.dat'
+            sym_diff_file_path = '%s/%s/sym_diff.txt'%(save_dir,tool)
+            error_json_file_path = '%s/%s/sym_errors.json'%(save_dir, tool)
+            error_pickle_file_path = '%s/%s/sym_errors.dat'%(save_dir, tool)
 
             report = Report(bin_path, prog_c)
             report.compare(prog_r)
@@ -36,7 +33,7 @@ def diff(bin_path, pickle_gt_path, pickle_tool_list, save_dir, error_check=True,
             report.save_pickle(error_pickle_file_path)
 
         if disasm_check:
-            disasm_file_path = save_dir + '/disasm_diff.txt'
+            disasm_file_path = '%s/%s/disasm_diff.txt'%(save_dir, tool)
             stat.count_disasm(prog_r, disasm_file_path)
 
         pickle_tool_f.close()
@@ -58,20 +55,20 @@ if __name__ == '__main__':
     parser.add_argument('--disasm', action='store_true')
     args = parser.parse_args()
 
-    pickle_tool_list = dict()
+    pickle_tool_dict = dict()
     if args.ddisasm:
-        pickle_tool_list['ddisasm'] = args.ddisasm
+        pickle_tool_dict['ddisasm'] = args.ddisasm
     if args.ramblr:
-        pickle_tool_list['ramblr'] = args.ramblr
+        pickle_tool_dict['ramblr'] = args.ramblr
     if args.retro:
-        pickle_tool_list['retro_sym'] = args.retro
+        pickle_tool_dict['retro'] = args.retro
 
-    if pickle_tool_list:
+    if pickle_tool_dict:
         if args.error and not args.disasm:
-            diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir, error_check=True, disasm_check=False )
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, error_check=True, disasm_check=False )
         elif not args.error and args.disasm:
-            diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir, error_check=False, disasm_check=True )
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, error_check=False, disasm_check=True )
         else:
-            diff(args.bin_path, args.pickle_gt_path, pickle_tool_list, args.save_dir)
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir)
 
 

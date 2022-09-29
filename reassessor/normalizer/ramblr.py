@@ -1,8 +1,8 @@
 import re
 import capstone
 
-from lib.parser import ReasmLabel, DATA_DIRECTIVE, SKIP_DIRECTIVE, parse_set_directive
-from normalizer.tool_base import NormalizeTool
+from reassessor.lib.parser import ReasmLabel, DATA_DIRECTIVE, SKIP_DIRECTIVE, parse_set_directive
+from .tool_base import NormalizeTool
 
 
 RE_INST = re.compile('[ \t]{1,}[A-Za-z0-9].*')
@@ -13,7 +13,7 @@ class NormalizeRamblr(NormalizeTool):
     def __init__(self, bin_path, reassem_path):
         super().__init__(bin_path, reassem_path, ramblr_mapper, capstone.CS_OPT_SYNTAX_ATT)
 
-def ramblr_mapper(reassem_path, tokenizer):
+def ramblr_mapper(reassem_path, tokenizer, supplement_file):
 
     result = []
     addr = -1

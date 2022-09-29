@@ -1,5 +1,5 @@
-from lib.types import CmptTy
-from differ.ereport import my_open
+from reassessor.lib.types import CmptTy
+from .ereport import my_open
 import pickle
 
 

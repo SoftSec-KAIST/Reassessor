@@ -10,9 +10,9 @@ from elftools.elf.descriptions import describe_reloc_type
 from elftools.elf.relocation import RelocationSection
 from collections import defaultdict
 
-from lib.types import Program, InstType, LblTy, Label
-from lib.parser import CompGen
-from lib.asmfile import AsmFileInfo, LocInfo, AsmInst
+from reassessor.lib.types import Program, InstType, LblTy, Label
+from reassessor.lib.parser import CompGen
+from reassessor.lib.asmfile import AsmFileInfo, LocInfo, AsmInst
 
 class JumpTable:
     def __init__(self, entries):
@@ -896,6 +896,10 @@ class NormalizeGT:
             data = self.comp_gen.get_data(addr, '',  asm_line, 0, value, r_type = r_type)
             self.prog.Data[addr] = data
 
+    def save(self, save_file):
+        with open(save_file, 'wb') as f:
+            pickle.dump(self.prog, f)
+
 import argparse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='normalize_retro')
@@ -908,6 +912,5 @@ if __name__ == '__main__':
     gt = NormalizeGT(args.bin_path, args.asm_dir, args.reloc)
     gt.normalize_data()
 
-    with open(args.save_file, 'wb') as f:
-        pickle.dump(gt.prog, f)
+    gt.save(args.save_file)
 
