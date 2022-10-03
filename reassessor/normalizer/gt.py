@@ -151,10 +151,10 @@ def get_reloc_symbs(elf, sec_name = '.symtab'):
     return names
 
 class NormalizeGT:
-    def __init__(self, bin_path, asm_dir, reloc_file='', work_dir='/data2/benchmark'):
+    def __init__(self, bin_path, asm_dir, reloc_file='', build_path=''):
         self.bin_path = bin_path
         self.asm_dir = asm_dir
-        self.work_dir = work_dir
+        self.build_path = build_path
         self.reloc_file = reloc_file
         #self.ex_parser = ATTExParser()
 
@@ -770,15 +770,20 @@ class NormalizeGT:
                 curr += inst.size
             return result
         except:
-            print("Disassembly failed. Impossible")
+            print("Disassembly failed.")
             exit()
 
     def get_src_files(self, src_files, loc_candidates):
         for loc_path, _ in loc_candidates:
             if loc_path not in src_files.keys():
-                loc_path_full = os.path.join(self.work_dir, loc_path[1:])
-                f = open(loc_path_full, errors='ignore')
-                src_files[loc_path] = f.read()
+                if self.build_path:
+                    loc_path_full = os.path.join(self.build_path, loc_path[1:])
+                    f = open(loc_path_full, errors='ignore')
+                    src_files[loc_path] = f.read()
+                else:
+                    loc_path_full = os.path.join(self.asm_dir, loc_path[1:])
+                    f = open(loc_path_full, errors='ignore')
+                    src_files[loc_path] = f.read()
         return src_files
 
 
@@ -788,12 +793,12 @@ class NormalizeGT:
             t = "*/" * i
             srcs += glob.glob(self.asm_dir + t + "*.s")
 
-        # give a first priority to a main source code when it comes to coreutils
-        if 'coreutils-8.30' in self.bin_path:
-            main_src = '%s/src/%s.s'%(self.asm_dir, os.path.basename(self.bin_path))
-            if main_src in srcs:
-                srcs.remove(main_src)
-                srcs.insert(0, main_src)
+        # give a first priority to a main source code
+        main_src = '%s/src/%s.s'%(self.asm_dir, os.path.basename(self.bin_path))
+        if main_src in srcs:
+            srcs.remove(main_src)
+            srcs.insert(0, main_src)
+
         return srcs
 
     def has_func_assem_file(self, func_name):
@@ -803,7 +808,7 @@ class NormalizeGT:
         ret = []
         for asm_path in self._func_map[func_name]:
             #ignored referred assembly file
-            #since local function can be defined twice???
+            #since local function can be defined twice
             # _Z41__static_initialization in 483.xalancbmk
             if func_name in self.asm_file_dict[asm_path].visited_func:
                 pass
@@ -907,9 +912,10 @@ if __name__ == '__main__':
     parser.add_argument('asm_dir', type=str)
     parser.add_argument('save_file', type=str)
     parser.add_argument('--reloc', type=str)
+    parser.add_argument('--build_path', type=str)
     args = parser.parse_args()
 
-    gt = NormalizeGT(args.bin_path, args.asm_dir, args.reloc)
+    gt = NormalizeGT(args.bin_path, args.asm_dir, args.reloc, args.build_path)
     gt.normalize_data()
 
     gt.save(args.save_file)
