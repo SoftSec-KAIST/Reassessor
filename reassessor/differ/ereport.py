@@ -349,7 +349,7 @@ class Report:
                     continue
                 if not self.sec_mgr.is_in_data_region(addr):
                     continue
-                if data_r.value.type == 7:
+                if data_r.value.type == 7 and data_r.value.terms[0].Address == 0:
                     continue
 
                 self.check_data_error(None, data_r, addr)
