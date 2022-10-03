@@ -21,67 +21,61 @@ class Reassessor:
             os.system('cp %s %s'%(self.target, self.binary))
             remove_useless_sections(self.binary)
 
-        self.retrowrite_output = ''
-        self.ramblr_output = ''
-        self.ddisasm_output = ''
-
-        self.retrowrite_norm = ''
-        self.ramblr_norm = ''
-        self.ddisasm_norm = ''
 
 
-    def run_normalizer(self):
+    def run(self, reassem_dict):
+        gt_norm_path, norm_dict = self.run_normalizer(reassem_dict)
+        self.run_differ(gt_norm_path, norm_dict)
+
+
+
+    def run_normalizer(self, reassem_dict):
         norm_dir = '%s/norm_db'%(self.output_dir)
         os.system('mkdir -p %s'%(norm_dir))
         gt_norm_path = '%s/gt.db'%(norm_dir)
-        print('python3 -m normalizer.gt %s %s %s --reloc %s --build_path %s'%(self.binary, self.assem_dir, gt_norm_path, self.target, self.build_path))
+        print('python3 -m reassessor.normalizer.gt %s %s %s --reloc %s --build_path %s'%(self.binary, self.assem_dir, gt_norm_path, self.target, self.build_path))
         gt = NormalizeGT(self.binary, self.assem_dir, build_path=self.build_path, reloc_file=self.target)
         gt.normalize_data()
         gt.save(gt_norm_path)
-        self.gt_norm = gt_norm_path
 
-        if self.retrowrite_output:
-            norm_path = '%s/retrowrite.db'%(norm_dir)
-            print('python3 -m normalizer.retro %s %s %s'%(self.binary, self.retrowrite_output, norm_path))
-            retrowrite = NormalizeRetro(self.binary, self.retrowrite_output)
-            retrowrite.normalize_inst()
-            retrowrite.normalize_data()
-            retrowrite.save(norm_path)
-            self.retrowrite_norm = norm_path
-        if self.ramblr_output:
-            norm_path = '%s/ramblr.db'%(norm_dir)
-            print('python3 -m normalizer.ramblr %s %s %s'%(self.binary, self.ramblr_output, norm_path))
-            ramblr = NormalizeRamblr(self.binary, self.ramblr_output)
-            ramblr.normalize_inst()
-            ramblr.normalize_data()
-            ramblr.save(norm_path)
-            self.ramblr_norm = norm_path
-        if self.ddisasm_output:
-            norm_path = '%s/ddisasm.db'%(norm_dir)
-            print('python3 -m normalizer.ddisasm %s %s %s'%(self.binary, self.ddisasm_output, norm_path))
-            ddisasm = NormalizeDdisasm(self.binary, self.ddisasm_output)
-            ddisasm.normalize_inst()
-            ddisasm.normalize_data()
-            ddisasm.save(norm_path)
-            self.ddisasm_norm = norm_path
-
-    def run_differ(self):
         norm_dict = dict()
+
+        for tool, reassem_path in reassem_dict.items():
+            reassem = None
+            if tool == 'ramblr':
+                norm_path = '%s/ramblr.db'%(norm_dir)
+                print('python3 -m reassessor.normalizer.ramblr %s %s %s'%(self.binary, reassem_path, norm_path))
+                reassem = NormalizeRamblr(self.binary, reassem_path)
+            if tool == 'retrowrite':
+                norm_path = '%s/retrowrite.db'%(norm_dir)
+                print('python3 -m reassessor.normalizer.retro %s %s %s'%(self.binary, reassem_path, norm_path))
+                reassem = NormalizeRetro(self.binary, reassem_path)
+            if tool == 'ddisasm':
+                norm_path = '%s/ddisasm.db'%(norm_dir)
+                print('python3 -m reassessor.normalizer.ddisasm %s %s %s'%(self.binary, reassem_path, norm_path))
+                reassem = NormalizeDdisasm(self.binary, reassem_path)
+
+            if reassem:
+                reassem.normalize_inst()
+                reassem.normalize_data()
+                reassem.save(norm_path)
+                norm_dict[tool] = norm_path
+
+        return gt_norm_path, norm_dict
+
+    def run_differ(self, gt_norm_path, norm_dict):
         error_dir = '%s/errors'%(self.output_dir)
-        cmd = 'python3 -m differ.diff %s %s %s'%(self.binary, self.gt_norm, error_dir)
-        if self.retrowrite_norm:
-            cmd += ' --retro %s'%(self.retrowrite_norm)
-            norm_dict['retrowrite'] = self.retrowrite_norm
-        if self.ramblr_norm:
-            cmd += ' --ramblr %s'%(self.ramblr_norm)
-            norm_dict['ramblr'] = self.ramblr_norm
-        if self.ddisasm_norm:
-            cmd += ' --ddisasm %s'%(self.ddisasm_norm)
-            norm_dict['ddisasm'] = self.ddisasm_norm
+        cmd = 'python3 -m reassessor.differ.diff %s %s %s'%(self.binary, gt_norm_path, error_dir)
+        if 'ramblr' in norm_dict:
+            cmd += ' --ramblr %s'%(norm_dict['ramblr'])
+        if 'retrowrite' in norm_dict:
+            cmd += ' --retro %s'%(norm_dict['retrowrite'])
+        if 'ddisasm' in norm_dict:
+            cmd += ' --ddisasm %s'%(norm_dict['ddisasm'])
 
         print(cmd)
 
-        diff(self.binary, self.gt_norm, norm_dict, error_dir)
+        diff(self.binary, gt_norm_path, norm_dict, error_dir)
 
 
 def wrapper(target, output_dir):
