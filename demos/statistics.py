@@ -3,11 +3,15 @@ from elftools.elf.elffile import ELFFile
 from collections import namedtuple
 from reassessor.lib.types import InstType, DataType
 import numpy as np
+import multiprocessing
 
-BuildConf = namedtuple('BuildConf', ['target', 'pickle_file', 'arch', 'pie', 'opt'])
+BuildConf = namedtuple('BuildConf', ['target', 'pickle_file', 'arch', 'pie', 'opt', 'idx'])
+
+global_no = 0
 
 def gen_option(input_root, output_root):
     ret = []
+    global global_no
     for package in ['spec_cpu2006', 'binutils-2.31.1', 'coreutils-8.30']:
         for arch in ['x64', 'x86']:
             for comp in ['clang', 'gcc']:
@@ -21,10 +25,18 @@ def gen_option(input_root, output_root):
 
                                 filename = os.path.basename(target)
 
+                                #if filename not in ['434.zeusmp']:
+                                #if filename not in ['416.gamess']:
+                                #    continue
+
                                 pickle_file = '%s/%s/%s/norm_db/gt.db'%(output_root, sub_dir, filename)
 
-                                ret.append(BuildConf(target, pickle_file, arch, popt, opt))
+                                ret.append(BuildConf(target, pickle_file, arch, popt, opt, global_no))
+
+                                global_no += 1
+    print(global_no)
     return ret
+
 
 class Stat:
     def __init__(self, conf):
@@ -33,11 +45,52 @@ class Stat:
         self.pie = conf.pie
         self.opt = conf.opt
         self.pickle_file = conf.pickle_file
-
+        self.idx = conf.idx
+        self.outside = []
+        self.non_func_ptr_list = []
+        self.xaddr_list =[]
         self.sym_list = [0,0,0,0,0,0,0,0,0]
 
+    def get_addr(self, factor):
+        addrx = 0
+        for term in factor.terms:
+            if isinstance(term, int):
+                continue
+            addrx += term.Address
+        if addrx == 0: return 0,0
+
+        return addrx, addrx + factor.num
+
+    def check_factor(self, asm, factor):
+        self.sym_list[factor.get_type()] += 1
+
+        if factor.get_type() in [2,4,6]:
+            base, addrx = self.get_addr(factor)
+            if addrx != 0:
+                self.xaddr_list.append((asm, base, addrx))
+        elif factor.get_type() in [1,3,5]:
+
+            if not isinstance(asm, InstType):
+                return
+            if not asm.asm_token.opcode.startswith('mov') and not asm.asm_token.opcode.startswith('lea'):
+                return
+
+            base, addrx = self.get_addr(factor)
+            _, sec_name = self.get_sec_name(base)
+            if sec_name in ['.text']:
+                if base not in self.func_list:
+                    msg = '%s:%s %s : %s is not func'%(self.target, hex(asm.addr), asm.asm_line, hex(base))
+                    self.non_func_ptr_list.append(msg)
+
+    def get_func_list(self):
+        output = os.popen("readelf -s %s | grep FUNC | awk '{print $2}'"%(self.target)).read()
+        return [int(item,16) for item in output.split()]
+
     def examine(self):
-        sym_list = [0,0,0,0,0,0,0,0,0]
+        idx = self.idx
+        self.sec_region_list = self.get_sec_regions()
+        self.func_list = self.get_func_list()
+
         with open(self.pickle_file, 'rb') as f:
             gt = pickle.load(f)
 
@@ -45,51 +98,94 @@ class Stat:
                 if not isinstance(inst, InstType):
                     continue
                 if inst.disp:
-                    sym_list[inst.disp.get_type()] += 1
+                    self.check_factor(inst, inst.disp)
                 if inst.imm:
-                    sym_list[inst.imm.get_type()] += 1
+                    self.check_factor(inst, inst.imm)
 
             for _, data in gt.Data.items():
                 if not isinstance(data, DataType):
                     continue
                 if data.value:
-                    sym_list[data.value.get_type()] += 1
+                    self.check_factor(data, data.value)
 
             total = 0
             for nType in range(1, 8):
-                total += sym_list[nType]
+                total += self.sym_list[nType]
 
-        sym_list[0] = total
-        self.sym_list = sym_list
+        self.sym_list[0] = total
+        self.outside_check()
+
+    def cleanup(self):
+        self.sec_region_list = []
+        self.xaddr_list = []
+
+
+    def get_sec_regions(self):
+        region_list = []
+        with open(self.target, 'rb') as fp:
+            elf = ELFFile(fp)
+            for section in elf.iter_sections():
+                 if section['sh_addr']:
+                    region_list.append((section.name, range(section['sh_addr'], section['sh_addr'] + section['sh_size'])))
+
+        return region_list
+
+    def get_sec_name(self, addr):
+        for idx, (sec_name, region) in enumerate(self.sec_region_list):
+            if addr in region:
+                return (idx, sec_name)
+        return -1, ''
+
+    def outside_check(self):
+        for asm, base, xaddr in self.xaddr_list:
+            bFound = False
+            idx1, sec_name1 = self.get_sec_name(base)
+            idx2, sec_name2 = self.get_sec_name(xaddr)
+
+            if idx2 != -1:
+                bFound = True
+
+            if idx1 != idx2:
+                self.outside.append('%s:%s %s [%d][from: %s -> to: %s ][ %s => %s ]'%(self.target, hex(asm.addr), asm.asm_line, bFound, hex(base), hex(xaddr), sec_name1, sec_name2))
+
+
 
 def report(desc, sym_list):
     print('%-70s : %7d %7d %7d %7d %7d %7d %7d %10d'%(desc,
         sym_list[1], sym_list[2], sym_list[3], sym_list[4],
         sym_list[5], sym_list[6], sym_list[7], sym_list[0]))
 
+
+def job(conf):
+    stat = Stat(conf)
+    stat.examine()
+    stat.cleanup()
+
+    with open('stat/%d'%(conf.idx), 'wb') as f:
+        pickle.dump(stat, f)
+
+
 class Manager:
 
     def __init__(self, input_root='./dataset', output_root='./output'):
-        self.conf_list = gen_option(input_root, output_root)
         self.stat_list = []
+        self.input_root=input_root
+        self.output_root=output_root
+        self.config_list = gen_option(self.input_root, self.output_root)
 
-    def run(self):
-        print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
-                    'Type1', 'Type2','Type3', 'Type4',
-                    'Type5', 'Type6','Type7', 'Total'))
+    def run(self, core=1):
+        global global_no
 
-        for conf in self.conf_list:
-            stat = Stat(conf)
-            stat.examine()
-            report(stat.target, stat.sym_list)
-            self.stat_list.append(stat)
+        if core and core > 1:
+            p = multiprocessing.Pool(core)
+            p.map(job, self.config_list)
+        else:
+            for conf in self.config_list:
+                job(conf)
 
-    def summary(self):
-        print()
-        print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
-                    'Type1', 'Type2','Type3', 'Type4',
-                    'Type5', 'Type6','Type7', 'Total'))
 
+
+    def init_summary(self):
         summary = dict()
         summary['x64'] = dict()
         summary['x86'] = dict()
@@ -104,15 +200,43 @@ class Manager:
         summary['os'] = [0,0,0,0,0,0,0,0,0]
         summary['ofast'] = [0,0,0,0,0,0,0,0,0]
         summary['total'] = [0,0,0,0,0,0,0,0,0]
+        return summary
+
+
+    def summary(self):
+
+        global global_no
+
+        print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
+                    'Type1', 'Type2','Type3', 'Type4',
+                    'Type5', 'Type6','Type7', 'Total'))
 
         num_of_bin_has_comp = 0
-        for stat in self.stat_list:
-            summary[stat.opt] = np.add(summary[stat.opt], stat.sym_list)
-            summary[stat.arch][stat.pie] = np.add(summary[stat.arch][stat.pie], stat.sym_list)
+        summary = self.init_summary()
 
-            if summary[opt][2] + summary[opt][4] + summary[opt][6] + summary[opt][7] > 0:
-                num_of_bin_has_comp += 1
+        outside_dict = dict()
+        nonfunc_dict = dict()
+        for idx in range(global_no):
+            with open('stat/%d'%(idx), 'rb') as f:
+                stat = pickle.load(f)
+                report(stat.target, stat.sym_list)
 
+                summary[stat.opt] = np.add(summary[stat.opt], stat.sym_list)
+                summary[stat.arch][stat.pie] = np.add(summary[stat.arch][stat.pie], stat.sym_list)
+
+                if stat.sym_list[2] + stat.sym_list[4] + stat.sym_list[6] + stat.sym_list[7] > 0:
+                    num_of_bin_has_comp += 1
+
+                if stat.outside:
+                    outside_dict[stat.target] = stat.outside
+
+                if stat.non_func_ptr_list:
+                    nonfunc_dict[stat.target] = stat.non_func_ptr_list
+
+        print()
+        print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
+                    'Type1', 'Type2','Type3', 'Type4',
+                    'Type5', 'Type6','Type7', 'Total'))
 
         for arch in ['x86', 'x64']:
             for pie in ['nopie', 'pie']:
@@ -139,10 +263,37 @@ class Manager:
 
         print('%30s: Atomic: %10d / Composite: %10d'%('Total', atomic, composite))
 
-        print('%5d/%5d binaries have composite relocs!'%(num_of_bin_has_comp / len(self.stat_list))
+        print('%5d/%5d binaries have composite relocs!'%(num_of_bin_has_comp, global_no))
 
+
+        print('-------- point to outside --------')
+        print('%5d/%5d binaries have composite relocs that point to outside'%(len(outside_dict), global_no))
+        #for key, value in outside_dict.items():
+        #    print('%-60s: %d'%(key, len(value)))
+        print('-------- point to non-func --------')
+        print('%5d/%5d binaries have composite relocs that point to outside'%(len(nonfunc_dict), global_no))
+        for key, value in nonfunc_dict.items():
+            print('%-80s: %d'%(key, len(value)))
+            for msg in value:
+                print(msg)
+
+import argparse
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(description='manager')
+    parser.add_argument('--package', type=str, help='Package')
+    parser.add_argument('--core', type=int, default=1, help='Number of cores to use')
+    parser.add_argument('--skip', action='store_true')
+
+    args = parser.parse_args()
+
     mgr = Manager()
-    mgr.run()
+
+    if not args.skip:
+        os.system('mkdir -p ./stat')
+        if args.core:
+            mgr.run(args.core)
+        else:
+            mgr.run()
+
     mgr.summary()
