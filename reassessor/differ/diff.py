@@ -5,7 +5,7 @@ from .statistics import Statistics
 from .ereport import Report
 
 
-def diff(bin_path, pickle_gt_path, pickle_tool_dict, save_dir, error_check=True, disasm_check=True):
+def diff(bin_path, pickle_gt_path, pickle_tool_dict, save_dir, error_check=True, disasm_check=True, reset=False):
 
 
     # Load GT
@@ -26,15 +26,21 @@ def diff(bin_path, pickle_gt_path, pickle_tool_dict, save_dir, error_check=True,
             error_json_file_path = '%s/%s/sym_errors.json'%(save_dir, tool)
             error_pickle_file_path = '%s/%s/sym_errors.dat'%(save_dir, tool)
 
-            report = Report(bin_path, prog_c)
-            report.compare(prog_r)
-            report.save_file(sym_diff_file_path)
-            report.save_file(error_json_file_path, option='json')
-            report.save_pickle(error_pickle_file_path)
+            if os.path.exists(sym_diff_file_path) and not reset:
+                pass
+            else:
+                report = Report(bin_path, prog_c)
+                report.compare(prog_r)
+                report.save_file(sym_diff_file_path)
+                report.save_file(error_json_file_path, option='json')
+                report.save_pickle(error_pickle_file_path)
 
         if disasm_check:
             disasm_file_path = '%s/%s/disasm_diff.txt'%(save_dir, tool)
-            stat.count_disasm(prog_r, disasm_file_path)
+            if os.path.exists(disasm_file_path) and not reset:
+                pass
+            else:
+                stat.count_disasm(prog_r, disasm_file_path)
 
         pickle_tool_f.close()
 
@@ -65,10 +71,10 @@ if __name__ == '__main__':
 
     if pickle_tool_dict:
         if args.error and not args.disasm:
-            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, error_check=True, disasm_check=False )
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, error_check=True, disasm_check=False, reset=True )
         elif not args.error and args.disasm:
-            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, error_check=False, disasm_check=True )
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, error_check=False, disasm_check=True, reset=True )
         else:
-            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir)
+            diff(args.bin_path, args.pickle_gt_path, pickle_tool_dict, args.save_dir, reset=True)
 
 
