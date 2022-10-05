@@ -37,6 +37,8 @@ def create_huge_addr_set(reassem_path, supplement_file):
     global retro_huge_addr_set
     #additional_file =  reassem_path.replace('retrowrite', 'retrowrite_expand')
     import os
+    if len(supplement_file) == 0:
+        supplement_file = reassem_path + '_supplement'
     if not os.path.isfile(supplement_file):
         print(' [+] create additional file (%s) for optimization'%(supplement_file))
         os.system('mkdir -p %s'%(os.path.dirname(supplement_file)))
