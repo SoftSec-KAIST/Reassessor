@@ -25,16 +25,11 @@ def gen_option(input_root, output_root):
 
                                 filename = os.path.basename(target)
 
-                                #if filename not in ['434.zeusmp']:
-                                #if filename not in ['416.gamess']:
-                                #    continue
-
                                 pickle_file = '%s/%s/%s/norm_db/gt.db'%(output_root, sub_dir, filename)
 
                                 ret.append(BuildConf(target, pickle_file, arch, popt, opt, global_no))
 
                                 global_no += 1
-    print(global_no)
     return ret
 
 
@@ -186,28 +181,29 @@ class Manager:
 
 
     def init_summary(self):
-        summary = dict()
-        summary['x64'] = dict()
-        summary['x86'] = dict()
-        summary['x64']['pie'] = [0,0,0,0,0,0,0,0,0]
-        summary['x64']['nopie'] = [0,0,0,0,0,0,0,0,0]
-        summary['x86']['pie'] = [0,0,0,0,0,0,0,0,0]
-        summary['x86']['nopie'] = [0,0,0,0,0,0,0,0,0]
-        summary['o0'] = [0,0,0,0,0,0,0,0,0]
-        summary['o1'] = [0,0,0,0,0,0,0,0,0]
-        summary['o2'] = [0,0,0,0,0,0,0,0,0]
-        summary['o3'] = [0,0,0,0,0,0,0,0,0]
-        summary['os'] = [0,0,0,0,0,0,0,0,0]
-        summary['ofast'] = [0,0,0,0,0,0,0,0,0]
-        summary['total'] = [0,0,0,0,0,0,0,0,0]
-        return summary
+        data = dict()
+        data['x64'] = dict()
+        data['x86'] = dict()
+        data['x64']['pie'] = [0,0,0,0,0,0,0,0,0]
+        data['x64']['nopie'] = [0,0,0,0,0,0,0,0,0]
+        data['x86']['pie'] = [0,0,0,0,0,0,0,0,0]
+        data['x86']['nopie'] = [0,0,0,0,0,0,0,0,0]
+        data['o0'] = [0,0,0,0,0,0,0,0,0]
+        data['o1'] = [0,0,0,0,0,0,0,0,0]
+        data['o2'] = [0,0,0,0,0,0,0,0,0]
+        data['o3'] = [0,0,0,0,0,0,0,0,0]
+        data['os'] = [0,0,0,0,0,0,0,0,0]
+        data['ofast'] = [0,0,0,0,0,0,0,0,0]
+        data['total'] = [0,0,0,0,0,0,0,0,0]
+        return data
 
 
-    def summary(self):
+    def summary(self, verbose):
 
         global global_no
 
-        print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
+        if verbose:
+            print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
                     'Type1', 'Type2','Type3', 'Type4',
                     'Type5', 'Type6','Type7', 'Total'))
 
@@ -219,7 +215,9 @@ class Manager:
         for idx in range(global_no):
             with open('stat/%d'%(idx), 'rb') as f:
                 stat = pickle.load(f)
-                report(stat.target, stat.sym_list)
+
+                if verbose:
+                    report(stat.target, stat.sym_list)
 
                 summary[stat.opt] = np.add(summary[stat.opt], stat.sym_list)
                 summary[stat.arch][stat.pie] = np.add(summary[stat.arch][stat.pie], stat.sym_list)
@@ -233,7 +231,7 @@ class Manager:
                 if stat.non_func_ptr_list:
                     nonfunc_dict[stat.target] = stat.non_func_ptr_list
 
-        print()
+        print('-------- Arch + PIE options --------')
         print('%-70s : %7s %7s %7s %7s %7s %7s %7s %10s'%('',
                     'Type1', 'Type2','Type3', 'Type4',
                     'Type5', 'Type6','Type7', 'Total'))
@@ -243,11 +241,13 @@ class Manager:
                 desc = '%s-%s'%(arch, pie)
                 report(desc, summary[arch][pie])
 
+        print('-------- Optimizations --------')
         for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
             summary['total'] = np.add(summary['total'], summary[opt])
             report(opt, summary[opt])
 
-        report(opt, summary['total'])
+        print('-------- Total --------')
+        report('total', summary['total'])
 
 
 
@@ -268,14 +268,19 @@ class Manager:
 
         print('-------- point to outside --------')
         print('%5d/%5d binaries have composite relocs that point to outside'%(len(outside_dict), global_no))
-        #for key, value in outside_dict.items():
-        #    print('%-60s: %d'%(key, len(value)))
+        if verbose:
+            for key, value in outside_dict.items():
+                print('%-60s: %d'%(key, len(value)))
+                for msg in value:
+                    print(msg)
+
         print('-------- point to non-func --------')
         print('%5d/%5d binaries have composite relocs that point to outside'%(len(nonfunc_dict), global_no))
-        for key, value in nonfunc_dict.items():
-            print('%-80s: %d'%(key, len(value)))
-            for msg in value:
-                print(msg)
+        if verbose:
+            for key, value in nonfunc_dict.items():
+                print('%-80s: %d'%(key, len(value)))
+                for msg in value:
+                    print(msg)
 
 import argparse
 if __name__ == '__main__':
@@ -284,6 +289,7 @@ if __name__ == '__main__':
     parser.add_argument('--package', type=str, help='Package')
     parser.add_argument('--core', type=int, default=1, help='Number of cores to use')
     parser.add_argument('--skip', action='store_true')
+    parser.add_argument('--verbose', action='store_true')
 
     args = parser.parse_args()
 
@@ -296,4 +302,4 @@ if __name__ == '__main__':
         else:
             mgr.run()
 
-    mgr.summary()
+    mgr.summary(args.verbose)
