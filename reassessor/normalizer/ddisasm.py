@@ -50,7 +50,7 @@ def ddisasm_mapper(reassem_path, tokenizer, supplement_file):
                 # Ddisam 1.5.3 sometimes does not create section name
                 # .section
                 # 416.gamess and 434.zeusmp
-                if asm_file in ['416.gamess.s', '434.zeusmp.s']:
+                if '416.gamess' in reassem_path or '434.zeusmp' in reassem_path:
                     is_linker_gen = False
                 elif len(terms) > 1 and terms[1] not in ['.fini', '.init', '.plt.got']:
                     is_linker_gen = False
