@@ -22,21 +22,22 @@ class Reassessor:
             remove_useless_sections(self.binary)
 
 
-
     def run(self, reassem_dict):
         gt_norm_path, norm_dict = self.run_normalizer(reassem_dict)
         self.run_differ(gt_norm_path, norm_dict)
 
 
-
-    def run_normalizer(self, reassem_dict):
+    def run_normalizer(self, reassem_dict, reset=False):
         norm_dir = '%s/norm_db'%(self.output_dir)
         os.system('mkdir -p %s'%(norm_dir))
         gt_norm_path = '%s/gt.db'%(norm_dir)
         print('python3 -m reassessor.normalizer.gt %s %s %s --reloc %s --build_path %s'%(self.binary, self.assem_dir, gt_norm_path, self.target, self.build_path))
-        gt = NormalizeGT(self.binary, self.assem_dir, build_path=self.build_path, reloc_file=self.target)
-        gt.normalize_data()
-        gt.save(gt_norm_path)
+        if os.path.exists(gt_norm_path) and not reset:
+            pass
+        else:
+            gt = NormalizeGT(self.binary, self.assem_dir, build_path=self.build_path, reloc_file=self.target)
+            gt.normalize_data()
+            gt.save(gt_norm_path)
 
         norm_dict = dict()
 
@@ -55,10 +56,12 @@ class Reassessor:
                 print('python3 -m reassessor.normalizer.ddisasm %s %s %s'%(self.binary, reassem_path, norm_path))
                 reassem = NormalizeDdisasm(self.binary, reassem_path)
 
-            if reassem:
+            if not os.path.exists(norm_path) or reset:
                 reassem.normalize_inst()
                 reassem.normalize_data()
                 reassem.save(norm_path)
+
+            if os.path.exists(norm_path):
                 norm_dict[tool] = norm_path
 
         return gt_norm_path, norm_dict
@@ -97,13 +100,16 @@ if __name__ == '__main__':
     parser.add_argument('--ddisasm', type=str, help='ddisasm output')
     args = parser.parse_args()
 
-    reassessor = Reassessor(args.target, args.assem_dir, args.output_dir, args.build_path)
+    reassem_dict = dict()
     if args.ramblr:
-        reassessor.ramblr_output = args.ramblr
+        reassem_dict['ramblr'] = args.ramblr
     if args.retrowrite:
-        reassessor.retrowrite_output = args.retrowrite
+        reassem_dict['retrowrite'] = args.retrowrite
     if args.ddisasm:
-        reassessor.ddisasm_output = args.ddisasm
-    reassessor.run_normalizer()
-    reassessor.run_differ()
+        reassem_dict['ddisasm']  = args.ddisasm
+
+    if reassem_dict:
+        reassessor = Reassessor(args.target, args.assem_dir, args.output_dir, args.build_path)
+        gt_norm_path, norm_dict = reassessor.run_normalizer(reassem_dict)
+        reassessor.run_differ(gt_norm_path, norm_dict)
 
