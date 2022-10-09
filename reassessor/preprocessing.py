@@ -126,7 +126,7 @@ class RetroWrite(Reassembly):
         if not reset and os.path.exists(reassem_output):
             return reassem_output
 
-        cmd = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor/retrowrite:613562 sh -c "/root/retrowrite.sh /input/%s /output/retrowrite.s"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
+        cmd = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor/retrowrite:613562 sh -c "python3 -m retrowrite.librw_x64.rw /input/%s /output/retrowrite.s"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
         self.run_cmd(cmd, reassem_output)
         if os.path.exists(reassem_output):
             return reassem_output
