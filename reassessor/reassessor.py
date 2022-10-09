@@ -4,7 +4,6 @@ from .normalizer.ramblr import NormalizeRamblr
 from .normalizer.retro import NormalizeRetro
 from .normalizer.ddisasm import NormalizeDdisasm
 from .differ.diff import diff
-from .preprocessing import remove_useless_sections
 
 class Reassessor:
     def __init__(self, target, assem_dir, output_dir, build_path):
@@ -87,11 +86,6 @@ class Reassessor:
             diff(self.binary, gt_norm_path, norm_dict, error_dir, reset=reset)
 
 
-def wrapper(target, output_dir):
-    preproc = Preprocessing(target, output_dir)
-    preproc.run()
-
-
 import argparse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='manager')
@@ -100,7 +94,6 @@ if __name__ == '__main__':
     parser.add_argument('output_dir', type=str, help='output_dir')
     parser.add_argument('build_path', type=str, help='build_path')
 
-    parser.add_argument('--no-preprocessing', dest='preprocessing', action='store_false')
     parser.add_argument('--ramblr', type=str, help='ramblr output')
     parser.add_argument('--retrowrite', type=str, help='retrowrite output')
     parser.add_argument('--ddisasm', type=str, help='ddisasm output')
