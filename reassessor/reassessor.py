@@ -31,10 +31,10 @@ class Reassessor:
         norm_dir = '%s/norm_db'%(self.output_dir)
         os.system('mkdir -p %s'%(norm_dir))
         gt_norm_path = '%s/gt.db'%(norm_dir)
-        print('python3 -m reassessor.normalizer.gt %s %s %s --reloc %s --build_path %s'%(self.binary, self.assem_dir, gt_norm_path, self.target, self.build_path))
         if os.path.exists(gt_norm_path) and not reset:
             pass
         else:
+            print('python3 -m reassessor.normalizer.gt %s %s %s --reloc %s --build_path %s'%(self.binary, self.assem_dir, gt_norm_path, self.target, self.build_path))
             gt = NormalizeGT(self.binary, self.assem_dir, build_path=self.build_path, reloc_file=self.target)
             gt.normalize_data()
             gt.save(gt_norm_path)
@@ -43,20 +43,22 @@ class Reassessor:
 
         for tool, reassem_path in reassem_dict.items():
             reassem = None
+            cmd = ''
             if tool == 'ramblr':
                 norm_path = '%s/ramblr.db'%(norm_dir)
-                print('python3 -m reassessor.normalizer.ramblr %s %s %s'%(self.binary, reassem_path, norm_path))
+                cmd = 'python3 -m reassessor.normalizer.ramblr %s %s %s'%(self.binary, reassem_path, norm_path)
                 reassem = NormalizeRamblr(self.binary, reassem_path)
             if tool == 'retrowrite':
                 norm_path = '%s/retrowrite.db'%(norm_dir)
-                print('python3 -m reassessor.normalizer.retro %s %s %s'%(self.binary, reassem_path, norm_path))
+                cmd = 'python3 -m reassessor.normalizer.retro %s %s %s'%(self.binary, reassem_path, norm_path)
                 reassem = NormalizeRetro(self.binary, reassem_path)
             if tool == 'ddisasm':
                 norm_path = '%s/ddisasm.db'%(norm_dir)
-                print('python3 -m reassessor.normalizer.ddisasm %s %s %s'%(self.binary, reassem_path, norm_path))
+                cmd = 'python3 -m reassessor.normalizer.ddisasm %s %s %s'%(self.binary, reassem_path, norm_path)
                 reassem = NormalizeDdisasm(self.binary, reassem_path)
 
             if not os.path.exists(norm_path) or reset:
+                print(cmd)
                 reassem.normalize_inst()
                 reassem.normalize_data()
                 reassem.save(norm_path)
@@ -66,19 +68,23 @@ class Reassessor:
 
         return gt_norm_path, norm_dict
 
-    def run_differ(self, gt_norm_path, norm_dict):
+    def run_differ(self, gt_norm_path, norm_dict, reset=False):
         error_dir = '%s/errors'%(self.output_dir)
         cmd = 'python3 -m reassessor.differ.diff %s %s %s'%(self.binary, gt_norm_path, error_dir)
+        bRun = False
         if 'ramblr' in norm_dict:
+            bRun = True
             cmd += ' --ramblr %s'%(norm_dict['ramblr'])
         if 'retrowrite' in norm_dict:
+            bRun = True
             cmd += ' --retro %s'%(norm_dict['retrowrite'])
         if 'ddisasm' in norm_dict:
+            bRun = True
             cmd += ' --ddisasm %s'%(norm_dict['ddisasm'])
 
-        print(cmd)
-
-        diff(self.binary, gt_norm_path, norm_dict, error_dir)
+        if bRun:
+            print(cmd)
+            diff(self.binary, gt_norm_path, norm_dict, error_dir, reset=reset)
 
 
 def wrapper(target, output_dir):
