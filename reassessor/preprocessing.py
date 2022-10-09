@@ -1,6 +1,5 @@
 from abc import abstractmethod
 import os, sys
-from elftools.elf.elffile import ELFFile
 
 useless_sections = ['.rel.init', '.rel.text', '.rel.fini', '.rel.rodata', '.rel.eh_frame',
                     '.rel.init_array', '.rel.fini_array', '.rel.debug_aranges', '.rel.debug_info',
@@ -20,10 +19,6 @@ def copy_and_strip(target, binary, strip_binary):
     remove_useless_sections(binary)
     os.system('cp %s %s'%(binary, strip_binary))
     os.system('strip %s'%(strip_binary))
-
-
-
-
 
 class Preprocessing:
     def __init__(self, target, output_dir):
@@ -62,14 +57,19 @@ class Preprocessing:
             ddisasm = Ddisasm(self.strip, self.reassem_dir)
             self.ddisasm_output = ddisasm.reassembly(reset)
 
-
-
 class Reassembly:
-    def __init__(self, binary, output_dir):
-        f = open(binary, 'rb')
-        self.elffile = ELFFile(f)
-        self.arch   = self.check_arch()
-        self.pie    = self.check_pie()
+    def __init__(self, binary, output_dir, arch='', pie=''):
+        if not arch or not pie:
+            with open(binary, 'rb') as f:
+                from elftools.elf.elffile import ELFFile
+                self.elffile = ELFFile(f)
+                self.arch   = self.check_arch()
+                self.pie    = self.check_pie()
+
+        if arch in ['x86', 'x64']:
+            self.arch = arch
+        if pie in ['pie', 'nopie']:
+            self.pie = pie
 
         self.target = binary
         self.base_name = os.path.basename(binary)
@@ -156,16 +156,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    preprocessing = Preprocessing(args.target, args.output_dir)
-    preprocessing.run(bRamblr=args.ramblr, bRetro=args.retrowrite, bDdisasm=args.ddisasm)
-    '''
-    if args.ramblr:
-        ramblr = Ramblr(args.target, args.output_dir)
-        ramblr.reassembly()
-    if args.retrowrite:
-        retrowrite = RetroWrite(args.target, args.output_dir)
-        retrowrite.reassembly()
-    if args.ddisasm:
-        ddisasm = Ddisasm(args.target, args.output_dir)
-        ddisasm.reassembly()
-    '''
+    if args.ramblr or args.retrowrite or args.ddisasm:
+        preprocessing = Preprocessing(args.target, args.output_dir)
+        preprocessing.run(bRamblr=args.ramblr, bRetro=args.retrowrite, bDdisasm=args.ddisasm)
