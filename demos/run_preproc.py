@@ -14,7 +14,7 @@ def single_run(target):
     output_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
     conf = BuildConf(target, input_root, sub_dir, output_dir, arch, popt, package)
 
-    job(conf)
+    job(conf, reset=True)
 
 def gen_option(input_root, output_root, package):
     ret = []
@@ -37,7 +37,7 @@ def gen_option(input_root, output_root, package):
                             cnt += 1
     return ret
 
-def job(conf):
+def job(conf, reset=False):
 
     ramblr_output = conf.output_dir+'/reassem/ramblr.s'
     retrowrite_output = conf.output_dir+'/reassem/retrowrite.s'
@@ -51,18 +51,18 @@ def job(conf):
 
     if conf.pie != 'pie':
         reassem_dict['retrowrite'] = False
-        if os.path.exists(ramblr_output):
+        if not reset and os.path.exists(ramblr_output):
             reassem_dict['ramblr'] = False
-        if os.path.exists(ddisasm_output):
+        if not reset and os.path.exists(ddisasm_output):
             reassem_dict['ddisasm'] = False
     else:
         reassem_dict['ramblr'] = False
         if conf.arch != 'x64':
             reassem_dict['retrowrite'] = False
         else:
-            if os.path.exists(retrowrite_output):
+            if not reset and os.path.exists(retrowrite_output):
                 reassem_dict['retrowrite'] = False
-        if os.path.exists(ddisasm_output):
+        if not reset and os.path.exists(ddisasm_output):
             reassem_dict['ddisasm'] = False
 
     options = ''
@@ -82,7 +82,7 @@ def job(conf):
     #preproc.run(reset=False, bDdisasm, bRamblr, bRetro)
 
 
-def run(package, core=1):
+def run(package, core=1, reset=False):
     if package not in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         return False
     input_root= './dataset'
@@ -91,10 +91,10 @@ def run(package, core=1):
 
     if core and core > 1:
         p = multiprocessing.Pool(core)
-        p.map(job, [(conf) for conf in config_list])
+        p.starmap(job, [(conf,reset) for conf in config_list])
     else:
         for conf in config_list:
-            job(conf)
+            job(conf, reset)
 
 
 import argparse
@@ -103,16 +103,16 @@ if __name__ == '__main__':
     parser.add_argument('--package', type=str, help='Package')
     parser.add_argument('--core', type=int, default=1, help='Number of cores to use')
     parser.add_argument('--target', type=str)
+    parser.add_argument('--reset', action='store_true')
 
     args = parser.parse_args()
 
     if args.target:
         single_run(args.target)
     elif args.package:
-        run(args.package, args.core)
+        run(args.package, args.core, args.reset)
     else:
-        #for package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-        for package in ['binutils-2.31.1']:
-            run(package, args.core)
+        for package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
+            run(package, args.core, args.reset)
 
 
