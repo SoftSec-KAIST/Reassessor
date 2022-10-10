@@ -2,7 +2,7 @@ from collections import namedtuple
 import glob, os
 import multiprocessing
 
-BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_path', 'arch', 'pie', 'package'])
+BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_path', 'arch', 'pie', 'package', 'bin'])
 
 def single_run(target, bDocker=False):
     input_path = './dataset'
@@ -33,10 +33,11 @@ def gen_option(input_root, output_root, package):
                         for target in glob.glob('%s/reloc/*'%(input_dir)):
 
                             filename = os.path.basename(target)
+                            binpath = '%s/bin/%s'%(input_dir, filename)
 
                             out_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
 
-                            ret.append(BuildConf(target, input_root, sub_dir, out_dir, arch, popt, package))
+                            ret.append(BuildConf(target, input_root, sub_dir, out_dir, arch, popt, package, binpath))
 
                             cnt += 1
     return ret
@@ -58,16 +59,16 @@ def job(conf):
     from reassessor.reassessor import Reassessor
 
     if conf.package in ['spec_cpu2006']:
-        reassessor = Reassessor(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), conf.output_path, conf.input_root)
+        reassessor = Reassessor(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), conf.output_path, build_path = conf.input_root, bin_path=conf.bin)
     else:
-        reassessor = Reassessor(conf.target, '%s/%s/asm'%(conf.input_root, conf.sub_dir), conf.output_path, conf.input_root)
+        reassessor = Reassessor(conf.target, '%s/%s/asm'%(conf.input_root, conf.sub_dir), conf.output_path, build_path = conf.input_root, bin_path=conf.bin)
 
     reassessor.run(reassem_dict)
 
 def docker_job(conf):
     filename=os.path.basename(conf.target)
     cmd = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor sh -c '%(os.path.abspath(conf.input_root), os.path.abspath(conf.output_path))
-    cmd += '"python3 -m Reassessor.reassessor.reassessor /input/%s/reloc/%s /input/%s/asm /output/ /input/'%(conf.sub_dir, filename, conf.sub_dir)
+    cmd += '"python3 -m Reassessor.reassessor.reassessor /input/%s/reloc/%s /input/%s/asm /output/ --build_path /input/ --build_path /input/%s/bin/%s'%(conf.sub_dir, filename, conf.sub_dir, conf.sub_dir, filename)
     if os.path.exists(conf.output_path+'/reassem/ramblr.s'):
         cmd += ' --ramblr /output/reassem/ramblr.s'
     if os.path.exists(conf.output_path+'/reassem/retrowrite.s'):
@@ -76,7 +77,7 @@ def docker_job(conf):
         cmd += ' --ddisasm /output/reassem/ddisasm.s'
     cmd += '"'
     print(cmd)
-    #os.system(cmd)
+    os.system(cmd)
 
 
 def run(package, core=1, bDocker=False):

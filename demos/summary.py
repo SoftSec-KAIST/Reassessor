@@ -35,8 +35,6 @@ class RecCounter:
         for stype in range(1, 9):
             self.board[stype]['tp'] += counter.board[stype]['tp']
             self.board[stype]['fp'] += counter.board[stype]['fp']
-            self.board[stype]['fatal_fp'] += counter.board[stype]['fatal_fp']
-            self.board[stype]['non-fatal_fp'] += counter.board[stype]['non-fatal_fp']
             self.board[stype]['fn'] += counter.board[stype]['fn']
 
 
@@ -63,8 +61,6 @@ class RecCounter:
             for stype in range(1, 9):
                 self.board[stype]['tp'] += rec.record[stype].tp
                 self.board[stype]['fp'] += rec.record[stype].fp.length()
-                self.board[stype]['fatal_fp'] += rec.record[stype].fp.critical_errors()
-                self.board[stype]['non-fatal_fp'] += rec.record[stype].fp.length() - rec.record[stype].fp.critical_errors()
                 self.board[stype]['fn'] += rec.record[stype].fn.length()
 
                 if rec.record[stype].fp.length():
@@ -76,9 +72,6 @@ class RecCounter:
                 self.no_error += 1
 
             self.tot_gt += rec.gt
-        if not os.path.exists(disasm_path):
-            #print(disasm_path)
-            return
 
         with open(disasm_path) as fp:
             data = fp.readline()
@@ -111,7 +104,6 @@ global_no = 0
 def gen_option(input_root, output_root):
     ret = []
     global global_no
-    #for package in ['spec_cpu2006']:
     for package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         for arch in ['x86', 'x64']:
             for comp in ['clang', 'gcc']:
@@ -133,7 +125,7 @@ def gen_option(input_root, output_root):
                                         continue
 
                                     pickle_file = '%s/errors/%s/sym_errors.dat'%(output_dir, tool)
-                                    disasm = '%s/errors/%s/disasm_diff.dat'%(output_dir, tool)
+                                    disasm = '%s/errors/%s/disasm_diff.txt'%(output_dir, tool)
 
                                     ret.append(BuildConf(tool, target, pickle_file, disasm, global_no))
                                     global_no += 1
@@ -187,10 +179,8 @@ class Manager:
 
         for stype in range(1, 9):
             print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
-            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
-            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fatal_fp'], retro.board[stype]['fatal_fp'], ddisasm.board[stype]['fatal_fp']))
-            print('%7s  # of FPs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['non-fatal_fp'], retro.board[stype]['non-fatal_fp'], ddisasm.board[stype]['non-fatal_fp']))
-            print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
+            print('%7s  # of FNs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
+            print('%7s  # of FPs  %12d  %12d  %12d'%('',ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
             print('-' * 60 )
 
         print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.disasm_tp, retro.disasm_tp, ddisasm.disasm_tp))

@@ -2,7 +2,7 @@ from collections import namedtuple
 import glob, os
 import multiprocessing
 
-BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_dir', 'arch', 'pie', 'package'])
+BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_dir', 'arch', 'pie', 'package', 'bin', 'stripbin'])
 
 def single_run(target):
     input_root = './dataset'
@@ -30,9 +30,11 @@ def gen_option(input_root, output_root, package):
 
                             filename = os.path.basename(target)
 
+                            binpath = '%s/bin/%s'%(input_dir, filename)
+                            stripbin = '%s/stripbin/%s'%(input_dir, filename)
                             output_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
 
-                            ret.append(BuildConf(target, input_root, sub_dir, output_dir, arch, popt, package))
+                            ret.append(BuildConf(target, input_root, sub_dir, output_dir, arch, popt, package, binpath, stripbin))
 
                             cnt += 1
     return ret
@@ -75,11 +77,12 @@ def job(conf, reset=False):
             bRun = True
 
     if bRun:
-        print('python3 ../reassessor/preprocessing.py %s %s %s'%(conf.target, conf.output_dir, options))
+        print('python3 ../reassessor/preprocessing.py %s %s %s --bin_path %s --stripbin %s'%(conf.target, conf.output_dir, options, conf.bin, conf.stripbin))
+        os.system('python3 ../reassessor/preprocessing.py %s %s %s --bin_path %s --stripbin %s'%(conf.target, conf.output_dir, options, conf.bin, conf.stripbin))
 
-    #from reassessor.preprocessing import Preprocessing
-    #preproc = Preprocessing(conf.target, conf.output_dir, arch=conf.arch, pie=conf.pie)
-    #preproc.run(reset=False, bDdisasm, bRamblr, bRetro)
+        #from reassessor.preprocessing import Preprocessing
+        #preproc = Preprocessing(conf.target, conf.output_dir, arch=conf.arch, pie=conf.pie, bin_path=conf.bin, stripbin_path=conf.stripbin)
+        #preproc.run(reset=False, bDdisasm, bRamblr, bRetro)
 
 
 def run(package, core=1, reset=False):
