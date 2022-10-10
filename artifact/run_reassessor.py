@@ -67,7 +67,7 @@ def job(conf):
 
 def docker_job(conf):
     filename=os.path.basename(conf.target)
-    cmd = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor sh -c '%(os.path.abspath(conf.input_root), os.path.abspath(conf.output_path))
+    cmd = 'sudo docker run --rm -v %s:/input -v %s:/output Reassessor sh -c '%(os.path.abspath(conf.input_root), os.path.abspath(conf.output_path))
     cmd += '"python3 -m Reassessor.reassessor.reassessor /input/%s/reloc/%s /input/%s/asm /output/ --build_path /input/ --build_path /input/%s/bin/%s'%(conf.sub_dir, filename, conf.sub_dir, conf.sub_dir, filename)
     if os.path.exists(conf.output_path+'/reassem/ramblr.s'):
         cmd += ' --ramblr /output/reassem/ramblr.s'
