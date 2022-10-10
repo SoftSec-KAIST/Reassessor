@@ -4,17 +4,27 @@ from .normalizer.ramblr import NormalizeRamblr
 from .normalizer.retro import NormalizeRetro
 from .normalizer.ddisasm import NormalizeDdisasm
 from .differ.diff import diff
+from .preprocessing import remove_useless_sections
 
 class Reassessor:
-    def __init__(self, target, assem_dir, output_dir, build_path):
+    def __init__(self, target, assem_dir, output_dir, bin_path = '', build_path=''):
         self.target =  os.path.abspath(target)
         self.assem_dir  =  os.path.abspath(assem_dir)
         self.output_dir =  os.path.abspath(output_dir)
-        self.build_path = os.path.abspath(build_path)
+
+        if build_path:
+            self.build_path = os.path.abspath(build_path)
+        else:
+            self.build_path = self.assem_dir
 
         #copy binary
         self.base_name = os.path.basename(self.target)
-        self.binary = '%s/bin/%s'%(self.output_dir, self.base_name)
+
+        if bin_path:
+            self.binary = bin_path
+        else:
+            self.binary = '%s/bin/%s'%(self.output_dir, self.base_name)
+
         if not os.path.exists(self.binary):
             os.system('mkdir -p %s/bin'%(self.output_dir))
             os.system('cp %s %s'%(self.target, self.binary))
@@ -92,7 +102,8 @@ if __name__ == '__main__':
     parser.add_argument('target', type=str, help='Target Binary')
     parser.add_argument('assem_dir', type=str, help='Assembly Directory')
     parser.add_argument('output_dir', type=str, help='output_dir')
-    parser.add_argument('build_path', type=str, help='build_path')
+    parser.add_argument('--bin_path', type=str, help='Non-stripped binary path')
+    parser.add_argument('--build_path', type=str, help='build_path')
 
     parser.add_argument('--ramblr', type=str, help='ramblr output')
     parser.add_argument('--retrowrite', type=str, help='retrowrite output')
@@ -108,7 +119,7 @@ if __name__ == '__main__':
         reassem_dict['ddisasm']  = args.ddisasm
 
     if reassem_dict:
-        reassessor = Reassessor(args.target, args.assem_dir, args.output_dir, args.build_path)
+        reassessor = Reassessor(args.target, args.assem_dir, args.output_dir, bin_path = args.bin_path, build_path = args.build_path)
         gt_norm_path, norm_dict = reassessor.run_normalizer(reassem_dict)
         reassessor.run_differ(gt_norm_path, norm_dict)
 

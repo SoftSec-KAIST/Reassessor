@@ -15,21 +15,29 @@ def remove_useless_sections(binary):
         os.system('objcopy --remove-section %s %s'%(section, binary))
 
 def copy_and_strip(target, binary, strip_binary):
-    os.system('cp %s %s'%(target, binary))
-    remove_useless_sections(binary)
-    os.system('cp %s %s'%(binary, strip_binary))
-    os.system('strip %s'%(strip_binary))
+    if not os.path.exists(binary):
+        os.system('cp %s %s'%(target, binary))
+        remove_useless_sections(binary)
+    if not os.path.exists(strip_binary):
+        os.system('cp %s %s'%(binary, strip_binary))
+        os.system('strip %s'%(strip_binary))
 
 class Preprocessing:
-    def __init__(self, target, output_dir):
+    def __init__(self, target, output_dir, bin_path='', stripbin_path=''):
         self.target =  os.path.abspath(target)
         self.output_dir =  os.path.abspath(output_dir)
         self.reassem_dir =  '%s/reassem'%(self.output_dir)
 
         #copy bin & strip binary
         self.base_name = os.path.basename(self.target)
-        self.binary = '%s/bin/%s'%(self.output_dir, self.base_name)
-        self.strip  = '%s/stripbin/%s'%(self.output_dir, self.base_name)
+        if bin_path:
+            self.binary = bin_path
+        else:
+            self.binary = '%s/bin/%s'%(self.output_dir, self.base_name)
+        if stripbin_path:
+            self.strip  = stripbin_path
+        else:
+            self.strip  = '%s/stripbin/%s'%(self.output_dir, self.base_name)
 
         self.retrowrite_output = ''
         self.ramblr_output = ''
@@ -71,7 +79,7 @@ class Reassembly:
         if pie in ['pie', 'nopie']:
             self.pie = pie
 
-        self.target = binary
+        self.target = os.path.abspath(binary)
         self.base_name = os.path.basename(binary)
         self.output_dir = output_dir
 
@@ -150,12 +158,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='manager')
     parser.add_argument('target', type=str, help='Target Binary')
     parser.add_argument('output_dir', type=str, help='output_dir')
+    parser.add_argument('--bin_path', type=str, help='Non-stripped Binary')
+    parser.add_argument('--stripbin', type=str, help='Stripped Binary')
     parser.add_argument('--no-ramblr', dest='ramblr', action='store_false', help='Do not run ramblr')
     parser.add_argument('--no-retrowrite', dest='retrowrite', action='store_false', help='Do not run retrowrite')
     parser.add_argument('--no-ddisasm', dest='ddisasm', action='store_false', help='Do not run ddisasm')
 
+
     args = parser.parse_args()
 
     if args.ramblr or args.retrowrite or args.ddisasm:
-        preprocessing = Preprocessing(args.target, args.output_dir)
+        preprocessing = Preprocessing(args.target, args.output_dir, bin_path=args.bin_path, stripbin_path=args.stripbin)
         preprocessing.run(bRamblr=args.ramblr, bRetro=args.retrowrite, bDdisasm=args.ddisasm)
