@@ -70,13 +70,13 @@ You can use a docker image to try out FunSeeker quickly.
 The following command will build the docker image name `Reassessor`,
 using our [Dockerfile](https://github.com/SoftSec-KAIST/Reassessor/blob/main/Dockerfile).
 ```
-docker build --tag Reassessor .
+$ docker build --tag reassessor .
 ```
 
 Next, you should use the `docker` command to run `Reassessor`.
 
 ```
-docker run --rm Reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
+$ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
 ### Example
@@ -109,7 +109,7 @@ disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 
 Also, you can use `docker` command to run Reassessor.
 ```
-$ docker run --rm -v $(pwd):/input Reassessor sh -c "python3 -m Reassessor.reassessor.reassessor /input/example/src/hello /input/example/ /input/output --retrowrite /input/output/reassem/retrowrite.s"
+$ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m Reassessor.reassessor.reassessor /input/example/src/hello /input/example/ /input/output --retrowrite /input/output/reassem/retrowrite.s"
 ```
 
 
@@ -166,5 +166,5 @@ at KAIST and UT Dallas.
 
 ### Citation
 
-If you plan to use Reassessor in your own research, please consider citing our
-paper
+(TBD)
+
