@@ -62,7 +62,8 @@ and it requires <em>reassembly files</em> to check.
 Our current versions support Ramblr, RetroWrite, and Ddisasm.
 Then, Reassessor will emit report files on <output\_directory>
 ```
-$ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
+$ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
+  [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
 ### Docker
@@ -76,7 +77,8 @@ $ docker build --tag reassessor .
 Next, you should use the `docker` command to run `Reassessor`.
 
 ```
-$ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
+$ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> \
+  <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
 ### Example
@@ -100,7 +102,8 @@ ddisasm.s  retrowrite.s
 
 3. Run Reassessor
 ```
-$ python3 -m reassessor.reassessor ./example/src/hello ./example ./output  --retrowrite ./output/reassem/retrowrite.s
+$ python3 -m reassessor.reassessor ./example/src/hello ./example ./output  \
+  --retrowrite ./output/reassem/retrowrite.s
 $ ls ./output/norm_db
 gt.db  retrowrite.db
 $ ls ./output/errors/retrowrite
@@ -109,7 +112,9 @@ disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 
 Also, you can use `docker` command to run Reassessor.
 ```
-$ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m Reassessor.reassessor.reassessor /input/example/src/hello /input/example/ /input/output --retrowrite /input/output/reassem/retrowrite.s"
+$ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m Reassessor.reassessor.reassessor \
+  /input/example/src/hello /input/example/ /input/output \
+  --retrowrite /input/output/reassem/retrowrite.s"
 ```
 
 
@@ -135,17 +140,17 @@ Please check our [Artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/m
 
 ### Contributions of our works
 
-Reassessor found several unseen reassembly errors.
-We creates issues and a PR to resolve the errors.
+Reassessor found plentiful symbolization errors from stat-of-art reassemblers.
+Also, we discovered unseened reassembly errors. We made RP and issues to resolve the errors.
 
 - Ramblr
     - [issue 3549](https://github.com/angr/angr/issues/3549) (1 Oct 2022)
     - [issue 39](https://github.com/angr/patcherex/issues/39) (21 Jan 2022)
 
 - RetroWrite
+    - [PR](https://github.com/HexHive/retrowrite/pull/36) (26 May 2022)
     - [issue 45](https://github.com/HexHive/retrowrite/issues/45) (1 Oct 2022)
     - [issue 38](https://github.com/HexHive/retrowrite/issues/38) (6 Jun 2022)
-    - [PR 36](https://github.com/HexHive/retrowrite/pull/36) (26 May 2022)
     - [issue 35](https://github.com/HexHive/retrowrite/issues/35) (9 May 2022)
     - [issue 29](https://github.com/HexHive/retrowrite/issues/29) (13 Oct 2021)
 
