@@ -296,13 +296,8 @@ class CompGen:
                             imm = self.create_component(addr, op_str.split('(')[0], imm_list[0])
                             continue
 
-                    #if len(disp_list) != 1 or disp is not None:
-                    #    import pdb
-                    #    pdb.set_trace()
                     assert len(disp_list) == 1 and disp is None, 'Unexpected operand type'
 
-                    #if '@GOT' in op_str and "@GOTPCREL" not in op_str:
-                    #    disp_list[0] += self.got_addr
 
                     disp = self.create_component(addr, op_str, disp_list[0])
 
@@ -570,8 +565,6 @@ class FactorList:
         base_label = self.labels[1][1:]
         base_addr = self.label_to_addr(base_label)
         if self.value != 0 and base_addr <= 0:
-            import pdb
-            pdb.set_trace()
             assert base_addr > 0, 'This is incorrect jump table base'
 
         if self.value == 0:
@@ -596,8 +589,6 @@ class ExParser:
         self.line = self._strip(expr)
         result =  self._exp()
         if self.line != '':
-            import pdb
-            pdb.set_trace()
             raise SyntaxError('Unexpected character after expression: ' + self.line)
         return result
 
@@ -740,8 +731,6 @@ class IntelExParser(ExParser):
 
         if result and re.search('^[0-9]*@GOTOFF', result[-1].data):
             # [EBX+_ZN4Data5SetUpINS_12Exercise_2_3ILi3EEELi3EE15right_hand_sideE+12@GOTOFF]
-            #import pdb
-            #pdb.set_trace()
             for factor in result[:-1]:
                 if factor.data and not factor.data.isdigit():
                     factor.data += '@GOTOFF'

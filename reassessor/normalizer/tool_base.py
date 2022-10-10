@@ -129,8 +129,6 @@ class NormalizeTool:
                         try:
                             insn = self.prog.disasm(self.cs, addr, addr + 16)
                         except IndexError:
-                            import pdb
-                            pdb.set_trace()
                             raise SyntaxError('Unexpected byte code')
 
             instr = self.comp_gen.get_instr(addr, self.reassem_path, asm_token)

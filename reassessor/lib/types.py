@@ -51,8 +51,7 @@ class Label:
     def __eq__(self, other):
         if not isinstance(other, Label):
             return False
-        #return self.Address == other.Address and self.Ty == other.Ty
-        #HSKIM. allow external symbol
+        #allow external symbol
         return (self.Address == other.Address or other.Address == -1) and self.Ty == other.Ty
 
     def __str__(self):

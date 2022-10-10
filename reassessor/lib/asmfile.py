@@ -82,8 +82,7 @@ class AsmFileInfo:
         fid = int(terms[1])
         no = int(terms[2])
         if fid not in self.debug_loc_paths:
-            import pdb
-            pdb.set_trace()
+            assert False, 'Could not get loc info'
         path = self.debug_loc_paths[fid]
         return LocInfo(path, no)
 
@@ -212,7 +211,6 @@ class AsmFileInfo:
 
             if terms[0] in ['.size'] :
                 if terms[1][:-1] in [func_name]:
-                    #print(self.get_line())
                     break
             # because of xxxx.cold @function
             elif terms[0] in ['.cfi_endproc']:
@@ -264,9 +262,6 @@ if __name__ == '__main__':
     asmfile = AsmFileInfo(args.file_path)
 
     amsfile.scan()
-    #import pdb
-    #pdb.set_trace()
-    #print(args.file_path)
 
 
 

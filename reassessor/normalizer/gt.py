@@ -594,7 +594,6 @@ class NormalizeGT:
 
     def assem_addr_map(self, func_code, asm_token_list, candidate_len, debug=False):
 
-        import pdb
         addressed_asm_list = []
         idx = 0
         for bin_asm in func_code:
@@ -631,11 +630,7 @@ class NormalizeGT:
 
                     if new_dwarf_set2 - new_dwarf_set1:
                         if debug:
-                            #pdb.set_trace()
                             pass
-                        #if 0 == len(addressed_asm_list) and 0 == len(dwarf_set2 - dwarf_set1):
-                        #    pass
-                        #else:
                         return []
 
             if isinstance(asm_token, LocInfo):
@@ -645,7 +640,6 @@ class NormalizeGT:
                     continue
                 elif debug:
                     # some debug info might be omitted
-                    # pdb.set_trace()
                     while isinstance(asm_token, LocInfo):
                         idx += 1
                         asm_token = asm_token_list[idx]
@@ -668,12 +662,9 @@ class NormalizeGT:
                 if candidate_len > 1:
                     if debug:
                         pass
-                        #pdb.set_trace()
                     return []
                 print(bin_asm)
                 print('%s %s'%(asm_token.opcode, ' '.join(asm_token.operand_list)))
-                import pdb
-                pdb.set_trace()
                 addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
                 #return []
                 #assert False, 'Unexpacted instruction sequence'
@@ -682,8 +673,6 @@ class NormalizeGT:
         if idx < len(asm_token_list):
             for idx2 in range(idx, len(asm_token_list)):
                 if not isinstance(asm_token_list[idx2], LocInfo):
-                    if debug:
-                        pdb.set_trace()
                     #assert False, 'Unexpacted instruction sequence'
                     return []
 
@@ -856,8 +845,6 @@ class NormalizeGT:
         reloc_set = set(self.relocs)
 
         if comp_set - reloc_set:
-            import pdb
-            pdb.set_trace()
             print(comp_set - reloc_set)
 
         for asm_path, asm_file in self.asm_file_dict.items():
