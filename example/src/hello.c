@@ -10,11 +10,14 @@ void foo(int input){
     case 3:  output = bar[3]; break;
     default: break;
   }
-  printf("In:%d, Out:%d\n", input, output);
 }
 int main()
 {
-    int i = getchar();
+    int i;
     foo(i);
+    for (i=0; i < 4; ++i){
+        foo(i);
+        printf("Hello World [In:%d, Out:%d]\n", i, output);
+    }
     return 0;
 }
