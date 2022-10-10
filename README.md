@@ -1,11 +1,12 @@
-# Reassessor
+Reassessor
+========
 
-REASSESSOR is an automated tool to search symbolization errors from
-reassembler-generated assembly files. The details of the algorithm in our
-paper "Reassembly is Hard: A Reflection on Challenges and Strategies" which
-will appear in USENIX Security 2023.
+[Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
+to search symbolization errors from reassembler-generated assembly files. The
+details of the algorithm in our paper "Reassembly is Hard: A Reflection on
+Challenges and Strategies" which will appear in USENIX Security 2023.
 
-### Install
+# Install
 
 1. Clone Reassessor
 ```
@@ -32,7 +33,7 @@ $ python3 setup.py install --user
 ```
 
 
-### (Optional) Perform Preprocessing Step
+# (Optional) Perform Preprocessing Step
 
 If you alrady obtain reassembly files, you should skip this step.
 
@@ -53,7 +54,7 @@ please edit <em>command\_line</em> used in
 [reassembly()](https://github.com/SoftSec-KAIST/Reassessor/blob/main/reassessor/preprocessing.py) methods.
 
 
-### Run Reassessor
+# Run Reassessor
 
 You run Reassessor to search reassembly errors.
 At a high level, Reassessor search errors by diffing the compiler generated-assembly file and reassembly file.
@@ -66,7 +67,8 @@ $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_di
   [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
-### Docker
+# Docker
+
 You can use a docker image to try out FunSeeker quickly.
 The following command will build the docker image name `Reassessor`,
 using our [Dockerfile](https://github.com/SoftSec-KAIST/Reassessor/blob/main/Dockerfile).
@@ -81,7 +83,7 @@ $ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <ass
   <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
-### Example
+# Example
 
 You can run a our example code as follows.
 
@@ -129,16 +131,16 @@ E4FP [0] (Disp:3:0) 0x11a7  : movl .LC2028(%rip), %eax                  | movl b
 E4FP [0] (Disp:3:0) 0x11b8  : movl .LC202c(%rip), %eax                  | movl bar+12(%rip), %eax
 ```
 
-### Dataset
+# Dataset
 We publicize our benchmark at [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7178116.svg)](https://doi.org/10.5281/zenodo.7178116)
 
 
-### Artifacts
+# Artifacts
 
 We also publicize the artifacts to reproduce the experiments in our paper.
 Please check our [Artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact).
 
-### Contributions of our works
+# Contributions of our works
 
 Reassessor found plentiful symbolization errors from stat-of-art reassemblers.
 Also, we discovered unseened reassembly errors. We made RP and issues to resolve the errors.

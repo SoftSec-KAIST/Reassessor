@@ -1,9 +1,11 @@
-### Reassessor Artifact
+Reassessor Artifact
+========
 
-REASSESSOR is an automated tool to search reassembly errors from
-reassembler-generated assembly files. This repository contins artifact for the
-experiments in our paper "Reassembly is Hard: A Reflection on Challenges and
-Strategies" which will appear in USENIX Security 2023.
+[Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
+to search reassembly errors from reassembler-generated assembly files. This
+repository contains an artifact for the experiments in our paper "Reassembly is
+Hard: A Reflection on Challenges and Strategies" which will appear in USENIX
+Security 2023.
 
 
 1. Download & Uncompress our benchmark.
