@@ -119,7 +119,7 @@ class Ramblr(Reassembly):
         if not reset and os.path.exists(reassem_output):
             return reassem_output
 
-        command_line = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor/ramblr:64d1049 sh -c "/root/ramblr.sh /input/%s /output/ramblr"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
+        command_line = 'docker run --rm -v %s:/input -v %s:/output reassessor/ramblr:64d1049 sh -c "/root/ramblr.sh /input/%s /output/ramblr"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
         self.run_cmd(command_line, reassem_output)
         if os.path.exists(reassem_output):
             return reassem_output
@@ -134,7 +134,7 @@ class RetroWrite(Reassembly):
         if not reset and os.path.exists(reassem_output):
             return reassem_output
 
-        command_line = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor/retrowrite:613562 sh -c "python3 -m retrowrite.librw_x64.rw /input/%s /output/retrowrite.s"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
+        command_line = 'docker run --rm -v %s:/input -v %s:/output reassessor/retrowrite:613562 sh -c "python3 -m retrowrite.librw_x64.rw /input/%s /output/retrowrite.s"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
         self.run_cmd(command_line, reassem_output)
         if os.path.exists(reassem_output):
             return reassem_output
@@ -147,7 +147,7 @@ class Ddisasm(Reassembly):
         if not reset and os.path.exists(reassem_output):
             return reassem_output
 
-        command_line = 'sudo docker run --rm -v %s:/input -v %s:/output reassessor/ddisasm:1.5.3 sh -c "ddisasm --debug /input/%s --asm /output/ddisasm.s"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
+        command_line = 'docker run --rm -v %s:/input -v %s:/output reassessor/ddisasm:1.5.3 sh -c "ddisasm --debug /input/%s --asm /output/ddisasm.s"'%(os.path.dirname(self.target), self.output_dir, self.base_name)
         self.run_cmd(command_line, reassem_output)
         if os.path.exists(reassem_output):
             return reassem_output
