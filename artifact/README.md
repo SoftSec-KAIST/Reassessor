@@ -104,16 +104,16 @@ disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 
 3. Get the summary of report files
 
-You should run <em>summary.py</em> to summarize reassembly errors
-<em>summary.py</em> will examine reprot files Reassessor made and
+You should run <em>get_summary.py</em> to summarize reassembly errors
+<em>get_summary.py</em> will examine reprot files Reassessor made and
 report summarized results like Table 4 in our paper.
 ```
-$ python3 summary.py
+$ python3 get_summary.py
 ```
 
-(Optional) <em>summary.py</em> supports parallel options (`--core $(nproc)`)
+(Optional) <em>get_summary.py</em> supports parallel options (`--core $(nproc)`)
 ```
-$ python3 summary.py --core $(nproc)
+$ python3 get_summary.py --core $(nproc)
 ```
 
 
@@ -149,16 +149,16 @@ $ /bin/bash check_reparable_errors.sh
 
 5. Get the statistics of relocatable expressions.
 
-Also, you can examine compiler-gnerated assembly files by running <em>statistics.py</em>
+Also, you can examine compiler-gnerated assembly files by running <em>get_asm_statistics.py</em>
 ```
-$ python3 statistics.py
-```
-
-(Optional) <em>statistics.py</em> also supports parallel options (`--core $(nproc)`)
-```
-$ python3 statistics.py --core $(nproc)
+$ python3 get_asm_statistics.py
 ```
 
-<em>statistics.py</em> will report distributions of relocatable expression types.
+(Optional) <em>get_asm_statistics.py</em> also supports parallel options (`--core $(nproc)`)
+```
+$ python3 get_asm_statistics.py --core $(nproc)
+```
+
+<em>get_asm_statistics.py</em> will report distributions of relocatable expression types.
 
 
