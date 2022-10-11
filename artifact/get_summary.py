@@ -168,27 +168,51 @@ class Manager:
 
     def report(self, ramblr, retro, ddisasm):
         print('-' * 60 )
-        print('                   %12s  %12s  %12s'%('Ramblr', 'RetroWrite', 'Ddisasm'))
+        print('                      %12s  %12s  %12s'%('Ramblr', 'RetroWrite', 'Ddisasm'))
         print('-' * 60 )
-        print('# of Bins          %12d  %12d  %12d'%(ramblr.success, retro.success, ddisasm.success))
-        print('# of Bins (FAIL)   %12d  %12d  %12d'%(ramblr.error, retro.error, ddisasm.error))
-        print('# of Bins (TOTAL)  %12d  %12d  %12d'%(ramblr.success+ramblr.error, retro.success+retro.error, ddisasm.success+ddisasm.error))
+        print('# of tried Bins       %12d  %12d  %12d'%(ramblr.success+ramblr.error, retro.success+retro.error, ddisasm.success+ddisasm.error))
+        print('# of Bins Reassembled %12d  %12d  %12d'%(ramblr.success, retro.success, ddisasm.success))
+        #print('# of Bins (FAIL)      %12d  %12d  %12d'%(ramblr.error, retro.error, ddisasm.error))
         print('-' * 60 )
-        print('%7s  # of Succ %12d  %12d  %12d'%('',ramblr.no_error, retro.no_error, ddisasm.no_error))
+        print('# of Bins Succeeded   %12d  %12d  %12d'%(ramblr.no_error, retro.no_error, ddisasm.no_error))
         print('-' * 60 )
+
 
         for stype in range(1, 9):
-            print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
-            print('%7s  # of FNs  %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
-            print('%7s  # of FPs  %12d  %12d  %12d'%('',ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
+            if stype == 8:
+                print('%7s  # of FPs     %12d  %12d  %12d'%('E8',ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
+                print('-' * 60 )
+                continue
+
+            print('%7s  # of TPs     %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
+            print('%7s  # of FNs     %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
+            print('%7s  # of FPs     %12d  %12d  %12d'%('',ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
             print('-' * 60 )
 
-        print('%7s  # of TPs  %12d  %12d  %12d'%('',ramblr.disasm_tp, retro.disasm_tp, ddisasm.disasm_tp))
-        print('%7s  # of FPs  %12d  %12d  %12d'%('Disasm',ramblr.disasm_fp, retro.disasm_fp, ddisasm.disasm_fp))
-        print('%7s  # of FNs  %12d  %12d  %12d'%('',ramblr.disasm_fn, retro.disasm_fn, ddisasm.disasm_fn))
+        print('%7s  # of TPs     %12d  %12d  %12d'%('',ramblr.disasm_tp, retro.disasm_tp, ddisasm.disasm_tp))
+        print('%7s  # of FNs     %12d  %12d  %12d'%('Disasm',ramblr.disasm_fn, retro.disasm_fn, ddisasm.disasm_fn))
+        print('%7s  # of FPs     %12d  %12d  %12d'%('',ramblr.disasm_fp, retro.disasm_fp, ddisasm.disasm_fp))
         print('-' * 60 )
 
+        succ, total = self.get_success_ratio(ramblr, retro, ddisasm, [1,2,3,4,5,6,7])
+        print('%6.3f%% (%d/%d) relocatable expressoins are succesfully symbolizaed'%(
+            succ/total, succ, total))
 
+        succ, total = self.get_success_ratio(ramblr, retro, ddisasm, [2,4,6,7])
+        print('%6.3f%% (%d/%d) composite relocatable expressoins are succesfully symbolizaed'%(
+            succ/total, succ, total))
+
+    def get_success_ratio(self, ramblr, retro, ddisasm, slist):
+        total = 0
+        succ = 0
+        for stype in slist:
+            succ  += ramblr.board[stype]['tp'] + retro.board[stype]['tp'] + ddisasm.board[stype]['tp']
+            total += ramblr.board[stype]['tp'] + retro.board[stype]['tp'] + ddisasm.board[stype]['tp']
+            total += ramblr.board[stype]['fn'] + retro.board[stype]['fn'] + ddisasm.board[stype]['fn']
+            total += ramblr.board[stype]['fp'] + retro.board[stype]['fp'] + ddisasm.board[stype]['fp']
+
+
+        return succ, total
 
 
 import argparse
