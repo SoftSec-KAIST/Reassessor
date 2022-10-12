@@ -16,13 +16,13 @@ def gen_option(output_root):
     for tool in ['ramblr', 'retrowrite', 'ddisasm']:
         for arch in ['x86', 'x64']:
             for popt in ['pie', 'nopie']:
+                if tool in ['ramblr'] and popt in ['pie']:
+                    continue
+
+                if tool in ['retrowrite'] and (popt in ['nopie'] or arch in ['x86']):
+                    continue
+
                 for err in ['E1','E2','E3','E4','E5','E6','E7','E8']:
-                    if tool in ['ramblr'] and popt in ['pie']:
-                        continue
-
-                    if tool in ['retrowrite'] and (popt in ['nopie'] or arch in ['x86']):
-                        continue
-
                     output = 'triage/%s/%s/%s/%sFP.txt'%(tool, arch, popt, err)
                     cmd = "grep '^%sFP' %s/*/%s/*/%s/*/*/errors/%s/sym_diff.txt > %s "%(
                         err, output_root, arch, popt, tool, output)
@@ -38,6 +38,11 @@ def gen_option(output_root):
 
 
                     ret.append(BuildConf(cmd,output))
+
+                output = 'triage/%s/%s/%s/DisassemErr.txt'%(tool, arch, popt)
+                cmd = "grep '^0x' %s/*/%s/*/%s/*/*/errors/%s/disasm_diff.txt > %s "%(
+                        output_root, arch, popt, tool, output)
+                ret.append(BuildConf(cmd,output))
     return ret
 
 

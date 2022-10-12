@@ -6,6 +6,10 @@ function atom_fn()
 {
     tot=$(ls ./output/*/*/*/*/*/*/reassem/*.s | wc -l | awk '{print $1}')
 
+    grep FN triage/*/x*/*/E1FN.txt | sed "s/.*FN.txt://g" > atom_fn_cases.txt
+    grep FN triage/*/x*/*/E3FN.txt | sed "s/.*FN.txt://g">> atom_fn_cases.txt
+    grep FN triage/*/x*/*/E5FN.txt | sed "s/.*FN.txt://g">> atom_fn_cases.txt
+
     grep FN triage/*/x*/*/E1FN.txt | awk -F':' '{print $2}' | sort -u > atom_fn.txt
     grep FN triage/*/x*/*/E3FN.txt | awk -F':' '{print $2}' | sort -u >> atom_fn.txt
     grep FN triage/*/x*/*/E5FN.txt | awk -F':' '{print $2}' | sort -u >> atom_fn.txt
@@ -19,6 +23,10 @@ function atom_fn()
 function atom_fp()
 {
     tot=$(ls ./output/*/*/*/*/*/*/reassem/*.s | wc -l | awk '{print $1}')
+
+    grep ":2:" triage/*/x*/*/E1FP.txt | sed "s/.*FP.txt://g" > atom_fp_cases.txt
+    grep ":4:" triage/*/x*/*/E3FP.txt | sed "s/.*FP.txt://g">> atom_fp_cases.txt
+    grep ":6:" triage/*/x*/*/E5FP.txt | sed "s/.*FP.txt://g">> atom_fp_cases.txt
 
     grep ":2:" triage/*/x*/*/E1FP.txt | awk -F':' '{print $2}' | sort -u > atom_fp.txt
     grep ":4:" triage/*/x*/*/E3FP.txt | awk -F':' '{print $2}' | sort -u >> atom_fp.txt
@@ -35,11 +43,13 @@ function label_err()
 {
     tot=$(ls ./output/*/*/*/*/*/*/reassem/*.s | wc -l | awk '{print $1}')
 
-    grep "(ADDR:" triage/*/x*/*/E*FP.txt | awk -F':' '{print $2}' | sort -u > label_errors.txt
-    case=$(wc -l label_errors.txt | awk '{print $1}')
+    grep "(ADDR:" triage/*/x*/*/E*FP.txt | sed "s/.*FP.txt://g" > label_fp_cases.txt
 
-    sort -u label_errors.txt > label_errors_sorted.txt
-    reassem=$(wc -l label_errors_sorted.txt | awk '{print $1}')
+    grep "(ADDR:" triage/*/x*/*/E*FP.txt | awk -F':' '{print $2}' | sort -u > label_fp.txt
+    case=$(wc -l label_fp.txt | awk '{print $1}')
+
+    sort -u label_fp.txt > label_fp_sorted.txt
+    reassem=$(wc -l label_fp_sorted.txt | awk '{print $1}')
 
     result=$(calc $(($reassem))/$(($tot))*100)
     printf "Number of reassembly file that have wrong labels %s %% (%s/%s)\n" $result $reassem $tot
