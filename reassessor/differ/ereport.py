@@ -237,6 +237,11 @@ class Record:
     def dump(self, out_file):
         rec = ErrorRecord(self.stype, self.etype)
 
+        if self.adata:
+            header = '%-20s %-6s : %-40s  | %-44s'%('Error Types', 'ADDR', 'Reassembly Code' , 'Compiler-generate Code')
+            print(header, file=out_file)
+
+
         for item in sorted(self.adata):
             print(rec.to_ascii(item), file=out_file)
 
@@ -369,21 +374,6 @@ class Report:
             if ins_c.imm or ins_c.disp or ins_r.imm or ins_r.disp:
                 self.check_ins(ins_c, ins_r, addr)
 
-        # exclude disassembly errors
-        '''
-        fn = ins_addrs_c - ins_addrs_r
-        for addr in fn:
-            ins_c = self.prog_c.Instrs[addr]
-
-            if ins_c.imm or ins_c.disp:
-                self.check_ins(ins_c, None, addr)
-
-        fp = ins_addrs_r - ins_addrs_c - self.prog_c.unknown_region
-        for addr in fp:
-            ins_r = prog_r.Instrs[addr]
-            if ins_r.imm or ins_r.disp:
-                self.check_ins(None, ins_r, addr)
-        '''
 
     def compare_two_reloc_expr(self, gt_factor, tool_factor, region, addr):
         gt_reloc = None
@@ -413,7 +403,6 @@ class Report:
 
         if tool_reloc:
             tool_reloc_type = tool_reloc.type
-            #tool_target_label =  tool_reloc.terms[0].Address
             tool_target_label = (tool_reloc.terms[0].Address + tool_reloc.terms[0].Num ) + tool_reloc.num
 
             if  tool_reloc.terms[0].Address < 0:
@@ -459,8 +448,6 @@ class Report:
                     else:
                         result = ReportTy.TP
 
-            #elif tool_reloc.type == 0:
-            #    result = ReportTy.FN
             else:
                 result = ReportTy.FP
 
