@@ -88,7 +88,7 @@ class Statistics:
 
     def new_diff(self, fd, fp, fn, prog_c, prog_r):
         prev_addr = 0
-        fd.write('%-8s  %-40s  | %-40s\n'%('', 'TOOL'.center(40), 'GT'.center(40)))
+        fd.write('%-8s  %-40s  | %-40s\n'%('Address', 'Reassembly Code'.center(40), 'Compiler-generate Code'.center(40)))
         fd.write('-'*100 + '\n')
         for addr in sorted(fn.union(fp)):
             if prev_addr > 0 and prev_addr + 16 < addr:
