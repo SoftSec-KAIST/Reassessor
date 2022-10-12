@@ -238,7 +238,7 @@ class Record:
         rec = ErrorRecord(self.stype, self.etype)
 
         if self.adata:
-            header = '%-20s %-6s : %-40s  | %-44s'%('Error Types', 'ADDR', 'Reassembly Code' , 'Compiler-generate Code')
+            header = '%-20s %-6s   %-40s    %-44s'%('Error Type', 'ADDR', 'Reassembly Code' , 'Compiler-generate Code')
             print(header, file=out_file)
 
 
