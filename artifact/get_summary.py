@@ -194,13 +194,9 @@ class Manager:
         print('%7s  # of FPs     %12d  %12d  %12d'%('',ramblr.disasm_fp, retro.disasm_fp, ddisasm.disasm_fp))
         print('-' * 60 )
 
-        succ, total = self.get_success_ratio(ramblr, retro, ddisasm, [1,2,3,4,5,6,7])
-        print('%6.3f%% (%d/%d) relocatable expressoins are succesfully symbolizaed'%(
-            succ/total, succ, total))
-
         succ, total = self.get_success_ratio(ramblr, retro, ddisasm, [2,4,6,7])
-        print('%6.3f%% (%d/%d) composite relocatable expressoins are succesfully symbolizaed'%(
-            succ/total, succ, total))
+        print('* %6.3f%% (%d/%d) composite relocatable expressoins are succesfully symbolizaed'%(
+            succ/total*100, succ, total))
 
     def get_success_ratio(self, ramblr, retro, ddisasm, slist):
         total = 0
