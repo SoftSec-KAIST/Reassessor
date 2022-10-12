@@ -2,7 +2,7 @@ from collections import namedtuple
 import glob, os
 import multiprocessing
 
-BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_path', 'arch', 'pie', 'package', 'bin'])
+BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'reassem_path', 'output_path', 'arch', 'pie', 'package', 'bin'])
 
 def single_run(target, bDocker=False):
     input_path = './dataset'
@@ -20,7 +20,7 @@ def single_run(target, bDocker=False):
         docker_job(conf)
 
 
-def gen_option(input_root, output_root, package):
+def gen_option(input_root, reassem_root, output_root, package):
     ret = []
     cnt = 0
     for arch in ['x86', 'x64']:
@@ -35,9 +35,10 @@ def gen_option(input_root, output_root, package):
                             filename = os.path.basename(target)
                             binpath = '%s/bin/%s'%(input_dir, filename)
 
+                            reassem_dir = '%s/%s/%s'%(reassem_root, sub_dir, filename)
                             out_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
 
-                            ret.append(BuildConf(target, input_root, sub_dir, out_dir, arch, popt, package, binpath))
+                            ret.append(BuildConf(target, input_root, sub_dir, reassem_dir, out_dir, arch, popt, package, binpath))
 
                             cnt += 1
     return ret
@@ -45,9 +46,9 @@ def gen_option(input_root, output_root, package):
 def job(conf):
     reassem_dict = dict()
 
-    ramblr_output = conf.output_path+'/reassem/ramblr.s'
-    retrowrite_output = conf.output_path+'/reassem/retrowrite.s'
-    ddisasm_output = conf.output_path+'/reassem/ddisasm.s'
+    ramblr_output = conf.reassem_path+'/ramblr.s'
+    retrowrite_output = conf.reassem_path+'/retrowrite.s'
+    ddisasm_output = conf.reassem_path+'/ddisasm.s'
 
     if os.path.exists(ramblr_output):
         reassem_dict['ramblr'] = ramblr_output
@@ -67,14 +68,14 @@ def job(conf):
 
 def docker_job(conf):
     filename=os.path.basename(conf.target)
-    cmd = 'docker run --rm -v %s:/input -v %s:/output reassessor sh -c '%(os.path.abspath(conf.input_root), os.path.abspath(conf.output_path))
+    cmd = 'docker run --rm -v %s:/input -v %s:/output reassessor -v %s:/reassem sh -c '%(os.path.abspath(conf.input_root), os.path.abspath(conf.output_path), os.path.abspath(conf.reassem_path))
     cmd += '"python3 -m Reassessor.reassessor.reassessor /input/%s/reloc/%s /input/%s/asm /output/ --build_path /input/ --build_path /input/%s/bin/%s'%(conf.sub_dir, filename, conf.sub_dir, conf.sub_dir, filename)
-    if os.path.exists(conf.output_path+'/reassem/ramblr.s'):
-        cmd += ' --ramblr /output/reassem/ramblr.s'
-    if os.path.exists(conf.output_path+'/reassem/retrowrite.s'):
-        cmd += ' --retrowrite /output/reassem/retrowrite.s'
-    if os.path.exists(conf.output_path+'/reassem/ddisasm.s'):
-        cmd += ' --ddisasm /output/reassem/ddisasm.s'
+    if os.path.exists(conf.reassem_path+'/ramblr.s'):
+        cmd += ' --ramblr /reassem/ramblr.s'
+    if os.path.exists(conf.reassem_path+'/retrowrite.s'):
+        cmd += ' --retrowrite /reassem/retrowrite.s'
+    if os.path.exists(conf.reassem_path+'/ddisasm.s'):
+        cmd += ' --ddisasm /reassem/ddisasm.s'
     cmd += '"'
     print(cmd)
     os.system(cmd)
@@ -83,9 +84,10 @@ def docker_job(conf):
 def run(package, core=1, bDocker=False):
     if package not in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         return False
-    input_path = './dataset'
-    output_path = './output'
-    config_list = gen_option(input_path, output_path, package)
+    input_root = './dataset'
+    reassem_root = './reassem'
+    output_root = './output'
+    config_list = gen_option(input_root, reassem_root, output_root, package)
 
     if core and core > 1:
         p = multiprocessing.Pool(core)

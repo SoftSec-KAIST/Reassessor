@@ -2,7 +2,7 @@ from collections import namedtuple
 import glob, os
 import multiprocessing
 
-BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_dir', 'arch', 'pie', 'package', 'bin', 'stripbin'])
+BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'reassem_dir', 'output_dir', 'arch', 'pie', 'package', 'bin', 'stripbin'])
 
 def single_run(target):
     input_root = './dataset'
@@ -16,7 +16,7 @@ def single_run(target):
 
     job(conf, reset=True)
 
-def gen_option(input_root, output_root, package):
+def gen_option(input_root, reassem_root, output_root, package):
     ret = []
     cnt = 0
     for arch in ['x86', 'x64']:
@@ -32,18 +32,19 @@ def gen_option(input_root, output_root, package):
 
                             binpath = '%s/bin/%s'%(input_dir, filename)
                             stripbin = '%s/stripbin/%s'%(input_dir, filename)
+                            reassem_dir = '%s/%s/%s'%(reassem_root, sub_dir, filename)
                             output_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
 
-                            ret.append(BuildConf(target, input_root, sub_dir, output_dir, arch, popt, package, binpath, stripbin))
+                            ret.append(BuildConf(target, input_root, sub_dir, reassem_dir, output_dir, arch, popt, package, binpath, stripbin))
 
                             cnt += 1
     return ret
 
 def job(conf, reset=False):
 
-    ramblr_output = conf.output_dir+'/reassem/ramblr.s'
-    retrowrite_output = conf.output_dir+'/reassem/retrowrite.s'
-    ddisasm_output = conf.output_dir+'/reassem/ddisasm.s'
+    ramblr_output = conf.reassem_dir+'/ramblr.s'
+    retrowrite_output = conf.reassem_dir+'/retrowrite.s'
+    ddisasm_output = conf.reassem_dir+'/ddisasm.s'
 
     reassem_list = ['ramblr', 'retrowrite', 'ddisasm']
     reassem_dict = dict()
@@ -89,8 +90,9 @@ def run(package, core=1, reset=False):
     if package not in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         return False
     input_root= './dataset'
-    output_dir = './output'
-    config_list = gen_option(input_root, output_dir, package)
+    reassem_root = './reassem'
+    output_root = './output'
+    config_list = gen_option(input_root, reassem_root, output_root, package)
 
     if core and core > 1:
         p = multiprocessing.Pool(core)
