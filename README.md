@@ -59,7 +59,7 @@ please edit <em>command\_line</em> used in
 You run Reassessor to search reassembly errors.
 At a high level, Reassessor search errors by diffing the compiler generated-assembly file and reassembly file.
 Thus, Reassessor requires <binary\_path>, <assembly\_directory> to normalize compiler-generated assembly files,
-and it requires <em>reassembly files</em> to check.
+and also it requires <em>reassembly files</em> to check.
 Our current versions support Ramblr, RetroWrite, and Ddisasm.
 Then, Reassessor will emit report files on <output\_directory>
 ```
@@ -97,14 +97,14 @@ $ cd ..
 2. Perform preprocessing step
 ```
 $ mkdir output
-$ python3 -m reassessor.preprocessing ./example/src/hello ./output
+$ python3 -m reassessor.preprocessing ./example/bin/hello ./output
 $ ls ./output/reassem
 ddisasm.s  retrowrite.s
 ```
 
 3. Run Reassessor
 ```
-$ python3 -m reassessor.reassessor ./example/src/hello ./example ./output  \
+$ python3 -m reassessor.reassessor ./example/bin/hello ./example/asm ./output  \
   --retrowrite ./output/reassem/retrowrite.s
 $ ls ./output/norm_db
 gt.db  retrowrite.db

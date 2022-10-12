@@ -2,10 +2,16 @@ Reassessor Artifact
 ========
 
 [Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
-to search reassembly errors from reassembler-generated assembly files. This
-repository contains an artifact for the experiments in our paper "Reassembly is
+to find different types of errors that occur in current existing reassemblers.
+This artifact is designed to run the experiments in our paper. "Reassembly is
 Hard: A Reflection on Challenges and Strategies" which will appear in USENIX
-Security 2023.
+Security 2023.  In the first step, we will run the-state-of-art reassemblers,
+Ramblr, RetroWrite, and Ddisasm, in a dockerized environment to reassemble
+dataset binaries. Then, we will run R EASSESSOR to search reassembly errors.
+Lastly, we collect reassembly errors R EASSESSOR found and reproduce key
+results of our paper.  to search reassembly errors from reassembler-generated
+assembly files.
+
 
 
 1. Download & Uncompress our benchmark.
@@ -92,7 +98,7 @@ $ python3 run_reassessor.py --docker
 ```
 
 <em>run_reassessor.py</em> will search reassembly errors.
-You can find the errors under the `errors` folders.
+You can find report files under the `errors` folders.
 
 ```
 $ ls output/binutils-2.31.1/x64/clang/nopie/o0-bfd/addr2line/errors
@@ -100,6 +106,18 @@ ddisasm  ramblr
 $ ls output/binutils-2.31.1/x64/clang/nopie/o0-bfd/addr2line/errors/ddisasm
 disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 ```
+Reassessor produces report files as follows: <em>ddisasm_diff.txt</em>, <em>sys_diff.txt</em>,
+<em>sys_errors.json</em>, and <em>sys_errors.dat</em>. <em>sym_diff.txt</em>, <em>sym_errors.json</em>, and
+<em>sym_errors.data</em> contain the same symbolization error list but they have
+different representation formats. sym_diff.txt shows diffing of (re-)assembly
+files: each line contains <em>Errors Type</em>, <em>Addr</em>, <em>Reassembly Code</em>, and <em>Compiler-generate code</em>
+fields.
+<em>sym_errors.json</em> contains details of symbolization errors in JSON format.
+<em>sym_error.dat</em> is a data file containing raw metadata of symbolization errors
+which is designed to analyze errors. Lastly, <em>disasm_diff.txt</em> contains
+disassembly errors: each line contains <em>Address</em>, <em>Reassembly
+Code</em>, and <em>Compiler-generate code</em> fields.
+
 
 
 3. Get the summary of report files
@@ -115,7 +133,6 @@ $ python3 get_summary.py
 ```
 $ python3 get_summary.py --core $(nproc)
 ```
-
 
 6. Dissect reassembly errors
 
