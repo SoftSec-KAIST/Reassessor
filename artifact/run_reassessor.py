@@ -46,9 +46,9 @@ def gen_option(input_root, reassem_root, output_root, package):
 def job(conf):
     reassem_dict = dict()
 
-    ramblr_output = conf.reassem_path+'/ramblr.s'
-    retrowrite_output = conf.reassem_path+'/retrowrite.s'
-    ddisasm_output = conf.reassem_path+'/ddisasm.s'
+    ramblr_output = conf.reassem_path+'/reassem/ramblr.s'
+    retrowrite_output = conf.reassem_path+'/reassem/retrowrite.s'
+    ddisasm_output = conf.reassem_path+'/reassem/ddisasm.s'
 
     if os.path.exists(ramblr_output):
         reassem_dict['ramblr'] = ramblr_output
@@ -85,7 +85,7 @@ def run(package, core=1, bDocker=False):
     if package not in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         return False
     input_root = './dataset'
-    reassem_root = './reassem'
+    reassem_root = './output'
     output_root = './output'
     config_list = gen_option(input_root, reassem_root, output_root, package)
 

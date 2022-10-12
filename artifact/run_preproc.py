@@ -42,9 +42,9 @@ def gen_option(input_root, reassem_root, output_root, package):
 
 def job(conf, reset=False):
 
-    ramblr_output = conf.reassem_dir+'/ramblr.s'
-    retrowrite_output = conf.reassem_dir+'/retrowrite.s'
-    ddisasm_output = conf.reassem_dir+'/ddisasm.s'
+    ramblr_output = conf.reassem_dir+'/reassem/ramblr.s'
+    retrowrite_output = conf.reassem_dir+'/reassem/retrowrite.s'
+    ddisasm_output = conf.reassem_dir+'/reassem/ddisasm.s'
 
     reassem_list = ['ramblr', 'retrowrite', 'ddisasm']
     reassem_dict = dict()
@@ -90,7 +90,7 @@ def run(package, core=1, reset=False):
     if package not in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         return False
     input_root= './dataset'
-    reassem_root = './reassem'
+    reassem_root = './output'
     output_root = './output'
     config_list = gen_option(input_root, reassem_root, output_root, package)
 
