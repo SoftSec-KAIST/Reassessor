@@ -1,5 +1,5 @@
 from collections import namedtuple
-import glob, os
+import glob, os, sys
 import multiprocessing
 
 BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'reassem_path', 'output_path', 'arch', 'pie', 'package', 'bin'])
@@ -20,7 +20,7 @@ def single_run(target, bDocker=False):
         docker_job(conf)
 
 
-def gen_option(input_root, reassem_root, output_root, package):
+def gen_option(input_root, reassem_root, output_root, package, blacklist, whitelist):
     ret = []
     cnt = 0
     for arch in ['x86', 'x64']:
@@ -37,6 +37,11 @@ def gen_option(input_root, reassem_root, output_root, package):
 
                             reassem_dir = '%s/%s/%s'%(reassem_root, sub_dir, filename)
                             out_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
+
+                            if blacklist and filename in blacklist:
+                                continue
+                            if whitelist and filename not in whitelist:
+                                continue
 
                             ret.append(BuildConf(target, input_root, sub_dir, reassem_dir, out_dir, arch, popt, package, binpath))
 
@@ -58,6 +63,8 @@ def job(conf):
         reassem_dict['ddisasm'] = ddisasm_output
 
     from reassessor.reassessor import Reassessor
+    print(conf.target)
+    sys.stdout.flush()
 
     if conf.package in ['spec_cpu2006']:
         reassessor = Reassessor(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), conf.output_path, build_path = conf.input_root, bin_path=conf.bin)
@@ -81,13 +88,13 @@ def docker_job(conf):
     os.system(cmd)
 
 
-def run(package, core=1, bDocker=False):
+def run(package, core=1, bDocker=False, blacklist=None, whitelist=None):
     if package not in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         return False
     input_root = './dataset'
     reassem_root = './output'
     output_root = './output'
-    config_list = gen_option(input_root, reassem_root, output_root, package)
+    config_list = gen_option(input_root, reassem_root, output_root, package, blacklist, whitelist)
 
     if core and core > 1:
         p = multiprocessing.Pool(core)
@@ -110,13 +117,15 @@ if __name__ == '__main__':
     parser.add_argument('--core', type=int, default=1, help='Number of cores to use')
     parser.add_argument('--docker', action='store_true')
     parser.add_argument('--target', type=str)
+    parser.add_argument('--blacklist', nargs='+')
+    parser.add_argument('--whitelist', nargs='+')
 
     args = parser.parse_args()
 
     if args.target:
         single_run(args.target, args.docker)
     elif args.package:
-        run(args.package, args.core, args.docker)
+        run(args.package, args.core, args.docker, args.blacklist, args.whitelist)
     else:
         for package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
-            run(package, args.core, args.docker)
+            run(package, args.core, args.docker, args.blacklist, args.whitelist)

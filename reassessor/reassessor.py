@@ -56,18 +56,23 @@ class Reassessor:
             if tool == 'ramblr':
                 norm_path = '%s/ramblr.db'%(norm_dir)
                 cmd = 'python3 -m reassessor.normalizer.ramblr %s %s %s'%(self.binary, reassem_path, norm_path)
-                reassem = NormalizeRamblr(self.binary, reassem_path)
             if tool == 'retrowrite':
                 norm_path = '%s/retrowrite.db'%(norm_dir)
                 cmd = 'python3 -m reassessor.normalizer.retro %s %s %s'%(self.binary, reassem_path, norm_path)
-                reassem = NormalizeRetro(self.binary, reassem_path)
             if tool == 'ddisasm':
                 norm_path = '%s/ddisasm.db'%(norm_dir)
                 cmd = 'python3 -m reassessor.normalizer.ddisasm %s %s %s'%(self.binary, reassem_path, norm_path)
-                reassem = NormalizeDdisasm(self.binary, reassem_path)
 
             if not os.path.exists(norm_path) or reset:
                 print(cmd)
+                sys.stdout.flush()
+                if tool == 'ramblr':
+                    reassem = NormalizeRamblr(self.binary, reassem_path)
+                if tool == 'retrowrite':
+                    reassem = NormalizeRetro(self.binary, reassem_path)
+                if tool == 'ddisasm':
+                    reassem = NormalizeDdisasm(self.binary, reassem_path)
+
                 reassem.normalize_inst()
                 reassem.normalize_data()
                 reassem.save(norm_path)
