@@ -142,7 +142,7 @@ Please check our [artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/m
 # Contributions of our works
 
 `Reassessor` found plentiful symbolization errors from stat-of-art reassemblers.
-Also, we discovered unseened reassembly errors. We made PR and issues to resolve the errors.
+Also, we discovered unseen reassembly errors. We made PR and issues to resolve the errors.
 
 - Ramblr
     - [issue 3549](https://github.com/angr/angr/issues/3549) (1 Oct 2022)
