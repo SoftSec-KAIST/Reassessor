@@ -4,79 +4,78 @@ Reassessor
 [Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
 to search symbolization errors from reassembler-generated assembly files. The
 details of the algorithm in our paper "Reassembly is Hard: A Reflection on
-Challenges and Strategies" which will appear in USENIX Security 2023.
+Challenges and Strategies" will appear in USENIX Security 2023.
 
 # Install
 
-1. Clone Reassessor
+### 1. Clone `Reassessor`
 ```
 $ git clone https://github.com/SoftSec-KAIST/Reassessor
-$ Reassessor
+$ cd Reassessor
 ```
 
-2. Install Dependencies
+### 2. Install Dependencies
 
-Reassessor is written in Python(>= 3.6), and has dependency on
-[pyelftools](https://github.com/eliben/pyelftools.git) and
-[captone](https://pypi.org/project/capstone/).
+`Reassessor` is written in python3 (3.6), and
+it depends on [pyelftools](https://github.com/eliben/pyelftools.git) (>= 0.29) and
+[captone](https://pypi.org/project/capstone/) (>=4.0.2). 
 
 To install the dependencies, please run:
+
 ```
 $ pip3 install -r requirements.txt
 ```
 
-2. Install Reassessor
+Besides, this artifact requires `Docker` engine to run reassemblers. We assumed
+that you can run Docker commands as a non-root user since we wanted our scripts
+not to ask you for sudo password.
 
-Now you can install Reassessor as follows.
+### 3. Install Reassessor
+
 ```
 $ python3 setup.py install --user
 ```
 
+# Usage
 
-# (Optional) Perform Preprocessing Step
+### (Optional) Reassemble binaries
 
-If you alrady obtain reassembly files, you should skip this step.
-
+If you already obtained reassembly files, skip this step.
 Otherwise, you can run our preprocessing module to generate reassembly files.
+
 ```
 $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
 ```
-Then, you can get the reassembly files under the <em><output\_dir>/reassem</em>.
+Then, you can get the reassembly files under the `<output_dir>/reassem`.
 
-
-The module uses our docker images to run Ramblr (commit 64d1049, Apr. 2022),
+The module uses our `Docker` images to run Ramblr (commit 64d1049, Apr. 2022),
 RetroWrite (commit 613562, Apr. 2022), and Ddisasm v1.5.3 (docker image digests
 a803c9, Apr. 2022).
-Thus, it will download docker images from [DockerHub](https://hub.docker.com).
-
-If you want to change the reassembly command or docker images,
-please edit <em>command\_line</em> used in
-[reassembly()](https://github.com/SoftSec-KAIST/Reassessor/blob/main/reassessor/preprocessing.py) methods.
+Thus, it will download `Docker` images from [DockerHub](https://hub.docker.com).
 
 
-# Run Reassessor
 
-You run Reassessor to search reassembly errors.
-At a high level, Reassessor search errors by diffing the compiler generated-assembly file and reassembly file.
-Thus, Reassessor requires <binary\_path>, <assembly\_directory> to normalize compiler-generated assembly files,
-and also it requires <em>reassembly files</em> to check.
-Our current versions support Ramblr, RetroWrite, and Ddisasm.
-Then, Reassessor will emit report files on <output\_directory>
+### Run Reassessor
+
+At a high level, `Reassessor` searches errors by diffing the compiler generated-assembly file and reassembly file.
+Thus, `Reassessor` requires `<binary_path>`, `<assembly_directory>` to normalize compiler-generated assembly files,
+and also it requires `reassembly files` to check.
+Then, `Reassessor` will emit report files on `<output_directory>`.
 ```
 $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
   [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
-# Docker
+### Docker
 
-You can use a docker image to try out FunSeeker quickly.
+You can use a `Docker` image to try out `Reassessor` quickly.
 The following command will build the docker image name `Reassessor`,
 using our [Dockerfile](https://github.com/SoftSec-KAIST/Reassessor/blob/main/Dockerfile).
 ```
 $ docker build --tag reassessor .
 ```
 
-Next, you should use the `docker` command to run `Reassessor`.
+Next, you should use the `Docker` command to run `Reassessor`.
 
 ```
 $ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> \
@@ -85,16 +84,16 @@ $ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <ass
 
 # Example
 
-You can run a our example code as follows.
+You can test `Reassessor` with our example program.
 
-1. Build a source code
+### 1. Build a source code
 ```
 $ cd examples
 $ make
 $ cd ..
 ```
 
-2. Perform preprocessing step
+### 2. Reassemble the example program
 ```
 $ mkdir output
 $ python3 -m reassessor.preprocessing ./example/bin/hello ./output
@@ -102,7 +101,7 @@ $ ls ./output/reassem
 ddisasm.s  retrowrite.s
 ```
 
-3. Run Reassessor
+### 3. Run Reassessor
 ```
 $ python3 -m reassessor.reassessor ./example/bin/hello ./example/asm ./output  \
   --retrowrite ./output/reassem/retrowrite.s
@@ -112,15 +111,15 @@ $ ls ./output/errors/retrowrite
 disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 ```
 
-Also, you can use `docker` command to run Reassessor.
+Also, you can use `Docker` command to run `Reassessor`.
 ```
-$ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m Reassessor.reassessor.reassessor \
+$ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m reassessor.reassessor \
   /input/example/src/hello /input/example/ /input/output \
   --retrowrite /input/output/reassem/retrowrite.s"
 ```
 
 
-4. Check Error Report
+### 4. Check Error Report
 ```
 $ cat ./output/errors/retrowrite/sym_diff.txt
 # Instrs to check: 48
@@ -138,12 +137,12 @@ We publicize our benchmark at [![DOI](https://zenodo.org/badge/DOI/10.5281/zenod
 # Artifacts
 
 We also publicize the artifacts to reproduce the experiments in our paper.
-Please check our [Artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact).
+Please check our [artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact).
 
 # Contributions of our works
 
-Reassessor found plentiful symbolization errors from stat-of-art reassemblers.
-Also, we discovered unseened reassembly errors. We made RP and issues to resolve the errors.
+`Reassessor` found plentiful symbolization errors from stat-of-art reassemblers.
+Also, we discovered unseened reassembly errors. We made PR and issues to resolve the errors.
 
 - Ramblr
     - [issue 3549](https://github.com/angr/angr/issues/3549) (1 Oct 2022)
@@ -174,4 +173,3 @@ at KAIST and UT Dallas.
 ### Citation
 
 (TBD)
-
