@@ -3,14 +3,16 @@ import capstone
 import os
 from .tool_base import NormalizeTool
 from reassessor.lib.parser import parse_att_asm_line, ReasmLabel, parse_set_directive
+from bitstring import BitArray
 
 HUGE_FILE_SIZE = 1024*1024*1024*10
+HUGE_BIT_ARRAY = 0x50000000
 
 class NormalizeRetro(NormalizeTool):
     def __init__(self, bin_path, reassem_path, supplement_file=''):
         super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT, label_func = retro_label_func, supplement_file=supplement_file)
 
-retro_huge_addr_set = set()
+retro_huge_addr_set = BitArray(1)
 
 def retro_label_to_addr(label):
     if label.startswith('.LC'):
@@ -29,36 +31,20 @@ def retro_label_to_addr(label):
 def retro_label_func(label):
     global retro_huge_addr_set
     addr = retro_label_to_addr(label)
-    if addr > 0 and addr in retro_huge_addr_set:
-        return addr
+    if HUGE_BIT_ARRAY > addr and addr > 0:
+        if retro_huge_addr_set[addr]:
+            return addr
     return 0
-
-def create_huge_addr_set(reassem_path, supplement_file):
-    global retro_huge_addr_set
-    #additional_file =  reassem_path.replace('retrowrite', 'retrowrite_expand')
-    import os
-    if len(supplement_file) == 0:
-        supplement_file = reassem_path + '_supplement'
-    if not os.path.isfile(supplement_file):
-        print(' [+] create additional file (%s) for optimization'%(supplement_file))
-        os.system('mkdir -p %s'%(os.path.dirname(supplement_file)))
-        os.system("grep '^\.L.*:$' %s > %s"%(reassem_path, supplement_file))
-
-    print(' [+] read huge addr set %s'%(supplement_file))
-    import time
-    tic = time.perf_counter()
-    retro_huge_addr_set = set(retro_label_to_addr(line.strip()[:-1]) for line in open(supplement_file))
-    toc = time.perf_counter()
-    print(' [+] complete to make huge addr set (%d) %0.4f'%(len(retro_huge_addr_set), toc-tic))
 
 def retro_mapper(reassem_path, tokenizer, supplement_file):
     result = []
     addr = -1
 
     fsize = os.path.getsize(reassem_path)
+    global retro_huge_addr_set
+
     if fsize > HUGE_FILE_SIZE:
-        create_huge_addr_set(reassem_path, supplement_file)
-        pass
+        retro_huge_addr_set = BitArray(HUGE_BIT_ARRAY)
 
     with open(reassem_path, errors='ignore') as f:
         for idx, line in enumerate(f):
@@ -72,11 +58,10 @@ def retro_mapper(reassem_path, tokenizer, supplement_file):
 
                 if addr > 0:
                     #Too many labels might cause OOM errors
-                    #We exclude obvious label if file size is larger than 10G
-                    #Instead we memory the addresses where labels are defined
+                    #We use bitarray to check existance of labels
                     if fsize > HUGE_FILE_SIZE:
                         if xaddr == addr:
-                            pass
+                            retro_huge_addr_set.set(1, [addr])
                         else:
                             result.append(ReasmLabel(terms[0][:-1], addr, idx+1))
                     else:
@@ -101,8 +86,6 @@ def retro_mapper(reassem_path, tokenizer, supplement_file):
                 continue
             addr = -1
 
-    if fsize > HUGE_FILE_SIZE:
-        print(' [+] complete to map the code: %s'%(reassem_path))
     return result
 
 
