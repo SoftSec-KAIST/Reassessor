@@ -67,7 +67,7 @@ if __name__ == '__main__':
     if args.ramblr:
         pickle_tool_dict['ramblr'] = args.ramblr
     if args.retro:
-        pickle_tool_dict['retro'] = args.retro
+        pickle_tool_dict['retrowrite'] = args.retro
 
     if pickle_tool_dict:
         if args.error and not args.disasm:
