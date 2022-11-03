@@ -31,7 +31,7 @@ def retro_label_to_addr(label):
 def retro_label_func(label):
     global retro_huge_addr_set
     addr = retro_label_to_addr(label)
-    if HUGE_BIT_ARRAY > addr and addr > 0:
+    if len(retro_huge_addr_set) > addr and addr > 0:
         if retro_huge_addr_set[addr]:
             return addr
     return 0
