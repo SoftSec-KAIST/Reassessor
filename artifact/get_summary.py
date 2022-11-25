@@ -95,15 +95,13 @@ def job(conf):
         counter.exist = False
     else:
         counter.set_data(conf.pickle, conf.disasm)
-    with open('res/%d'%(conf.idx), 'wb') as f:
+    with open('error_summary/%s'%(conf.key), 'wb') as f:
         pickle.dump(counter, f)
 
-BuildConf = namedtuple('BuildConf', ['tool', 'target', 'pickle', 'disasm', 'idx'])
-global_no = 0
+BuildConf = namedtuple('BuildConf', ['tool', 'target', 'pickle', 'disasm', 'key'])
 
 def gen_option(input_root, output_root):
     ret = []
-    global global_no
     for package in ['coreutils-8.30', 'binutils-2.31.1', 'spec_cpu2006']:
         for arch in ['x86', 'x64']:
             for comp in ['clang', 'gcc']:
@@ -127,8 +125,8 @@ def gen_option(input_root, output_root):
                                     pickle_file = '%s/errors/%s/sym_errors.dat'%(output_dir, tool)
                                     disasm = '%s/errors/%s/disasm_diff.txt'%(output_dir, tool)
 
-                                    ret.append(BuildConf(tool, target, pickle_file, disasm, global_no))
-                                    global_no += 1
+                                    key = '%s_%s_%s_%s_%s_%s_%s_%s'%(tool, package, arch, comp, popt, opt, lopt, filename)
+                                    ret.append(BuildConf(tool, target, pickle_file, disasm, key))
 
     return ret
 
@@ -158,41 +156,40 @@ class Manager:
         res_dict['retrowrite'] = RecCounter('retrowrite')
         res_dict['ddisasm'] = RecCounter('ddisasm')
         #---------------------------------------------
-        global global_no
-        for idx in range(global_no):
-            with open('res/%d'%(idx), 'rb') as f:
+        for conf in self.config_list:
+            with open('error_summary/%s'%(conf.key), 'rb') as f:
                 counter = pickle.load(f)
                 res_dict[counter.tool].add(counter)
 
         self.report(res_dict['ramblr'], res_dict['retrowrite'], res_dict['ddisasm'])
 
     def report(self, ramblr, retro, ddisasm):
-        print('-' * 60 )
+        print('-' * 62 )
         print('                      %12s  %12s  %12s'%('Ramblr', 'RetroWrite', 'Ddisasm'))
-        print('-' * 60 )
+        print('-' * 62 )
         print('# of tried Bins       %12d  %12d  %12d'%(ramblr.success+ramblr.error, retro.success+retro.error, ddisasm.success+ddisasm.error))
         print('# of Bins Reassembled %12d  %12d  %12d'%(ramblr.success, retro.success, ddisasm.success))
         #print('# of Bins (FAIL)      %12d  %12d  %12d'%(ramblr.error, retro.error, ddisasm.error))
-        print('-' * 60 )
+        print('-' * 62 )
         print('# of Bins Succeeded   %12d  %12d  %12d'%(ramblr.no_error, retro.no_error, ddisasm.no_error))
-        print('-' * 60 )
+        print('-' * 62 )
 
 
         for stype in range(1, 9):
             if stype == 8:
                 print('%7s  # of FPs     %12d  %12d  %12d'%('E8',ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
-                print('-' * 60 )
+                print('-' * 62 )
                 continue
 
             print('%7s  # of TPs     %12d  %12d  %12d'%('',ramblr.board[stype]['tp'], retro.board[stype]['tp'], ddisasm.board[stype]['tp']))
             print('%7s  # of FNs     %12d  %12d  %12d'%('E%d'%(stype),ramblr.board[stype]['fn'], retro.board[stype]['fn'], ddisasm.board[stype]['fn']))
             print('%7s  # of FPs     %12d  %12d  %12d'%('',ramblr.board[stype]['fp'], retro.board[stype]['fp'], ddisasm.board[stype]['fp']))
-            print('-' * 60 )
+            print('-' * 62 )
 
         print('%7s  # of TPs     %12d  %12d  %12d'%('',ramblr.disasm_tp, retro.disasm_tp, ddisasm.disasm_tp))
         print('%7s  # of FNs     %12d  %12d  %12d'%('Disasm',ramblr.disasm_fn, retro.disasm_fn, ddisasm.disasm_fn))
         print('%7s  # of FPs     %12d  %12d  %12d'%('',ramblr.disasm_fp, retro.disasm_fp, ddisasm.disasm_fp))
-        print('-' * 60 )
+        print('-' * 62 )
 
         succ, total = self.get_success_ratio(ramblr, retro, ddisasm, [2,4,6,7])
         print('* %6.3f%% (%d/%d) composite relocatable expressoins are succesfully symbolizaed'%(
@@ -223,7 +220,7 @@ if __name__ == '__main__':
     mgr = Manager(input_root='./dataset', output_root='./output')
 
     if not args.skip:
-        os.system('mkdir -p ./res')
+        os.system('mkdir -p ./error_summary')
         if args.core:
             mgr.run(args.core)
         else:

@@ -11,18 +11,24 @@ EData = namedtuple('EData', ['addr', 'gt_factor', 'tool_factor', 'region', 'tool
 class ErrorType(Enum):
     TP=0
     FN=1
-    SAFE_FP=0
-    CLASSIC_FP=2
-    LABEL_UNDEF=3
-    LABEL_DUP=4
-    LABEL_SEMANTICS=5
-    DIFF_ADDRS=6
-    DIFF_SECTIONS=7
-    CODE_REGION=8
-    DIFF_BASES=9
-    FIXED_ADDR=10
-    SEC_OUTSIDE=11
-    UNDEF=12
+    SAFE_FP=2
+    CLASSIC_FP=3
+    DIFF_SEMANTICS=4
+    DIFF_ADDRS=5
+    DIFF_SECTIONS=6
+    DIFF_CODE_REGION=7
+    DIFF_BASES=8
+    FIXED_ADDR=9
+    UNDEF=10
+
+class LabelType(Enum):
+    LABEL_NORMAL=0
+    LABEL_NON_EXIST=1
+    LABEL_MULTI_DEF=2
+    LABEL_DIFF_ADDR=3
+    LABEL_SET_DIRECTIVE=4
+    LABEL_FIXED_ADDR=5
+
 
 def my_open(file_path, option='w'):
      if 'w' in option:
@@ -90,14 +96,15 @@ class ErrorRecord:
 
     def to_ascii(self, data):
 
-        err_info = self.create_dict(data)
+        rec = self.create_dict(data)
 
-        msg = 'E%d%2s [%d] (%4s:%d:%d) %-8s: %-40s  | %-44s'%(self.stype, self.etype,
-            data.criticality.value, data.region, data.tool_reloc_type, data.invalid_label,
-            err_info['addr'], err_info['tool']['asm'], err_info['gt']['asm'])
+        msg = 'E%d%2s '%(self.stype, self.etype) + \
+            '(%4s:%d:%d:%d) '%(data.region, data.tool_reloc_type, data.invalid_label.value, rec['fatality']['is_reparable']) + \
+            '%-8s: '%(rec['addr']) + \
+            '%-40s  | %-44s'%(rec['tool']['asm'], rec['gt']['asm'])
 
-        if data.invalid_label == 3 or data.criticality == ErrorType.DIFF_ADDRS:
-            msg += ' (ADDR: %s vs %s)'%(err_info['tool']['target_addr'], err_info['gt']['target_addr'])
+        if data.invalid_label == LabelType.LABEL_DIFF_ADDR or data.criticality == ErrorType.DIFF_ADDRS:
+            msg += ' (ADDR: %s vs %s)'%(rec['tool']['target_addr'], rec['gt']['target_addr'])
 
         return msg
 
@@ -136,8 +143,6 @@ class ErrorRecord:
 
         rec = dict()
 
-        #addr, gt_factor, tool_factor, region, tool_reloc_type, invalid_label, gt_target_label, tool_target_label, criticality  = data
-
         rec['addr'] = hex(data.addr)
         rec['section'] = data.sec_mgr.get_sec_name(data.addr)
 
@@ -151,13 +156,13 @@ class ErrorRecord:
 
     def get_fatality(self, criticality, invalid_label):
         mydict = dict()
-        mydict['is_fatal'] = True
+        mydict['is_reparable'] = False
 
-        mydict['description1'] = self.get_description(criticality)
-        mydict['description2'] = self.get_label_style(invalid_label)
+        mydict['error_description'] = self.get_description(criticality)
+        mydict['label_description'] = self.get_label_style(invalid_label)
 
-        if not mydict['description1']:
-            mydict['is_fatal'] = False
+        if not mydict['error_description']:
+            mydict['is_reparable'] = True
         return mydict
 
     def get_description(self, criticality):
@@ -167,13 +172,11 @@ class ErrorRecord:
             if self.stype in [1,2,3,4,5,6,7]:
                 if criticality == ErrorType.SAFE_FP:
                     return ''
-                elif criticality in [ErrorType.LABEL_SEMANTICS, ErrorType.DIFF_ADDRS, ErrorType.DIFF_BASES]:
+                elif criticality in [ErrorType.DIFF_SEMANTICS, ErrorType.DIFF_ADDRS, ErrorType.DIFF_BASES]:
                     return 'The relocatable expression in a_r refers to a wrong addr'
                 elif criticality in [ErrorType.DIFF_SECTIONS]:
                     return 'The relocatable expression in a_r refers to a different section'
-                elif criticality in [ErrorType.SEC_OUTSIDE]:
-                    return 'The relocatable expression in a_c refers to outside of a section'
-                elif criticality in [ErrorType.CODE_REGION]:
+                elif criticality in [ErrorType.DIFF_CODE_REGION]:
                     return 'The different relocatable expression in a_r refers to code region'
                 elif criticality in [ErrorType.FIXED_ADDR]:
                     return 'The relocatable expression in a_r uses the label that refers to a fixed addr'
@@ -202,15 +205,15 @@ class ErrorRecord:
         return 'Literal'
 
     def get_label_style(self, label):
-        if label == 1:
+        if label == LabelType.LABEL_NON_EXIST:
             return 'The definition of label in a_r does not exist'
-        elif label == 2:
+        elif label == LabelType.LABEL_MULTI_DEF:
             return 'The label in a_r has multiple definitions'
-        elif label == 3:
+        elif label == LabelType.LABEL_DIFF_ADDR:
             return 'The target address of relocatable expression in a_r is wrong'
-        elif label == 4:
+        elif label == LabelType.LABEL_SET_DIRECTIVE:
             return 'The label in a_r is defined by .set directive'
-        elif label == 5:
+        elif label == LabelType.LABEL_FIXED_ADDR:
             return 'The label in a_r is defined as a fixed address'
 
         return ''
@@ -225,7 +228,7 @@ class Record:
 
         self.adata = []
 
-    def add(self, gt_factor, tool_factor, region, tool_reloc_type, invalid_label=0, gt_target_label=0, tool_target_label=0, criticality=ErrorType.UNDEF):
+    def add(self, gt_factor, tool_factor, region, tool_reloc_type, invalid_label=LabelType.LABEL_NORMAL, gt_target_label=0, tool_target_label=0, criticality=ErrorType.UNDEF):
 
         if gt_factor:
             addr     = gt_factor.addr
@@ -389,7 +392,7 @@ class Report:
         gt_reloc_type = 8
         tool_reloc_type = 8
 
-        invalid_label = 0
+        invalid_label = LabelType.LABEL_NORMAL
         result = ReportTy.UNKNOWN
         gt_target_label = 0
         tool_target_label = 0
@@ -409,17 +412,22 @@ class Report:
                 if tool_reloc.terms[0].Num == 0:
                     # -1: does not exist
                     # -2: duplicated label
-                    invalid_label = abs(tool_reloc.terms[0].Address)
+                    if tool_reloc.terms[0].Address == -1 :
+                        invalid_label = LabelType.LABEL_NON_EXIST
+                    elif tool_reloc.terms[0].Address == -2 :
+                        invalid_label = LabelType.LABEL_MULTI_DEF
+                    else:
+                        assert False, "Invalid Address"
                 else:
-                    invalid_label = 5 # the label refers fix address
+                    invalid_label = LabelType.LABEL_FIXED_ADDR # the label refers fix address
             else:
                 if ((gt_reloc and gt_target_label != tool_target_label) and
                        not tool_reloc.terms[0].get_name().endswith('@GOT') ):
 
-                    invalid_label = 3 # label address is diffent
+                    invalid_label = LabelType.LABEL_DIFF_ADDR # label address is diffent
 
                 elif tool_reloc.terms[0].Num:
-                    invalid_label = 4 # composite .set label
+                    invalid_label = LabelType.LABEL_SET_DIRECTIVE # composite .set label
 
         if gt_reloc and tool_reloc:
             if gt_reloc_type == tool_reloc.type:
@@ -456,7 +464,7 @@ class Report:
 
         elif tool_reloc:
             #We allow numerical label when it is used for absolute addressing
-            if invalid_label == 5 and tool_reloc_type in [1,2]:
+            if invalid_label == LabelType.LABEL_FIXED_ADDR and tool_reloc_type in [1,2]:
                 criticality = ErrorType.TP
                 result = ReportTy.TP
             else:
@@ -465,13 +473,9 @@ class Report:
         if result == ReportTy.FP:
             if gt_reloc is None:
                 criticality = ErrorType.CLASSIC_FP
-            elif invalid_label == 1:
-                criticality = ErrorType.LABEL_UNDEF
-            elif invalid_label == 2:
-                criticality = ErrorType.LABEL_DUP
-            elif invalid_label == 3:
+            elif invalid_label == LabelType.LABEL_DIFF_ADDR:
                 criticality = ErrorType.DIFF_ADDRS
-            elif invalid_label == 5:
+            elif invalid_label == LabelType.LABEL_FIXED_ADDR:
                 criticality = ErrorType.FIXED_ADDR
                 result = ReportTy.FN
             else:
@@ -483,7 +487,7 @@ class Report:
             criticality = ErrorType.TP
 
         #exclude label errors (undefined label or duplicated label)
-        if result == ReportTy.FP and invalid_label in [1, 2]:
+        if result == ReportTy.FP and invalid_label in [LabelType.LABEL_NON_EXIST, LabelType.LABEL_MULTI_DEF]:
             return False
 
         self.record_result(region, result, gt_reloc_type, tool_reloc_type, gt_factor, tool_factor, invalid_label, gt_target_label, tool_target_label, criticality)
@@ -499,7 +503,7 @@ class Report:
         if gt_reloc.type != tool_reloc.type:
             if int((gt_reloc.type-1)/2) != int((tool_reloc.type-1)/2):
                 #print('different semantics')
-                return ErrorType.LABEL_SEMANTICS #diff semantics
+                return ErrorType.DIFF_SEMANTICS #diff semantics
 
 
         #if label is consist with @GOT, reassessor only checks referring region
@@ -507,10 +511,6 @@ class Report:
             tool_label_sec = self.sec_mgr.get_sec_name(tool_reloc.terms[0].Address)
 
             tool_target_sec = self.sec_mgr.get_sec_name(tool_target_addr)
-
-            # label & target address should be in same section.
-            if tool_label_sec != tool_target_sec:
-                return ErrorType.SEC_OUTSIDE
 
             #if tool_label_sec in ['.text', '.init', '.fini', '.plt']:
             #    return ErrorType.CODE_REGION #text section
@@ -527,12 +527,8 @@ class Report:
 
             gt_target_sec = self.sec_mgr.get_sec_name(gt_target_addr)
 
-            # label & target address should be in same section.
-            if gt_label_sec != gt_target_sec:
-                return ErrorType.SEC_OUTSIDE
-
             if gt_label_sec in ['.text', '.init', '.fini', '.plt']:
-                return ErrorType.CODE_REGION #text section
+                return ErrorType.DIFF_CODE_REGION #text section
 
         # non-critical FP
         return ErrorType.SAFE_FP
