@@ -162,7 +162,7 @@ def job(conf):
     stat.examine()
     stat.cleanup()
 
-    with open('stat/%s'%(conf.key), 'wb') as f:
+    with open('asm_statistics/%s'%(conf.key), 'wb') as f:
         pickle.dump(stat, f)
 
 
@@ -218,7 +218,7 @@ class Manager:
         outside_dict = dict()
         nonfunc_dict = dict()
         for key in global_key_list:
-            with open('stat/%s'%(key), 'rb') as f:
+            with open('asm_statistics/%s'%(key), 'rb') as f:
                 stat = pickle.load(f)
 
                 if verbose:
@@ -304,7 +304,7 @@ if __name__ == '__main__':
     mgr = Manager()
 
     if not args.skip:
-        os.system('mkdir -p ./stat')
+        os.system('mkdir -p ./asm_statistics')
         if args.core:
             mgr.run(args.core)
         else:

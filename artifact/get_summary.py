@@ -95,7 +95,7 @@ def job(conf):
         counter.exist = False
     else:
         counter.set_data(conf.pickle, conf.disasm)
-    with open('res/%s'%(conf.key), 'wb') as f:
+    with open('error_summary/%s'%(conf.key), 'wb') as f:
         pickle.dump(counter, f)
 
 BuildConf = namedtuple('BuildConf', ['tool', 'target', 'pickle', 'disasm', 'key'])
@@ -157,7 +157,7 @@ class Manager:
         res_dict['ddisasm'] = RecCounter('ddisasm')
         #---------------------------------------------
         for conf in self.config_list:
-            with open('res/%s'%(conf.key), 'rb') as f:
+            with open('error_summary/%s'%(conf.key), 'rb') as f:
                 counter = pickle.load(f)
                 res_dict[counter.tool].add(counter)
 
@@ -220,7 +220,7 @@ if __name__ == '__main__':
     mgr = Manager(input_root='./dataset', output_root='./output')
 
     if not args.skip:
-        os.system('mkdir -p ./res')
+        os.system('mkdir -p ./error_summary')
         if args.core:
             mgr.run(args.core)
         else:

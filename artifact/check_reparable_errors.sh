@@ -11,18 +11,18 @@ function run()
 
     mkdir -p triage/$tool
 
-    #Reparable FP
-    grep '\[0\]' triage/$tool/x*/*pie/$type\FP.txt  | sed "s/.*FP.txt://g" > triage/$tool/$type\_reparable_errors.txt
+    #Check Reparable Errors
+    grep '(.*:.:.:1)' triage/$tool/x*/*pie/$type\F*.txt  | sed "s/.*F[PN].txt://g" > triage/$tool/$type\_reparable_errors.txt
     e0=$(wc -l triage/$tool/$type\_reparable_errors.txt | awk '{print $1}')
 
-    grep -v '\[0\]' triage/$tool/x*/*pie/$type\FP.txt  | sed "s/.*FP.txt://g"  > triage/$tool/$type\_irreparable_errors.txt
-    grep '\[.*\]' triage/$tool/x*/*pie/$type\FN.txt   | sed "s/.*FN.txt://g" >> triage/$tool/$type\_irreparable_errors.txt
+    #Check Irreparable Errors
+    grep '(.*:.:.:0)' triage/$tool/x*/*pie/$type\F*.txt  | sed "s/.*F[PN].txt://g"  > triage/$tool/$type\_irreparable_errors.txt
     e1=$(wc -l triage/$tool/$type\_irreparable_errors.txt | awk '{print $1}')
 
     cat triage/$tool/$type\_reparable_errors.txt  >> reparable_errors.txt
     cat triage/$tool/$type\_irreparable_errors.txt  >> irreparable_errors.txt
 
-    printf "%sFP(%10s): %15s  %15s \n" $type $tool $e0 $e1
+    printf "%s (%10s): %15s  %15s \n" $type $tool $e0 $e1
 
     total=$total+$e0+$e1
     reparable=$reparable+$e0
@@ -30,7 +30,7 @@ function run()
 truncate -s 0 reparable_errors.txt
 truncate -s 0 irreparable_errors.txt
 
-printf "%16s: %15s  %15s \n" "" "Reparable" "Irreparable"
+printf "%15s: %15s  %15s \n" "" "Reparable" "Irreparable"
 
 run "E1" "ramblr"
 run "E2" "ramblr"
