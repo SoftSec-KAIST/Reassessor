@@ -2,13 +2,19 @@ Reassessor
 ========
 
 [Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
-to search symbolization errors from reassembler-generated assembly files. The
-details of the algorithm in our paper "Reassembly is Hard: A Reflection on
-Challenges and Strategies" will appear in USENIX Security 2023.
+to search symbolization errors from reassembler-generated assembly files. At a
+high level, `Reassessor` searches errors by diffing the compiler
+generated-assembly file and reassembly file. The details of the algorithm in
+our paper "Reassembly is Hard: A Reflection on Challenges and Strategies" will
+appear in USENIX Security 2023.
 
 # Install
 
+`Reassessor` currently works on only Linux machine and we tested on Ubuntu
+18.04 and Ubuntu 20.04.
+
 ### 1. Clone `Reassessor`
+
 ```
 $ git clone https://github.com/SoftSec-KAIST/Reassessor
 $ cd Reassessor
@@ -16,9 +22,9 @@ $ cd Reassessor
 
 ### 2. Install Dependencies
 
-`Reassessor` is written in python3 (3.6), and
-it depends on [pyelftools](https://github.com/eliben/pyelftools.git) (>= 0.29) and
-[captone](https://pypi.org/project/capstone/) (>=4.0.2). 
+`Reassessor` is written in python3 (3.6), and it depends on
+[pyelftools](https://github.com/eliben/pyelftools.git) (>= 0.29) and
+[captone](https://pypi.org/project/capstone/) (>=4.0.2).
 
 To install the dependencies, please run:
 
@@ -40,8 +46,8 @@ $ python3 setup.py install --user
 
 ### (Optional) Reassemble binaries
 
-If you already obtained reassembly files, skip this step.
-Otherwise, you can run our preprocessing module to generate reassembly files.
+If you already obtained reassembly files, skip this step. Otherwise, you can
+run our preprocessing module to generate reassembly files.
 
 ```
 $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
@@ -49,18 +55,21 @@ $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
 Then, you can get the reassembly files under the `<output_dir>/reassem`.
 
 The module uses our `Docker` images to run Ramblr (commit 64d1049, Apr. 2022),
-RetroWrite (commit 613562, Apr. 2022), and Ddisasm v1.5.3 (docker image digests
-a803c9, Apr. 2022).
-Thus, it will download `Docker` images from [DockerHub](https://hub.docker.com).
-
-
+RetroWrite (commit 613562, Apr. 2022), and Ddisasm v1.5.3 (docker image
+digests: a803c9, Apr. 2022). Thus, it will download `Docker` images from
+[DockerHub](https://hub.docker.com).
 
 ### Run Reassessor
 
-At a high level, `Reassessor` searches errors by diffing the compiler generated-assembly file and reassembly file.
-Thus, `Reassessor` requires `<binary_path>`, `<assembly_directory>` to normalize compiler-generated assembly files,
-and also it requires `reassembly files` to check.
-Then, `Reassessor` will emit report files on `<output_directory>`.
+`Reassessor` firstly normalizes compiler generated-assembly files and
+reassembly files, and then searches errors by comparing the normalizes assembly
+code. Thus, `reassessor` module requires `<binary_path>`  and
+`<assembly_directory>` to normalize compiler-generated assembly files. Also, it
+requires `<reassembly files>` to normalize target reassembly file; you can
+specify the location of reassembly files by using `--ramblr`, `--retrowrite`,
+and `--ddisasm` options. Then, `reassessor` module compares the normalized code
+and emits report files on `<output_directory>`.
+
 ```
 $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
   [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
@@ -68,9 +77,9 @@ $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_di
 
 ### Docker
 
-You can use a `Docker` image to try out `Reassessor` quickly.
-The following command will build the docker image name `Reassessor`,
-using our [Dockerfile](https://github.com/SoftSec-KAIST/Reassessor/blob/main/Dockerfile).
+You can use a `Docker` image to try out `Reassessor` quickly. The following
+command will build the docker image name `Reassessor` using our
+[Dockerfile](https://github.com/SoftSec-KAIST/Reassessor/blob/main/Dockerfile).
 ```
 $ docker build --tag reassessor .
 ```
@@ -131,18 +140,23 @@ E4FP [0] (Disp:3:0) 0x11b8  : movl .LC202c(%rip), %eax                  | movl b
 ```
 
 # Dataset
-We publicize our benchmark at [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7178116.svg)](https://doi.org/10.5281/zenodo.7178116)
+We publicize our benchmark at
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7178116.svg)](https://doi.org/10.5281/zenodo.7178116).
+(The dataset does not contain SPEC CPU 2006 binaries because of a licensing
+issue.)
 
 
 # Artifacts
 
 We also publicize the artifacts to reproduce the experiments in our paper.
-Please check our [artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact).
+Please check our
+[artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact).
 
 # Contributions of our works
 
-`Reassessor` found plentiful symbolization errors from stat-of-art reassemblers.
-Also, we discovered unseen reassembly errors. We made PR and issues to resolve the errors.
+`Reassessor` found plentiful symbolization errors from stat-of-art
+reassemblers. Also, we discovered unseen reassembly errors. We made PR and
+issues to resolve the errors.
 
 - Ramblr
     - [issue 3549](https://github.com/angr/angr/issues/3549) (1 Oct 2022)
@@ -162,13 +176,13 @@ Also, we discovered unseen reassembly errors. We made PR and issues to resolve t
 
 ### Authors
 
-This research project has been conducted by [SoftSec Lab](https://softsec.kais.ac.kr)
-at KAIST and UT Dallas.
-- Hyungseok Kim
-- [Soomin Kim](https://softsec.kaist.ac.kr/~soomink/)
-- Junoh Lee
-- [Kangkook Jee](https://kangkookjee.io)
-- [Sang Kil Cha](https://softsec.kaist.ac.kr/~sangkilc/)
+This research project has been conducted by
+[SoftSec Lab](https://softsec.kais.ac.kr) at KAIST and UT Dallas.
+- Hyungseok Kim (KAIST)
+- [Soomin Kim (KAIST)](https://softsec.kaist.ac.kr/~soomink/)
+- Junoh Lee (KAIST)
+- [Kangkook Jee (UT Dallas)](https://kangkookjee.io)
+- [Sang Kil Cha (KAIST)](https://softsec.kaist.ac.kr/~sangkilc/)
 
 ### Citation
 
