@@ -315,11 +315,11 @@ class NormalizeGT:
 
 
     def get_objdump(self):
-        temp_file = self.bin_path.replace('/','_')
-        os.system("objdump -t -f %s | grep \"F .text\" | sort > /tmp/xx%s" % (self.bin_path, temp_file))
+        temp_file = "/tmp/xx" + self.bin_path.replace('/','_')
+        os.system("objdump -t -f %s | grep \"F .text\" | sort > %s" % (self.bin_path, temp_file))
 
         funcs = []
-        with open("/tmp/xx" + temp_file) as fp:
+        with open(temp_file) as fp:
             lines = fp.readlines()
             for line in lines:
                 l = line.split()
@@ -333,6 +333,9 @@ class NormalizeGT:
                         funcs.append([fname, faddress, fsize])
                 except:
                     pass
+
+        os.unlink(temp_file)
+
         return funcs
 
 
