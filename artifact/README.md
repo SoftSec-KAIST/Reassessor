@@ -20,6 +20,7 @@ our paper.
 Download our [dataset](https://doi.org/10.5281/zenodo.7178116) and uncompress
 it in `artifact` folder.
 > **Note**
+> 
 > Our published dataset does not contain SPEC CPU 2006 binaries because of a
 > licensing issue
 
@@ -48,6 +49,7 @@ follows.
 $ python3 run_preproc.py --core $(nproc)
 ```
 > **Note**
+> 
 > We assume that a host machine has sufficient memory to run multiple docker
 > images, because a single docker image may require about 30~40GB memory to
 > reassemble large-size binaries.
@@ -138,9 +140,9 @@ since they misidentified jump table bounds; this result implies that precise
 CFG recovery is a necessary condition for sound reassembly of x86-64 PIEs.
 
 > **Note**
-> We assume that you already ran
+> 
 > [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
-> since `get_asm_statistics.py` and `get_e7_errors.sh` refer to data files
+> is required since `get_asm_statistics.py` and `get_e7_errors.sh` refer to data files
 > (`gt.dat` and `sym_diff.txt`) that `Reassessor` made.
 
 Run `get_asm_statistics.py` to check all relocation expression types in our
@@ -151,9 +153,8 @@ expressions for a different set of assembly ﬁles.
 $ python3 get_asm_statistics.py --core $(nproc)
 ```
 
-Next, run `get_e7_errors.sh` script to check the proportion of label-relative
-(Type VII) relocatable expressions in x86-64 PIE binaries is not negligible.
-
+Next, run `get_e7_errors.sh` to check the proportion of E7 errors 
+from x86-64 PIE binaries.
 ```
 $ /bin/bash get_e7_errors.sh
 ```
@@ -166,9 +167,9 @@ $ /bin/bash get_e7_errors.sh
 This experiment will search previously unseen FN/FP patterns.
 
 > **Note**
-> This experiment requires the result of
+> 
 > [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
-> since `dissect_errors.sh` examines symbolization errors in `sym_diff.txt` that
+> is required since `dissect_errors.sh` examines symbolization errors in `sym_diff.txt` that
 > `Reassessor` made.
 
 Run `dissect_errors.sh` to find unseen reassembly error cases we reported in
@@ -198,6 +199,7 @@ This experiment will report how many symbolization errors would be reparable
 when preventing data instrumentations.
 
 > **Note**
+> 
 > [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
 > is required since `check_reparable_errors.sh` examines the error list files
 > that `classify_errors.sh` generates.
