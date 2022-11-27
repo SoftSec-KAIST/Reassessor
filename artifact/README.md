@@ -3,8 +3,8 @@ Reassessor Artifact
 
 [Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
 to find different types of errors that occur in current existing reassemblers.
-This artifact is designed to run the experiments in our paper. `Reassembly is
-Hard: A Reflection on Challenges and Strategies` which will appear in USENIX
+This artifact is designed to run the experiments in our paper, `Reassembly is
+Hard: A Reflection on Challenges and Strategies`, which will appear in USENIX
 Security 2023.
 
 In the first step, we will run the-state-of-art reassemblers, `Ramblr`,
@@ -18,8 +18,11 @@ our paper.
 ### 1. Download a dataset
 
 Download our [dataset](https://doi.org/10.5281/zenodo.7178116) and uncompress
-it on `artifact` folder. (Our published dataset does not contain SPEC CPU 2006
-binaries because of a licensing issue)
+it in `artifact` folder.
+> **Note**
+> Our published dataset does not contain SPEC CPU 2006 binaries because of a
+> licensing issue
+
 
 ```
 $ cd artifact/
@@ -39,13 +42,15 @@ $ python3 run_preproc.py
 `Ramblr (commit 64d1049, Apr. 2022)`, `RetroWrite (commit 613562, Apr. 2022)`,
 and `Ddisasm v1.5.3 (docker image a803c9, Apr. 2022)`.
 
-(Optional) `run_preproc.py` supports multi-thread options so you can use it as
-follows. [Caution!] We assume that a host machine has sufficient memory to run
-multiple docker images, because a single docker image may require about 30~40GB
-memory to reassemble large size binaries.
+(Optional) `run_preproc.py` supports multi-thread option so you can use it as
+follows.
 ```
 $ python3 run_preproc.py --core $(nproc)
 ```
+> **Note**
+> We assume that a host machine has sufficient memory to run multiple docker
+> images, because a single docker image may require about 30~40GB memory to
+> reassemble large-size binaries.
 
 Reassembly files will be generated at `./output` folder.
 
@@ -95,10 +100,10 @@ $ python3 classify_errors.py --core $(nproc)
 ```
 
 `classify_errors.py` will create `./triage` folder which contains three
-`reassembler` folders:  `ramblr`, `retrowrite` and `ddisasm`. Each folder
-consists with four sub-folder, `x64/pie`, `x64/nopie`, `x86/pie`, and
-`x86/nopie`; each sub-folder has its own report files that contain different
-types of reassembly errors.
+`reassembler` folders:  `ramblr`, `retrowrite` and `ddisasm`.  Also,
+`reassembler` folder has four sub-folders, `x64/pie`, `x64/nopie`, `x86/pie`,
+and `x86/nopie`; each sub-folder has its own report files that contain
+different types of reassembly errors.
 
 ```
 $ ls triage
@@ -132,9 +137,11 @@ negligible. Moreover, it will report that existing reassembly tools,
 since they misidentified jump table bounds; this result implies that precise
 CFG recovery is a necessary condition for sound reassembly of x86-64 PIEs.
 
-We assume that you already ran `Experiment 1` since `get_asm_statistics.py` and
-`get_e7_errors.sh` refer to data files (`gt.dat` and `sym_diff.txt`) that
-`Reassessor` made.
+> **Note**
+> We assume that you already ran
+> [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
+> since `get_asm_statistics.py` and `get_e7_errors.sh` refer to data files
+> (`gt.dat` and `sym_diff.txt`) that `Reassessor` made.
 
 Run `get_asm_statistics.py` to check all relocation expression types in our
 benchmark. `get_asm_statistics.py` will report the distributions of relocatable
@@ -158,8 +165,11 @@ $ /bin/bash get_e7_errors.sh
 
 This experiment will search previously unseen FN/FP patterns.
 
-This experiment requires the result of `Experiment 1` since `dissect_errors.sh`
-examines symbolization errors in `sym_diff.txt` that `Reassessor` made.
+> **Note**
+> This experiment requires the result of
+> [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
+> since `dissect_errors.sh` examines symbolization errors in `sym_diff.txt` that
+> `Reassessor` made.
 
 Run `dissect_errors.sh` to find unseen reassembly error cases we reported in
 section 5.4.
@@ -173,11 +183,11 @@ errors. Also, `dissect_errors.sh` generates the report files:
 `atomic_fn_cases.txt`, `atomic_fp_cases.txt`, and `label_err_fp_cases.txt`.
 Each line of the files contains a relevant `file name`, `error type`,
 `reassembly code`, and `compiler-generate code`. `atomic_fn_cases.txt` contains
-false negative cases where reassemblers misidentfy atomic atomic relocatable
+false negative cases where reassemblers misidentify atomic relocatable
 expressions as literals. `atomic_fp_cases.txt` contains false positive cases
 where reassemblers falsely symbolize atomic relocatable expressions as
 composite forms. Lastly, `label_err_fp_cases.txt` contains cases where
-symbolized labels have the same form as in the original one, while only the
+symbolized labels have the same form as the original one, while only the
 label values are misidentified.
 
 
@@ -187,8 +197,10 @@ label values are misidentified.
 This experiment will report how many symbolization errors would be reparable
 when preventing data instrumentations.
 
-`Experiment 1` is required since `check_reparable_errors.sh` examines the error
-list files that `classify_errors.sh` generates.
+> **Note**
+> [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
+> is required since `check_reparable_errors.sh` examines the error list files
+> that `classify_errors.sh` generates.
 
 Run `check_reparable_errors.sh` to get an empirical lower bound of the number
 of reparable symbolization errors when preventing data instrumentation.

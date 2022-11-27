@@ -62,10 +62,10 @@ digests: a803c9, Apr. 2022). Thus, it will download `Docker` images from
 ### Run Reassessor
 
 `Reassessor` firstly normalizes compiler generated-assembly files and
-reassembly files, and then searches errors by comparing the normalizes assembly
+reassembly files, and then searches errors by comparing the normalized assembly
 code. Thus, `reassessor` module requires `<binary_path>`  and
 `<assembly_directory>` to normalize compiler-generated assembly files. Also, it
-requires `<reassembly files>` to normalize target reassembly file; you can
+requires `<reassembly files>` to normalize the target reassembly file; you can
 specify the location of reassembly files by using `--ramblr`, `--retrowrite`,
 and `--ddisasm` options. Then, `reassessor` module compares the normalized code
 and emits report files on `<output_directory>`.
