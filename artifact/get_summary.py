@@ -192,7 +192,7 @@ class Manager:
         print('-' * 62 )
 
         succ, total = self.get_success_ratio(ramblr, retro, ddisasm, [2,4,6,7])
-        print('* %6.3f%% (%d/%d) composite relocatable expressoins are succesfully symbolizaed'%(
+        print('* %6.3f%% (%d/%d) composite relocatable expressoins are succesfully symbolized'%(
             succ/total*100, succ, total))
 
     def get_success_ratio(self, ramblr, retro, ddisasm, slist):
