@@ -3,15 +3,24 @@ Reassessor Artifact
 
 [Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is an automated tool
 to find different types of errors that occur in current existing reassemblers.
-This artifact is designed to run the experiments in our paper, `Reassembly is
-Hard: A Reflection on Challenges and Strategies`, which will appear in USENIX
-Security 2023.
+The artifact includes the source code of Reassessor, Docker images, and dataset
+binaries to reproduce key results of the paper. As a preprocessing step, we will 
+run the-state-of-art reassemblers, Ramblr, RetroWrite, and Ddisasm, in a 
+dockerized environment, to produce reassembly files. Next, we will run Reassessor 
+to find reassembly errors. Reassessor takes in a compiler-generated assembly 
+file and a reassembler-generated assembly file as input, and transforms assembly 
+expressions into a canonical form to ease the comparison. Then, Reassessor 
+returns a list of symbolization errors by comparing the two normalized assembly 
+files. Lastly, we will collect reassembly errors Reassessor found and checks 
+experimental results.
 
-In the first step, we will run the-state-of-art reassemblers, `Ramblr`,
-`RetroWrite`, and `Ddisasm`, in a dockerized environment to reassemble dataset
-binaries. Then, we will run `Reassessor` to search reassembly errors. Lastly,
-we collect reassembly errors `Reassessor` found and reproduce key results of
-our paper.
+> **Note**
+> The artifact requires at least 2.5 TB disk to retrieve all results. 
+> Also, the artifact requires sufficient memory to run multiple docker
+> images, because a single docker image may consume about 30~40 GB memory to
+> reassemble large-size binaries.
+> We performed the experiments on a Linux machine (Ubuntu 18.04 and Ubuntu 20.04) 
+> equipped with 8 cores of CPUs and 128 GB of RAM.
 
 # Preprocessing step for experiments
 
@@ -20,7 +29,6 @@ our paper.
 Download our [dataset](https://doi.org/10.5281/zenodo.7178116) and uncompress
 it in `artifact` folder.
 > **Note**
-> 
 > Our published dataset does not contain SPEC CPU 2006 binaries because of a
 > licensing issue
 
@@ -46,13 +54,8 @@ and `Ddisasm v1.5.3 (docker image a803c9, Apr. 2022)`.
 (Optional) `run_preproc.py` supports multi-thread option so you can use it as
 follows.
 ```
-$ python3 run_preproc.py --core $(nproc)
+$ python3 run_preproc.py --core 4
 ```
-> **Note**
-> 
-> We assume that a host machine has sufficient memory to run multiple docker
-> images, because a single docker image may require about 30~40GB memory to
-> reassemble large-size binaries.
 
 Reassembly files will be generated at `./output` folder.
 
@@ -76,7 +79,7 @@ errors, and then summarize the errors.
 Run `run_reassessor.py` to search reassembly errors.
 
 ```
-$ python3 run_reassessor.py --core $(nproc)
+$ python3 run_reassessor.py --core 6
 ```
 
 (Optional) The script also supports `docker` option (`--docker`), so you can
@@ -98,7 +101,7 @@ Next, run `classify_errors.py` to classify reassembly errors that `Reassessor`
 found.
 
 ```
-$ python3 classify_errors.py --core $(nproc)
+$ python3 classify_errors.py --core 8
 ```
 
 `classify_errors.py` will create `./triage` folder which contains three
@@ -123,7 +126,7 @@ errors. `get_summary.py` will report the summarized results like Table 4 in our
 paper.
 
 ```
-$ python3 get_summary.py --core $(nproc)
+$ python3 get_summary.py --core 8
 ```
 
 
@@ -140,17 +143,15 @@ since they misidentified jump table bounds; this result implies that precise
 CFG recovery is a necessary condition for sound reassembly of x86-64 PIEs.
 
 > **Note**
-> 
 > [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
-> is required since `get_asm_statistics.py` and `get_e7_errors.sh` refer to data files
-> (`gt.dat` and `sym_diff.txt`) that `Reassessor` made.
+> is required since `get_asm_statistics.py` and `get_e7_errors.sh` refer to data files that `Reassessor` made.
 
 Run `get_asm_statistics.py` to check all relocation expression types in our
 benchmark. `get_asm_statistics.py` will report the distributions of relocatable
 expressions for a different set of assembly ﬁles.
 
 ```
-$ python3 get_asm_statistics.py --core $(nproc)
+$ python3 get_asm_statistics.py --core 8
 ```
 
 Next, run `get_e7_errors.sh` to check the proportion of E7 errors 
@@ -160,16 +161,13 @@ $ /bin/bash get_e7_errors.sh
 ```
 
 
-
-
 ### 3. Dissect reassembly errors
 
 This experiment will search previously unseen FN/FP patterns.
 
 > **Note**
-> 
 > [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
-> is required since `dissect_errors.sh` examines symbolization errors in `sym_diff.txt` that
+> is required since `dissect_errors.sh` examines symbolization errors that
 > `Reassessor` made.
 
 Run `dissect_errors.sh` to find unseen reassembly error cases we reported in
@@ -199,10 +197,9 @@ This experiment will report how many symbolization errors would be reparable
 when preventing data instrumentations.
 
 > **Note**
-> 
 > [Experiment 1](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact#1-search-reassembly-errors)
-> is required since `check_reparable_errors.sh` examines the error list files
-> that `classify_errors.sh` generates.
+> is required since `check_reparable_errors.sh` examines the report files
+> that `classify_errors.sh` made.
 
 Run `check_reparable_errors.sh` to get an empirical lower bound of the number
 of reparable symbolization errors when preventing data instrumentation.
