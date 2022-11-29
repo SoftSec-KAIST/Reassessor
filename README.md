@@ -40,7 +40,7 @@ $ python3 setup.py install --user
 
 # Usage
 
-### Preprocessing Step
+### Perform a Preprocessing Step
 
 There is a preprocessing step that needs to be performed before operating
 `Reassessor` to produce a compiler-generated assembly file, a non-stripped
