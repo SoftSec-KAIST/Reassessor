@@ -42,65 +42,69 @@ $ python3 setup.py install --user
 
 ### Preprocessing Step
 
-There is a preprocessing step that needs to be performed before
-operating `Reassessor` to produce a compiler-generated assembly file,
-a non-stripped binary file, and a reassembler-generated assembly file.
+There is a preprocessing step that needs to be performed before operating
+`Reassessor` to produce a compiler-generated assembly file, a non-stripped
+binary file, and a reassembler-generated assembly file.
 
 
-You can download our benchmark binary files and compiler-generated
-assembly files at
+You can download our benchmark binary files and compiler-generated assembly
+files at
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7178116.svg)](https://doi.org/10.5281/zenodo.7178116).
 
 > **Note**
 > If you want to make your own binary set, you should build binaries with
 > `--save-temps=obj` option to force the compilers to preserve all the
-> intermediate files including assembly files generated during a
-> compilation process. Also, you should enable the `-g` option to
-> produce binaries with debugging information. Lastly, `-Wl,--emit-relocs`
-> linker option is required especially when you build non-PIE
-> (Position-dependent Executable) binaries. The linker option preserves
-> relocation information.
+> intermediate files including assembly files generated during a compilation
+> process. Also, you should enable the `-g` option to produce binaries with
+> debugging information. Lastly, `-Wl,--emit-relocs` linker option is required
+> especially when you build non-PIE (Position-dependent Executable) binaries.
+> The linker option preserves relocation information.
 
-Next, you can get reassembler-generated assembly files by running `preprocessing` module.
+Next, you can get reassembler-generated assembly files by running
+`preprocessing` module.
 
-> **Note** The preprocessing step requires `Docker` engine to run reassemblers.
-> Moreover, we assumed that you can run Docker commands as a non-root user since we wanted
-> our scripts not to ask you for sudo password.
+> **Note**
+> The preprocessing step requires `Docker` engine to run reassemblers.
+> Moreover, we assumed that you can run Docker commands as a non-root user
+> since we wanted our scripts not to ask you for sudo password.
 
 ```
 $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
 ```
 
-During the preprocessing step, `STRIP` module strips off debug symbols from the binary
-to get a stripped binary. `Ddisasm` and `Ramblr` take the stripped binary as an input
-binary. However, the stripping process is omitted for `RetroWrite` since it requires
-debugging information to reassemble binaries.
+During the preprocessing step, `STRIP` module strips off debug symbols from the
+binary to get a stripped binary. `Ddisasm` and `Ramblr` take the stripped
+binary as an input binary. However, the stripping process is omitted for
+`RetroWrite` since it requires debugging information to reassemble binaries.
 
 The module produces the reassembly files under the `<output_dir>/reassem`.
 ```
 $ ls <output_dir>/reassem
 ddisasm.s  retrowrite.s
 ```
-Note that each tool supports different sets of binaries: `Ramblr` only works with non-PIE
-binaries and `RetroWrite` only works with x86-64 PIE binaries.
+
+Note that each tool supports different sets of binaries: `Ramblr` only works
+with non-PIE binaries and `RetroWrite` only works with x86-64 PIE binaries.
 Thus, `preprocessing` module will generate a different set of reassembly files
 depending on binary files.
 
 > **Note**
-> The `preprocessing` module runs the-state-of-art reassemblers, Ramblr (commit 64d1049, Apr. 2022),
-> RetroWrite (commit 613562, Apr. 2022), and Ddisasm v1.5.3 (docker image
-> digests: a803c9, Apr. 2022), in a dockerized environment, to produce reassembly files.
-> If you want to run `Reassessor` with a new reassembler,
-> you should update the execution commands in reassemble() method
-> in [preprocessing.py](https://github.com/SoftSec-KAIST/Reassessor/blob/main/reassessor/preprocessing.py) file
+> The `preprocessing` module runs the-state-of-art reassemblers, Ramblr (commit
+> 64d1049, Apr. 2022), RetroWrite (commit 613562, Apr. 2022), and Ddisasm
+> v1.5.3 (docker image digests: a803c9, Apr. 2022), in a dockerized
+> environment, to produce reassembly files.  If you want to run `Reassessor`
+> with a new reassembler, you should update the execution commands in
+> reassemble() method in
+> [preprocessing.py](https://github.com/SoftSec-KAIST/Reassessor/blob/main/reassessor/preprocessing.py)
+> file
 
 
 ### Run Reassessor
 
-`Reassessor` takes in a compiler-generated assembly file and
-a reassembler-generated assembly file and transforms assembly expressions
-into a canonical form to ease the comparison. Then, `Reassessor` searches
-errors by comparing the normalized assembly code.
+`Reassessor` takes in a compiler-generated assembly file and a
+reassembler-generated assembly file and transforms assembly expressions into a
+canonical form to ease the comparison. Then, `Reassessor` searches errors by
+comparing the normalized assembly code.
 
 To search reassembly errors, you should run `reassessor` module as follows:
 
@@ -110,11 +114,11 @@ $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_di
 ```
 
 The `reassessor` module requires `<binary_path>`  and `<assembly_directory>` to
-normalize compiler-generated assembly files. Also, it requires
-`<reassembly files>` to normalize the target reassembly file; you can
-specify the location of reassembly files by using `--ramblr`, `--retrowrite`,
-and `--ddisasm` options. Then, `reassessor` module compares the normalized code
-and produces report files on `<output_directory>`.
+normalize compiler-generated assembly files. Also, it requires `<reassembly
+files>` to normalize the target reassembly file; you can specify the location
+of reassembly files by using `--ramblr`, `--retrowrite`, and `--ddisasm`
+options. Then, `reassessor` module compares the normalized code and produces
+report files on `<output_directory>`.
 
 ```
 $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
@@ -124,20 +128,22 @@ gt.db  ddisasm.db
 $ ls <output_directory>/errors/ddisasm
 disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 ```
+
 The `reassessor` module generates normalized assembly files under
-`<output_directory>/norm_db` folder. Also, the module produces four error report
-files, `ddisasm_diff.txt`, `sys_diff.txt`, `sys_errors.json`, and `sys_errors.dat`,
-under `<output_directory>/errors/<reassembler>` folder.
-
-`sym_diff.txt`, `sym_errors.json`, and `sym_errors.data` contain the same symbolization
-error list but they have different representation formats.
-`sym_diff.txt` shows diffing of (re-)assembly files: each line
-contains `error type`, `address`, `reassembly code`, and `compiler-generate code` fields.
-`sym_errors.json` contains details of symbolization errors in JSON format.
-`sym_error.dat` is a data file containing raw metadata of symbolization errors which is
-designed to analyze errors. Lastly, `disasm_diff.txt` contains disassembly errors:
-each line contains `address`, `reassembly code`, and `compiler-generate code` fields.
-
+`<output_directory>/norm_db` folder. Also, the module produces the following
+files as output: `ddisasm_diff.txt`, `sym_errors.dat`, `sym_diff.txt`,
+`sym_errors.json`. Firstly, `disasm_diff.txt` contains a list of disassembly
+errors (one per line); each line contains the relevant address,
+reassembler-generated assembly line, and compiler-generated assembly line.
+`sym_errors.dat` is a raw output file containing a list of symbolization
+errors. This file is used to generate other two files: `sym_errors.json` and
+`sym_diff.txt`. `sym_diff.txt` is a human-readable representation of
+`sym_errors.dat`. Each line of the file contains address, error type,
+reassembler-generated assembly code, and compiler-generated code, for each
+error found. Finally, `sym_errors.json` contains detailed information about
+each symbolization error found, including the relevant assembly file, line
+number, relocatable expression type, normalized code, repairability, and so on.
+The file is written in the JSON format.
 
 ### Docker
 
