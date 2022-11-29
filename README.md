@@ -64,9 +64,9 @@ Next, you can get reassembler-generated assembly files by running
 `preprocessing` module.
 
 > **Note**
-> The preprocessing step requires `Docker` engine to run reassemblers.
-> Moreover, we assumed that you can run Docker commands as a non-root user
-> since we wanted our scripts not to ask you for sudo password.
+> Docker needs to be installed on the same machine to run reassemblers within
+> a Docker container. Our scripts assume that you can run Docker commands as a
+> regular (unprivileged) user; thus, no need to run them with sudo.
 
 ```
 $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
@@ -218,9 +218,9 @@ issue.)
 
 # Artifacts
 
-We also publicize the artifacts to reproduce the experiments in our paper.
-Please check our
-[artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/v1.0.0/artifact) folder.
+We also provide the artifact to reproduce the experiments in our paper.
+Please check 
+[Reassessor/artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/v1.0.0/artifact) folder.
 
 # Contributions of our works
 
