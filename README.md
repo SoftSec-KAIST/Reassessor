@@ -187,7 +187,7 @@ disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 Also, you can use `Docker` command to run `Reassessor`.
 ```
 $ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m reassessor.reassessor \
-  /input/example/src/hello /input/example/ /input/output \
+  /input/example/bin/hello /input/example/asm/ /input/output \
   --retrowrite /input/output/reassem/retrowrite.s"
 ```
 
