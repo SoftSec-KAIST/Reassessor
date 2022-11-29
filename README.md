@@ -13,7 +13,7 @@ appear in USENIX Security 2023.
 `Reassessor` currently works on only Linux machine and we tested on Ubuntu
 18.04 and Ubuntu 20.04.
 
-### 1. Clone `Reassessor`
+### 1. Clone Reassessor
 
 ```
 $ git clone https://github.com/SoftSec-KAIST/Reassessor
@@ -22,7 +22,7 @@ $ cd Reassessor
 
 ### 2. Install Dependencies
 
-`Reassessor` is written in python3 (3.6), and it depends on
+`Reassessor` is written in python 3 (3.6), and it depends on
 [pyelftools](https://github.com/eliben/pyelftools.git) (>= 0.29) and
 [captone](https://pypi.org/project/capstone/) (>=4.0.2).
 
@@ -32,10 +32,6 @@ To install the dependencies, please run:
 $ pip3 install -r requirements.txt
 ```
 
-Besides, this artifact requires `Docker` engine to run reassemblers. We assumed
-that you can run Docker commands as a non-root user since we wanted our scripts
-not to ask you for sudo password.
-
 ### 3. Install Reassessor
 
 ```
@@ -44,48 +40,116 @@ $ python3 setup.py install --user
 
 # Usage
 
-### (Optional) Reassemble binaries
+### Preprocessing Step
 
-If you already obtained reassembly files, skip this step. Otherwise, you can
-run our preprocessing module to generate reassembly files.
+There is a preprocessing step that needs to be performed before 
+operating `Reassessor` to produce a compiler-generated assembly file, 
+a non-stripped binary file, and a reassembler-generated assembly file.
+
+
+You can download our benchmark binary files and compiler-generated
+assembly files at 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7178116.svg)](https://doi.org/10.5281/zenodo.7178116).
+
+> **Note**
+> If you want to make your own binary set, you should build binaries with 
+> `--save-temps=obj` option to force the compilers to preserve all the
+> intermediate files including assembly files generated during a
+> compilation process. Also, you should enable the `-g` option to 
+> produce binaries with debugging information. Lastly, `-Wl,--emit-relocs` 
+> linker option is required especially when you build non-PIE 
+> (Position-dependent Executable) binaries. The linker option preserves
+> relocation information.
+
+Next, you can get reassembler-generated assembly files by running `preprocessing` module.
+
+> **Note** The preprocessing step requires `Docker` engine to run reassemblers. 
+> Moreover, we assumed that you can run Docker commands as a non-root user since we wanted 
+> our scripts not to ask you for sudo password.
 
 ```
 $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
 ```
-Then, you can get the reassembly files under the `<output_dir>/reassem`.
 
-The module uses our `Docker` images to run Ramblr (commit 64d1049, Apr. 2022),
-RetroWrite (commit 613562, Apr. 2022), and Ddisasm v1.5.3 (docker image
-digests: a803c9, Apr. 2022). Thus, it will download `Docker` images from
-[DockerHub](https://hub.docker.com).
+During the preprocessing step, `STRIP` module strips off debug symbols from the binary 
+to get a stripped binary. `Ddisasm` and `Ramblr` take the stripped binary as an input
+binary. However, the stripping process is omitted for `RetroWrite` since it requires 
+debugging information to reassemble binaries.
+
+The module produces the reassembly files under the `<output_dir>/reassem`.
+```
+$ ls <output_dir>/reassem
+ddisasm.s  retrowrite.s
+```
+Note that each tool supports different sets of binaries: `Ramblr` only works with non-PIE 
+binaries and `RetroWrite` only works with x86-64 PIE binaries. 
+Thus, `preprocessing` module will generate a different set of reassembly files
+depending on binary files.
+
+> **Note** 
+> The `preprocessing` module runs the-state-of-art reassemblers, Ramblr (commit 64d1049, Apr. 2022),
+> RetroWrite (commit 613562, Apr. 2022), and Ddisasm v1.5.3 (docker image
+> digests: a803c9, Apr. 2022), in a dockerized environment, to produce reassembly files.
+> If you want to run `Reassessor` with a new reassembler, 
+> you should update the execution commands in reassemble() method 
+> in [preprocessing.py](https://github.com/SoftSec-KAIST/Reassessor/blob/main/reassessor/preprocessing.py) file
+
 
 ### Run Reassessor
 
-`Reassessor` firstly normalizes compiler generated-assembly files and
-reassembly files, and then searches errors by comparing the normalized assembly
-code. Thus, `reassessor` module requires `<binary_path>`  and
-`<assembly_directory>` to normalize compiler-generated assembly files. Also, it
-requires `<reassembly files>` to normalize the target reassembly file; you can
-specify the location of reassembly files by using `--ramblr`, `--retrowrite`,
-and `--ddisasm` options. Then, `reassessor` module compares the normalized code
-and emits report files on `<output_directory>`.
+`Reassessor` takes in a compiler-generated assembly file and 
+a reassembler-generated assembly file and transforms assembly expressions 
+into a canonical form to ease the comparison. Then, `Reassessor` searches 
+errors by comparing the normalized assembly code.  
+
+To search reassembly errors, you should run `reassessor` module as follows:
 
 ```
 $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
   [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
 ```
 
+The `reassessor` module requires `<binary_path>`  and `<assembly_directory>` to 
+normalize compiler-generated assembly files. Also, it requires 
+`<reassembly files>` to normalize the target reassembly file; you can
+specify the location of reassembly files by using `--ramblr`, `--retrowrite`,
+and `--ddisasm` options. Then, `reassessor` module compares the normalized code
+and produces report files on `<output_directory>`.
+
+```
+$ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
+  --ddisasm <reassembly_code_path>
+$ ls <output_directory>/norm_db
+gt.db  ddisasm.db
+$ ls <output_directory>/errors/ddisasm
+disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
+```
+The `reassessor` module generates normalized assembly files under 
+`<output_directory>/norm_db` folder. Also, the module produces four error report 
+files, `ddisasm_diff.txt`, `sys_diff.txt`, `sys_errors.json`, and `sys_errors.dat`,
+under `<output_directory>/errors/<reassembler>` folder.
+
+`sym_diff.txt`, `sym_errors.json`, and `sym_errors.data` contain the same symbolization 
+error list but they have different representation formats. 
+`sym_diff.txt` shows diffing of (re-)assembly files: each line 
+contains `error type`, `address`, `reassembly code`, and `compiler-generate code` fields. 
+`sym_errors.json` contains details of symbolization errors in JSON format.
+`sym_error.dat` is a data file containing raw metadata of symbolization errors which is 
+designed to analyze errors. Lastly, `disasm_diff.txt` contains disassembly errors: 
+each line contains `address`, `reassembly code`, and `compiler-generate code` fields.
+
+
 ### Docker
 
-You can use a `Docker` image to try out `Reassessor` quickly. The following
-command will build the docker image name `Reassessor` using our
+You can use a `Docker` image to try out `Reassessor` quickly. 
+
+The following command will build the docker image name `Reassessor` using our
 [Dockerfile](https://github.com/SoftSec-KAIST/Reassessor/blob/main/Dockerfile).
 ```
 $ docker build --tag reassessor .
 ```
 
-Next, you should use the `Docker` command to run `Reassessor`.
-
+Next, you can use the `Docker` command to run `Reassessor`.
 ```
 $ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> \
   <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
@@ -93,7 +157,7 @@ $ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <ass
 
 # Example
 
-You can test `Reassessor` with our example program.
+You can test `Reassessor` with our sample program.
 
 ### 1. Build a source code
 ```
@@ -150,7 +214,7 @@ issue.)
 
 We also publicize the artifacts to reproduce the experiments in our paper.
 Please check our
-[artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/main/artifact).
+[artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/v1.0/artifact) folder.
 
 # Contributions of our works
 
