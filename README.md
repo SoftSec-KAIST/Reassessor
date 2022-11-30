@@ -40,7 +40,7 @@ $ python3 setup.py install --user
 
 # Usage
 
-### Preprocessing Step
+### Perform a Preprocessing Step
 
 There is a preprocessing step that needs to be performed before operating
 `Reassessor` to produce a compiler-generated assembly file, a non-stripped
@@ -64,9 +64,9 @@ Next, you can get reassembler-generated assembly files by running
 `preprocessing` module.
 
 > **Note**
-> The preprocessing step requires `Docker` engine to run reassemblers.
-> Moreover, we assumed that you can run Docker commands as a non-root user
-> since we wanted our scripts not to ask you for sudo password.
+> Docker needs to be installed on the same machine to run reassemblers within
+> a Docker container. Our scripts assume that you can run Docker commands as a
+> regular (unprivileged) user; thus, no need to run them with sudo.
 
 ```
 $ python3 -m reassessor.preprocessing <binary_path> <output_dir>
@@ -83,8 +83,8 @@ $ ls <output_dir>/reassem
 ddisasm.s  retrowrite.s
 ```
 
-Note that each tool supports different sets of binaries: `Ramblr` only works
-with non-PIE binaries and `RetroWrite` only works with x86-64 PIE binaries.
+Note that each reassembly tool supports different sets of binaries: `Ramblr` only
+works with non-PIE binaries and `RetroWrite` only works with x86-64 PIE binaries.
 Thus, `preprocessing` module will generate a different set of reassembly files
 depending on binary files.
 
@@ -102,7 +102,7 @@ depending on binary files.
 ### Run Reassessor
 
 `Reassessor` takes in a compiler-generated assembly file and a
-reassembler-generated assembly file and transforms assembly expressions into a
+reassembler-generated assembly file, and transforms assembly expressions into a
 canonical form to ease the comparison. Then, `Reassessor` searches errors by
 comparing the normalized assembly code.
 
@@ -114,15 +114,15 @@ $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_di
 ```
 
 The `reassessor` module requires `<binary_path>`  and `<assembly_directory>` to
-normalize compiler-generated assembly files. Also, it requires `<reassembly
-files>` to normalize the target reassembly file; you can specify the location
-of reassembly files by using `--ramblr`, `--retrowrite`, and `--ddisasm`
+normalize compiler-generated assembly files. Also, it requires `reassembly
+file` to normalize the target reassembly file; you can specify the location
+of `reassembly file` by using `--ramblr`, `--retrowrite`, and `--ddisasm`
 options. Then, `reassessor` module compares the normalized code and produces
 report files on `<output_directory>`.
 
 ```
 $ python3 -m reassessor.reassessor <binary_path> <assembly_directory> <output_directory> \
-  --ddisasm <reassembly_code_path>
+  --ddisasm <reassembly_file_path>
 $ ls <output_directory>/norm_db
 gt.db  ddisasm.db
 $ ls <output_directory>/errors/ddisasm
@@ -130,7 +130,9 @@ disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 ```
 
 The `reassessor` module generates normalized assembly files under
-`<output_directory>/norm_db` folder. Also, the module produces the following
+`<output_directory>/norm_db` folder, and then it takes the two
+normalized files to find the differences between them.
+Consequently, the `reassessor` module produces the following
 files as output: `ddisasm_diff.txt`, `sym_errors.dat`, `sym_diff.txt`,
 `sym_errors.json`. Firstly, `disasm_diff.txt` contains a list of disassembly
 errors (one per line); each line contains the relevant address,
@@ -143,7 +145,7 @@ reassembler-generated assembly code, and compiler-generated code, for each
 error found. Finally, `sym_errors.json` contains detailed information about
 each symbolization error found, including the relevant assembly file, line
 number, relocatable expression type, normalized code, repairability, and so on.
-The file is written in the JSON format.
+The file is written in JSON format.
 
 ### Docker
 
@@ -155,7 +157,7 @@ The following command will build the docker image name `Reassessor` using our
 $ docker build --tag reassessor .
 ```
 
-Next, you can use the `Docker` command to run `Reassessor`.
+Now, you can run `Reassessor` within a `Docker` container.
 ```
 $ docker run --rm reassessor sh -c "/Reassessor/reassessor.py <binary_path> <assembly_directory> \
   <output_directory> [--ramblr RAMBLR] [--retrowrite RETROWRITE] [--ddisasm DDISASM]
@@ -190,7 +192,7 @@ $ ls ./output/errors/retrowrite
 disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 ```
 
-Also, you can use `Docker` command to run `Reassessor`.
+Also, you can run `Reassessor` within a `Docker` container.
 ```
 $ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m reassessor.reassessor \
   /input/example/bin/hello /input/example/asm/ /input/output \
@@ -200,6 +202,8 @@ $ docker run --rm -v $(pwd):/input reassessor sh -c "python3 -m reassessor.reass
 
 ### 4. Check Error Report
 ```
+$ ls ./output/errors/retrowrite/
+disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 $ cat ./output/errors/retrowrite/sym_diff.txt
 # Instrs to check: 48
 # Data to check: 14
@@ -218,9 +222,9 @@ issue.)
 
 # Artifacts
 
-We also publicize the artifacts to reproduce the experiments in our paper.
-Please check our
-[artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/v1.0.0/artifact) folder.
+We also provide the artifact to reproduce the experiments in our paper.
+Please check 
+[Reassessor/artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/v1.0.0/artifact) folder.
 
 # Contributions of our works
 
