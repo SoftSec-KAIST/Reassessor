@@ -131,7 +131,7 @@ disasm_diff.txt  sym_diff.txt  sym_errors.dat  sym_errors.json
 
 The `reassessor` module generates normalized assembly files under
 `<output_directory>/norm_db` folder, and then it takes the two
-normalized files to find the differences of the files.
+normalized files to find the differences between them.
 Consequently, the `reassessor` module produces the following
 files as output: `ddisasm_diff.txt`, `sym_errors.dat`, `sym_diff.txt`,
 `sym_errors.json`. Firstly, `disasm_diff.txt` contains a list of disassembly
