@@ -4,12 +4,14 @@ Reassessor Artifact
 [Reassessor](https://github.com/SoftSec-KAIST/Reassessor) is a tool for finding
 errors in the implementations of existing reassemblers.  This artifact includes
 the source code of Reassessor, the dataset used in our paper, and several
-scripts for reproducing the results in the paper. As a preprocessing step, one
-needs to run three existing reassemblers on our dataset, including Ramblr,
-RetroWrite, and Ddisasm. We provide a dockerized environment to run them. The
-preprocessing step produces a re-assemblable assembly file for each binary, and
-Reassessor uses those files to find reassembly errors. The next section details
-each step to reproduce the results in our paper.
+scripts for reproducing the results in the paper "Reassembly is Hard: A
+Reflection on Challenges and Strategies" which will appear in USENIX Security
+2023. As a preprocessing step, one needs to run three existing reassemblers on
+our dataset, including Ramblr, RetroWrite, and Ddisasm. We provide a dockerized
+environment to run them. The preprocessing step produces a re-assemblable
+assembly file for each binary, and Reassessor uses those files to find
+reassembly errors. The next section details each step to reproduce the results
+in our paper.
 
 > **Note**
 > The artifact requires at least 2.5TB disk to retrieve all results. Also, the
