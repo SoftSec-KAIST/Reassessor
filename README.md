@@ -262,6 +262,6 @@ This research project has been conducted by
 
 (TBD)
 
-### License
+# License
 
 See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
