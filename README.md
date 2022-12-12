@@ -223,7 +223,7 @@ issue.)
 # Artifacts
 
 We also provide the artifact to reproduce the experiments in our paper.
-Please check 
+Please check
 [Reassessor/artifacts/](https://github.com/SoftSec-KAIST/Reassessor/tree/v1.0.0/artifact) folder.
 
 # Contributions of our works
@@ -261,3 +261,7 @@ This research project has been conducted by
 ### Citation
 
 (TBD)
+
+### License
+
+See the [LICENSE](LICENSE.md) file for license rights and limitations (MIT).
