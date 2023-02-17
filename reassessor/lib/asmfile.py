@@ -146,14 +146,13 @@ class AsmFileInfo:
         if jmp_entries:
             self.jmp_dict[label] = CompositeData(label, jmp_entries, idx)
 
-
     def parse_inst(self, inst_str, idx, rep_str=''):
         inst_str_list = inst_str.split(';')
         inst_list = []
         for inst_one in inst_str_list:
             terms = inst_one.split()
             opcode = terms[0]
-            if opcode.startswith('rep'):
+            if opcode.startswith('rep') or opcode == 'notrack':
                 if len(terms) == 1:
                     rep_str = opcode
                     continue

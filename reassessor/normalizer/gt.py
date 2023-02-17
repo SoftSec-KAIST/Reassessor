@@ -673,6 +673,12 @@ class NormalizeGT:
                     continue
             elif asm_token.opcode == bin_asm.mnemonic:
                 addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
+            #capstone couldn't properly handle notrack instruction
+            elif len(asm_token.opcode.split()) == 2 and (
+                    asm_token.opcode.split()[0] == 'notrack' and
+                    asm_token.opcode.split()[1].startswith('jmp') and
+                    bin_asm.mnemonic.startswith('jmp')):
+                addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
             elif self.is_semantically_same(bin_asm, asm_token):
                 addressed_asm_list.append((bin_asm.address, bin_asm, asm_token))
             else:
@@ -870,7 +876,6 @@ class NormalizeGT:
                 if comp_data.addr:
                     self.update_table(comp_data.addr, comp_data, asm_path)
                     visited_label.append(label)
-
 
         for addr in self.relocs:
 
