@@ -320,6 +320,9 @@ class NormalizeGT:
                 asm_file.jmp_dict[label].set_addr(target_addr)
                 jmp_list.append((label, target_addr, len(asm_file.jmp_dict[label].members)))
 
+            if label in asm_file.str_dict:
+                asm_file.str_dict[label].set_addr(target_addr)
+
         return jmp_list
 
 
@@ -876,6 +879,12 @@ class NormalizeGT:
                 if comp_data.addr:
                     self.update_table(comp_data.addr, comp_data, asm_path)
                     visited_label.append(label)
+
+            for label, comp_data in asm_file.str_dict.items():
+                if comp_data.addr:
+                    self.update_table(comp_data.addr, comp_data, asm_path)
+                    visited_label.append(label)
+
 
         for addr in self.relocs:
 

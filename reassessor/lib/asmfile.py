@@ -24,6 +24,7 @@ class AsmFileInfo:
         self.func_dict = dict()
         self.composite_data = dict()
         self.jmp_dict = dict()
+        self.str_dict = dict()
         self.debug_loc_paths = dict()
         self.section = 'none'
         self.visited_func = set()
@@ -115,6 +116,10 @@ class AsmFileInfo:
                         self.mov_prev()
                         self.get_jmp_table(label)
                         return
+                    if not members and re.search('-%s'%(label), terms[1]):
+                        self.mov_prev()
+                        self.get_str_table(label)
+                        return
 
                     if re.search('.[+|-]', terms[1]):
                         bHasComposite =  True
@@ -145,6 +150,19 @@ class AsmFileInfo:
 
         if jmp_entries:
             self.jmp_dict[label] = CompositeData(label, jmp_entries, idx)
+
+    def get_str_table(self, label):
+        str_entries = []
+        idx = self.idx
+        while self.mov_next():
+            terms = self.get_line().split()
+            if terms[0] not in ['.long', '.quad']:
+                self.mov_prev()
+                break
+            str_entries.append((self.get_line(), self.idx))
+
+        if str_entries:
+            self.str_dict[label] = CompositeData(label, str_entries, idx)
 
     def parse_inst(self, inst_str, idx, rep_str=''):
         inst_str_list = inst_str.split(';')
