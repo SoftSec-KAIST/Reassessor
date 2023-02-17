@@ -724,6 +724,15 @@ class NormalizeGT:
         candidate_list = self.get_assem_file(fname)
         candidate_len = len(candidate_list)
         for asm_file in candidate_list:
+            asm_basename = os.path.basename(asm_file.file_path)
+            if asm_basename in ['base32-basenc.s', 'base64-basenc.s', 'basenc-basenc.s',
+                        'b2sum-b2sum.s', 'cksum-b2sum.s', 'b2sum-blake2b-ref.s', 'cksum-blake2b-ref.s',
+                        'b2sum-digest.s', 'cksum-digest.s', 'md5sum-digest.s', 'sha1sum-digest.s',
+                        'sha224sum-digest.s', 'sha256sum-digest.s', 'sha384sum-digest.s',
+                        'sha512sum-digest.s', 'sum-digest.s', 'cksum-sum.s', 'sum-sum.s']:
+                if asm_basename.split('-')[0] != os.path.basename(self.bin_path):
+                    continue
+
             if os.path.basename(asm_file.file_path) in ['src_sha224sum-md5sum.s']:
                 if os.path.basename(self.bin_path) in ['sha512sum', 'sha256sum', 'sha384sum']:
                     continue
