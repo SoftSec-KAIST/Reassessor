@@ -447,7 +447,13 @@ class FactorList:
         ret = ''
         for term in self.terms:
             if isinstance(term, Label):
-                ret += str(term)
+                if ret:
+                    if term.get_name()[0] == '-':
+                        ret += '-' + str(term)
+                    else:
+                        ret += '+' + str(term)
+                else:
+                    ret = str(term)
             elif term < 0:
                 ret += '-%s'%(hex(-term))
             else:

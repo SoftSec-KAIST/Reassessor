@@ -43,6 +43,10 @@ class FuncInst:
         self.inst_list = inst_list
         self.name, self.addr, self.size = func_info
         self.asm_path = asm_path
+        self.jmp_table_list = []
+
+    def register_jmp_table(self, inst_addr, label, tbl_addr, tbl_size):
+        self.jmp_table_list.append({'inst_addr':inst_addr, 'label':label, 'addr':tbl_addr, 'size':tbl_size})
 
 def get_dwarf_loc(filename):
     dwarf_loc_map = {}
@@ -301,6 +305,7 @@ class NormalizeGT:
 
     def update_labels(self, func_info, factors, asm_file): #label_dict, jmptbls, factors):
         target_addr = factors.value - factors.num
+        jmp_list = []
         for label in factors.labels:
             if label == '_GLOBAL_OFFSET_TABLE_':
                 continue
@@ -310,8 +315,12 @@ class NormalizeGT:
 
             if label in asm_file.composite_data and not asm_file.composite_data[label].addr:
                 asm_file.composite_data[label].set_addr(target_addr)
+
             if label in asm_file.jmp_dict:
                 asm_file.jmp_dict[label].set_addr(target_addr)
+                jmp_list.append((label, target_addr, len(asm_file.jmp_dict[label].members)))
+
+        return jmp_list
 
 
     def get_objdump(self):
@@ -404,11 +413,16 @@ class NormalizeGT:
                 self.prog.Instrs[addr] = instr
 
                 # update labels
+                jmp_list = []
                 if instr.imm and instr.imm.has_label():
-                    self.update_labels(func_summary, instr.imm, asm_file)
+                    ret = self.update_labels(func_summary, instr.imm, asm_file)
+                    jmp_list.extend(ret)
                 if instr.disp and instr.disp.has_label():
-                    self.update_labels(func_summary, instr.disp,  asm_file)
+                    ret = self.update_labels(func_summary, instr.disp,  asm_file)
+                    jmp_list.extend(ret)
 
+                for (label, jmp_base, jmp_size) in jmp_list:
+                    func_summary.register_jmp_table(addr, label, jmp_base, jmp_size)
 
 
         text_end = self.text.data_size + self.text_base
@@ -599,7 +613,7 @@ class NormalizeGT:
 
         addressed_asm_list = []
         idx = 0
-        for bin_asm in func_code:
+        for bin_idx, bin_asm in enumerate(func_code):
             if idx >= len(asm_token_list):
                 if self.is_semantically_nop(bin_asm):
                     addressed_asm_list.append((bin_asm.address, bin_asm, ''))
@@ -741,7 +755,7 @@ class NormalizeGT:
                 if addressed_asm_list:
                     ret.append((asm_file, addressed_asm_list))
 
-            assert len(ret) == 1, 'No matched assembly code'
+            assert len(ret) in [1,2], 'No matched assembly code'
 
 
         asm_file, addressed_asm_list = ret[0]
@@ -832,6 +846,7 @@ class NormalizeGT:
                     self.update_data(comp_data.addr, comp_data, asm_path)
                     visited_label.append(label)
 
+
         for asm_path, asm_file in self.asm_file_dict.items():
             for label, comp_data in asm_file.composite_data.items():
                 if not comp_data.addr:
@@ -855,6 +870,7 @@ class NormalizeGT:
                 if comp_data.addr:
                     self.update_table(comp_data.addr, comp_data, asm_path)
                     visited_label.append(label)
+
 
         for addr in self.relocs:
 
@@ -895,6 +911,34 @@ class NormalizeGT:
         with open(save_file, 'wb') as f:
             pickle.dump(self.prog, f)
 
+    def save_func_dict(self, save_file):
+        with open(save_file, 'w') as f:
+            res = {}
+            for key, val in self.bin2src_dict.items():
+                func_info = dict()
+                func_info['asm_path'] = val.asm_path
+                func_info['addr'] = hex(val.addr)
+                func_info['inst_addrs'] = [hex(addr) for (addr, _, _) in val.inst_list]
+                func_info['jmp_tables'] = []
+                for tbl in val.jmp_table_list:
+                    func_info['jmp_tables'].append({'inst_addr':hex(tbl['inst_addr']),
+                        'label':tbl['label'], 'addr':hex(tbl['addr']), 'size':tbl['size']})
+
+                res[hex(key)] = func_info
+
+            data = json.dumps(res, indent=1)
+            #print(re.sub(r',\n\s*([0-9])', r',\1', data), file=f)
+            print(re.sub(r',\n\s*"([0-9])', r',"\1', data), file=f)
+
+class FuncSummary:
+    def __init__(self, func_inst):
+        self.asm_path = func_inst.asm_path
+        self.addr = func_inst.addr
+        self.inst_addrs = [addr for (addr, _, _) in func_inst.inst_list]
+        self.jmp_table_list = func_inst.jmp_table_list
+
+
+
 import argparse
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='normalize_retro')
@@ -903,10 +947,14 @@ if __name__ == '__main__':
     parser.add_argument('save_file', type=str)
     parser.add_argument('--reloc', type=str)
     parser.add_argument('--build_path', type=str)
+    parser.add_argument('--save_func_dict', type=str)
     args = parser.parse_args()
 
     gt = NormalizeGT(args.bin_path, args.asm_dir, args.reloc, args.build_path)
     gt.normalize_data()
 
     gt.save(args.save_file)
+
+    if args.save_func_dict:
+        gt.save_func_dict(args.save_func_dict)
 
