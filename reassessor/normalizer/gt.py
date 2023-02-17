@@ -649,9 +649,19 @@ class NormalizeGT:
                         new_dwarf_set2.add('%s:%s'%(file_name, no))
 
                     if new_dwarf_set2 - new_dwarf_set1:
-                        if debug:
-                            pass
-                        return []
+                        if (self.is_semantically_nop(bin_asm) and
+                            func_code[bin_idx+1].address in self.dwarf_loc):
+                            dwarf_set3 = self.dwarf_loc[func_code[bin_idx+1].address]
+                            for debug_str in dwarf_set3:
+                                file_path, no = debug_str.split(':')
+                                file_name = os.path.basename(file_path)
+                                new_dwarf_set1.add('%s:%s'%(file_name, no))
+                            if new_dwarf_set2 - new_dwarf_set1:
+                                return []
+                            else:
+                                pass
+                        else:
+                            return []
 
             if isinstance(asm_token, LocInfo):
                 # nop code might not have debug info
