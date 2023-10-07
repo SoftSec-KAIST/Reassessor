@@ -2,7 +2,7 @@ from collections import namedtuple
 import glob, os, sys
 import multiprocessing
 
-BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'output_path', 'arch', 'pie', 'package', 'bin'])
+BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'reassem_path', 'output_path', 'arch', 'pie', 'package', 'bin'])
 
 def single_run(target, bDocker=False):
     input_path = '/data4/benchmark'
@@ -45,35 +45,35 @@ def gen_option(input_root, reassem_root, output_root, package, blacklist, whitel
                             if whitelist and filename not in whitelist:
                                 continue
 
-                            ret.append(BuildConf(target, input_root, sub_dir, out_dir, arch, popt, package, binpath))
+                            ret.append(BuildConf(target, input_root, sub_dir, reassem_dir, out_dir, arch, popt, package, binpath))
 
                             cnt += 1
     return ret
 
 def job(conf, reset=False):
-    reassem_dict = dict()
-    '''
-    ramblr_output = conf.reassem_path+'/reassem/ramblr.s'
-    retrowrite_output = conf.reassem_path+'/reassem/retrowrite.s'
-    ddisasm_output = conf.reassem_path+'/reassem/ddisasm.s'
+    from reassessor.normalizer.retro import NormalizeRetro
+    from reassessor.normalizer.ddisasm import NormalizeDdisasm
 
-    if os.path.exists(ramblr_output):
-        reassem_dict['ramblr'] = ramblr_output
-    if os.path.exists(retrowrite_output):
-        reassem_dict['retrowrite'] = retrowrite_output
-    if os.path.exists(ddisasm_output):
-        reassem_dict['ddisasm'] = ddisasm_output
 
-    from reassessor.reassessor import Reassessor
-    print(conf.target)
-    sys.stdout.flush()
+    retro_asm = conf.reassem_path + '/retrowrite/retrowrite.s'
+    retro_out = conf.reassem_path + '/retrowrite/func.json'
+    ddisasm_asm = conf.reassem_path + '/ddisasm_debug/ddisasm.s'
+    ddisasm_out = conf.reassem_path + '/ddisasm_debug/func.json'
 
-    if conf.package in ['spec_cpu2006']:
-        reassessor = Reassessor(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), conf.output_path, build_path = conf.input_root, bin_path=conf.bin)
-    else:
-        reassessor = Reassessor(conf.target, '%s/%s/asm'%(conf.input_root, conf.sub_dir), conf.output_path, build_path = conf.input_root, bin_path=conf.bin)
+    if os.path.exists(retro_asm):
+        retro = NormalizeRetro(conf.bin, retro_asm)
+        retro.normalize_inst()
+        retro.normalize_data()
+        retro.save_brief(retro_out)
+        print(retro_out)
 
-    reassessor.run(reassem_dict)
+    if os.path.exists(ddisasm_asm):
+        ddisasm = NormalizeDdisasm(conf.bin, ddisasm_asm)
+        ddisasm.normalize_inst()
+        ddisasm.normalize_data()
+        ddisasm.save_brief(ddisasm_out)
+        print(ddisasm_out)
+
     '''
     from reassessor.normalizer.gt import NormalizeGT
 
@@ -100,6 +100,7 @@ def job(conf, reset=False):
     gt.save_func_dict(gt_func_path)
 
     print(gt_func_path)
+    '''
 
     sys.stdout.flush()
 
@@ -125,9 +126,12 @@ def docker_job(conf):
 def run(package, core=1, bDocker=False, blacklist=None, whitelist=None):
     if package not in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2017']:
         return False
-    input_root = '/data4/benchmark'
-    reassem_root = '/data4/output'
-    output_root = '/data4/output'
+    #input_root = '/data4/benchmark'
+    #reassem_root = '/data4/output'
+    #output_root = '/data4/output'
+    input_root = '/data3/3_superset/benchmark'
+    reassem_root = '/data3/3_superset/output3'
+    output_root = '/data3/3_superset/output3'
     config_list = gen_option(input_root, reassem_root, output_root, package, blacklist, whitelist)
 
     if core and core > 1:
