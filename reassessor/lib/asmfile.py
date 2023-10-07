@@ -170,7 +170,7 @@ class AsmFileInfo:
         for inst_one in inst_str_list:
             terms = inst_one.split()
             opcode = terms[0]
-            if opcode.startswith('rep') or opcode == 'notrack':
+            if opcode.startswith('rep') or opcode == 'notrack' or opcode == 'lock':
                 if len(terms) == 1:
                     rep_str = opcode
                     continue

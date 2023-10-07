@@ -331,6 +331,7 @@ class NormalizeGT:
         os.system("objdump -t -f %s | grep \"F .text\" | sort > %s" % (self.bin_path, temp_file))
 
         funcs = []
+        prev_addr = 0
         with open(temp_file) as fp:
             lines = fp.readlines()
             for line in lines:
@@ -342,7 +343,13 @@ class NormalizeGT:
                 try:
                     #if len(loc_candidates) and fsize > 0:
                     if self.has_func_assem_file(fname) and fsize > 0:
-                        funcs.append([fname, faddress, fsize])
+                        if prev_addr == faddress:
+                            funcs[-1][0].append(fname)
+                            print(funcs[-1])
+                        else:
+                            funcs.append([[fname], faddress, fsize])
+
+                    prev_addr = faddress
                 except:
                     pass
 
@@ -380,9 +387,9 @@ class NormalizeGT:
 
         funcs = self.get_objdump()   # [funcname, address, size] list
         for func_info in funcs:
-            fname, faddress, fsize = func_info
+            fname_list, faddress, fsize = func_info
 
-            if '__x86.get_pc_thunk' in fname:
+            if len(fname_list) == 1 and '__x86.get_pc_thunk' in fname_list[0]:
                 continue
 
             '''
@@ -612,8 +619,7 @@ class NormalizeGT:
                     return True
         return False
 
-    def assem_addr_map(self, func_code, asm_token_list, candidate_len, debug=False):
-
+    def assem_addr_map(self, func_code, asm_token_list, candidate_len, debug=False, malformed = True):
         addressed_asm_list = []
         idx = 0
         for bin_idx, bin_asm in enumerate(func_code):
@@ -630,6 +636,8 @@ class NormalizeGT:
                 while isinstance(asm_token, LocInfo):
                     dwarf_set2.add( '%s:%d'%(asm_token.path, asm_token.idx))
                     idx += 1
+                    if idx >= len(asm_token_list):
+                        return []
                     asm_token = asm_token_list[idx]
                 #give exception for a first debug info since some debug info is related to prev func
                 #in case of weak symbols, multiple debug info could be merged.
@@ -661,7 +669,12 @@ class NormalizeGT:
                             else:
                                 pass
                         else:
-                            return []
+                            if addressed_asm_list and not malformed:
+                                return []
+                            else:
+                                # debug info mismatch is allowed
+                                # at the beginning of function
+                                pass
 
             if isinstance(asm_token, LocInfo):
                 # nop code might not have debug info
@@ -716,77 +729,97 @@ class NormalizeGT:
 
     def find_match_func(self, func_code, func_info):
 
-        fname, faddress, fsize = func_info
-        if not self.has_func_assem_file(fname):
-            return None
+        fname_list, faddress, fsize = func_info
+        for fname in fname_list:
+            if not self.has_func_assem_file(fname):
+                return None
 
+        if len(fname_list) > 1:
+            print(fname_list)
         ret = []
-        candidate_list = self.get_assem_file(fname)
-        candidate_len = len(candidate_list)
-        for asm_file in candidate_list:
-            asm_basename = os.path.basename(asm_file.file_path)
-            if asm_basename in ['base32-basenc.s', 'base64-basenc.s', 'basenc-basenc.s',
-                        'b2sum-b2sum.s', 'cksum-b2sum.s', 'b2sum-blake2b-ref.s', 'cksum-blake2b-ref.s',
-                        'b2sum-digest.s', 'cksum-digest.s', 'md5sum-digest.s', 'sha1sum-digest.s',
-                        'sha224sum-digest.s', 'sha256sum-digest.s', 'sha384sum-digest.s',
-                        'sha512sum-digest.s', 'sum-digest.s', 'cksum-sum.s', 'sum-sum.s']:
-                if asm_basename.split('-')[0] != os.path.basename(self.bin_path):
-                    continue
+        candidate_dict = dict()
+        for fname in fname_list:
+            candidate_dict[fname] = self.get_assem_file(fname)
+        malformed = False
+        if len(candidate_dict) == 0:
+            print("%x: there is no available candidate, so we extract visited candidates"%(faddress))
+            for fname in fname_list:
+                candidate_dict[fname] = self.get_assem_file(fname, include_visited_func=True)
+            malformed = True
 
-            if os.path.basename(asm_file.file_path) in ['src_sha224sum-md5sum.s']:
-                if os.path.basename(self.bin_path) in ['sha512sum', 'sha256sum', 'sha384sum']:
-                    continue
-            if os.path.basename(asm_file.file_path) in ['src_sha256sum-md5sum.s']:
-                if os.path.basename(self.bin_path) in ['sha512sum', 'sha224sum', 'sha384sum']:
-                    continue
-            if os.path.basename(asm_file.file_path) in ['src_sha384sum-md5sum.s']:
-                if os.path.basename(self.bin_path) in ['sha512sum', 'sha224sum', 'sha256sum']:
-                    continue
-            if os.path.basename(asm_file.file_path) in ['src_sha512sum-md5sum.s']:
-                if os.path.basename(self.bin_path) in ['sha224sum', 'sha256sum', 'sha384sum']:
-                    continue
-            if 'usable_st_size' in fname:
-                '''
-                    grep  '^usable_st_size:'  coreutils-8.30/x64/clang/nopie/o1-bfd/src/* -A 10 | grep orl
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/dd.s-	orl	24(%rdi), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/head.s-	orl	24(%rdi), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/od.s-	orl	24(%rdi), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/shuf.s-	orl	24(%rdi), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/split.s-	orl	in_stat_buf+24(%rip), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/tail.s-	orl	24(%rdi), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/truncate.s-	orl	24(%rdi), %eax
-                    coreutils-8.30/x64/clang/nopie/o1-bfd/src/wc.s-	orl	24(%rdi), %eax
-                '''
-                if os.path.basename(asm_file.file_path) in ['dd.s', 'head.s', 'od.s', 'shuf.s', 'tail.s', 'truncate.s', 'wc.s']:
-                    if os.path.basename(self.bin_path) in ['split']:
-                        continue
-                if os.path.basename(asm_file.file_path) in ['split.s']:
-                    if os.path.basename(self.bin_path) in  ['dd', 'head', 'od', 'shuf', 'tail', 'truncate', 'wc']:
+        candidate_len = 0
+        for asm_file_list in candidate_dict.values():
+            candidate_len += len(asm_file_list)
+
+        for fname, asm_file_list in candidate_dict.items():
+            for asm_file in asm_file_list:
+                asm_basename = os.path.basename(asm_file.file_path)
+                if asm_basename in ['base32-basenc.s', 'base64-basenc.s', 'basenc-basenc.s',
+                            'b2sum-b2sum.s', 'cksum-b2sum.s', 'b2sum-blake2b-ref.s', 'cksum-blake2b-ref.s',
+                            'b2sum-digest.s', 'cksum-digest.s', 'md5sum-digest.s', 'sha1sum-digest.s',
+                            'sha224sum-digest.s', 'sha256sum-digest.s', 'sha384sum-digest.s',
+                            'sha512sum-digest.s', 'sum-digest.s', 'cksum-sum.s', 'sum-sum.s']:
+                    if asm_basename.split('-')[0] != os.path.basename(self.bin_path):
                         continue
 
+                if os.path.basename(asm_file.file_path) in ['src_sha224sum-md5sum.s']:
+                    if os.path.basename(self.bin_path) in ['sha512sum', 'sha256sum', 'sha384sum']:
+                        continue
+                if os.path.basename(asm_file.file_path) in ['src_sha256sum-md5sum.s']:
+                    if os.path.basename(self.bin_path) in ['sha512sum', 'sha224sum', 'sha384sum']:
+                        continue
+                if os.path.basename(asm_file.file_path) in ['src_sha384sum-md5sum.s']:
+                    if os.path.basename(self.bin_path) in ['sha512sum', 'sha224sum', 'sha256sum']:
+                        continue
+                if os.path.basename(asm_file.file_path) in ['src_sha512sum-md5sum.s']:
+                    if os.path.basename(self.bin_path) in ['sha224sum', 'sha256sum', 'sha384sum']:
+                        continue
+                if 'usable_st_size' in fname:
+                    '''
+                        grep  '^usable_st_size:'  coreutils-8.30/x64/clang/nopie/o1-bfd/src/* -A 10 | grep orl
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/dd.s-	orl	24(%rdi), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/head.s-	orl	24(%rdi), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/od.s-	orl	24(%rdi), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/shuf.s-	orl	24(%rdi), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/split.s-	orl	in_stat_buf+24(%rip), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/tail.s-	orl	24(%rdi), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/truncate.s-	orl	24(%rdi), %eax
+                        coreutils-8.30/x64/clang/nopie/o1-bfd/src/wc.s-	orl	24(%rdi), %eax
+                    '''
+                    if os.path.basename(asm_file.file_path) in ['dd.s', 'head.s', 'od.s', 'shuf.s', 'tail.s', 'truncate.s', 'wc.s']:
+                        if os.path.basename(self.bin_path) in ['split']:
+                            continue
+                    if os.path.basename(asm_file.file_path) in ['split.s']:
+                        if os.path.basename(self.bin_path) in  ['dd', 'head', 'od', 'shuf', 'tail', 'truncate', 'wc']:
+                            continue
 
-            #asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
-            #addressed_asm_list = self.assem_addr_map(func_code, asm_inst_list, candidate_len)
-            addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len)
 
-            if not addressed_asm_list:
-                continue
-            ret.append((asm_file, addressed_asm_list))
+                #asm_inst_list = [line for line in asm_file.func_dict[fname] if isinstance(line, AsmInst)]
+                #addressed_asm_list = self.assem_addr_map(func_code, asm_inst_list, candidate_len)
+                addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len, malformed)
+
+                if not addressed_asm_list:
+                    continue
+                ret.append((fname, asm_file, addressed_asm_list))
 
 
         if not ret:
             # debug info might be omitted.
             # we give some exception to assembly matching.
-            for asm_file in candidate_list:
-                addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len, True)
+            for fname, asm_file_list in candidate_dict.items():
+                for asm_file in asm_file_list:
+                    addressed_asm_list = self.assem_addr_map(func_code, asm_file.func_dict[fname], candidate_len, True)
 
                 if addressed_asm_list:
-                    ret.append((asm_file, addressed_asm_list))
+                    ret.append((fname, asm_file, addressed_asm_list))
 
-            assert len(ret) in [1,2], 'No matched assembly code'
+            if len(ret) == 0:
+                import pdb
+                pdb.set_trace()
+            assert len(ret) > 0, 'No matched assembly code'
 
 
-        asm_file, addressed_asm_list = ret[0]
+        fname, asm_file, addressed_asm_list = ret[0]
         asm_file.visited_func.add(fname)
 
         return asm_file, addressed_asm_list
@@ -804,6 +837,7 @@ class NormalizeGT:
                 curr += inst.size
             return result
         except:
+            print(hex(curr))
             print("Disassembly failed.")
             exit()
 
@@ -838,13 +872,15 @@ class NormalizeGT:
     def has_func_assem_file(self, func_name):
         return func_name in self._func_map
 
-    def get_assem_file(self, func_name):
+    def get_assem_file(self, func_name, include_visited_func=False):
         ret = []
         for asm_path in self._func_map[func_name]:
             #ignored referred assembly file
             #since local function can be defined twice
             # _Z41__static_initialization in 483.xalancbmk
             if func_name in self.asm_file_dict[asm_path].visited_func:
+                if include_visited_func:
+                    ret.append(self.asm_file_dict[asm_path])
                 pass
             else:
                 ret.append(self.asm_file_dict[asm_path])
