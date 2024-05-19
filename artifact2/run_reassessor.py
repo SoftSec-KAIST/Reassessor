@@ -93,8 +93,8 @@ def job(conf, reset=False):
         return
 
     print(conf.target)
-    if conf.package in ['spec_cpu2017']:
-        gt = NormalizeGT(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), reloc_file='', build_path = conf.input_root)
+    if conf.package in ['spec_cpu2017', 'spec_cpu2006']:
+        gt = NormalizeGT(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), reloc_file='', build_path = '')
     else:
         gt = NormalizeGT(conf.target, '%s/%s/asm'%(conf.input_root, conf.sub_dir), reloc_file='', build_path = conf.input_root)
 
