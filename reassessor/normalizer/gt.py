@@ -402,6 +402,9 @@ class NormalizeGT:
 
             asm_file, addressed_asm_list = self.find_match_func(func_code, func_info)
 
+            if asm_file is None:
+                continue
+
             func_summary = FuncInst(addressed_asm_list, func_info, asm_file.file_path)
             self.bin2src_dict[faddress] = func_summary
 
@@ -751,6 +754,7 @@ class NormalizeGT:
         for asm_file_list in candidate_dict.values():
             candidate_len += len(asm_file_list)
 
+        addressed_asm_list = []
         for fname, asm_file_list in candidate_dict.items():
             for asm_file in asm_file_list:
                 asm_basename = os.path.basename(asm_file.file_path)
@@ -814,6 +818,7 @@ class NormalizeGT:
                     ret.append((fname, asm_file, addressed_asm_list))
 
             if len(ret) == 0:
+                return None, []
                 import pdb
                 pdb.set_trace()
             assert len(ret) > 0, 'No matched assembly code'

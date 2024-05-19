@@ -28,6 +28,18 @@ class NormalizeDdisasm(NormalizeTool):
     def __init__(self, bin_path, reassem_path, supplement_file=''):
         super().__init__(bin_path, reassem_path, ddisasm_mapper, capstone.CS_OPT_SYNTAX_INTEL, supplement_file=supplement_file)
 
+    def get_table_dict(self):
+        tbl_dict = dict()
+        for addr in sorted(self.prog.Data.keys()):
+            if self.prog.Data[addr].value.type == 7:
+                tbl_addr = ddisasm_label_to_addr(self.prog.Data[addr].value.labels[1][1:])
+                if tbl_addr not in tbl_dict:
+                    tbl_dict[tbl_addr] = 0
+                tbl_dict[tbl_addr] += 1
+        return tbl_dict
+
+
+
 def ddisasm_mapper(reassem_path, tokenizer, supplement_file):
     result = []
     addr = -1

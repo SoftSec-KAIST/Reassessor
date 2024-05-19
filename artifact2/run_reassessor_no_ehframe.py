@@ -5,9 +5,9 @@ import multiprocessing
 BuildConf = namedtuple('BuildConf', ['target', 'input_root', 'sub_dir', 'reassem_path', 'output_path', 'arch', 'pie', 'package', 'bin'])
 
 def single_run(target, bDocker=False):
-    input_path = '/data2/benchmark'
-    output_path = '/data2/output'
-    reassem_path = '/data2/output'
+    input_path = '/data3/3_superset/benchmark_no_ehframe'
+    output_path = '/data3/3_superset/output_no_ehframe'
+    reassem_path = '/data3/3_superset/output_no_ehframe'
     package, _, _ = target.split('/')[-5:-2]
     arch = 'x64'
     popt = 'pie'
@@ -28,7 +28,7 @@ def gen_option(input_root, reassem_root, output_root, package, blacklist, whitel
     ret = []
     cnt = 0
     for arch in ['x64']:
-        for comp in ['clang-13', 'gcc-11']:
+        for comp in ['clang-10', 'gcc-11']:
             for popt in ['pie']:
                 for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
                     for lopt in ['bfd', 'gold']:
@@ -130,12 +130,12 @@ def docker_job(conf):
 def run(package, core=1, bDocker=False, blacklist=None, whitelist=None):
     if package not in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2017', 'spec_cpu2006']:
         return False
-    input_root = '/data3/3_superset/benchmark'
-    reassem_root = '/data3/3_superset/output'
-    output_root = '/data3/3_superset/output'
-    #input_root = '/data2/benchmark'
-    #reassem_root = '/data2/output'
-    #output_root = '/data2/output'
+    #input_root = '/data4/benchmark'
+    #reassem_root = '/data4/output'
+    #output_root = '/data4/output'
+    input_root = '/data3/3_superset/benchmark_no_ehframe'
+    reassem_root = '/data3/3_superset/output_no_ehframe'
+    output_root = '/data3/3_superset/output_no_ehframe'
     config_list = gen_option(input_root, reassem_root, output_root, package, blacklist, whitelist)
 
     if core and core > 1:
@@ -169,10 +169,10 @@ if __name__ == '__main__':
     elif args.package:
         run(args.package, args.core, args.docker, args.blacklist, args.whitelist)
     else:
-        #for package in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2017']:
+        for package in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2017']:
         #for package in ['coreutils-9.1', 'binutils-2.40']:
         #for package in ['binutils-2.40']:
         #for package in ['coreutils-9.1']:
-        for package in ['spec_cpu2017']:
+        #for package in ['spec_cpu2017']:
         #for package in ['spec_cpu2006']:
             run(package, args.core, args.docker, args.blacklist, args.whitelist)

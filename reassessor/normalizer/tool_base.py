@@ -5,6 +5,8 @@ import pickle
 from reassessor.lib.types import Program, LblTy
 from reassessor.lib.parser import AsmTokenizer, ReasmInst, ReasmData, ReasmLabel, ReasmSetLabel, CompGen
 from collections import defaultdict
+import json
+import re
 
 from elftools.elf.elffile import ELFFile
 import capstone
@@ -51,7 +53,7 @@ class NormalizeTool:
 
     def make_label_dict(self):
         if not self.addressed_label:
-            return dict()
+            return dict(), dict()
         label_dict = defaultdict(list)
         for label in self.addressed_label:
             label_dict[label.label].append(label.addr)
@@ -147,4 +149,18 @@ class NormalizeTool:
     def save(self, save_file):
         with open(save_file, 'wb') as f:
             pickle.dump(self.prog, f)
+
+    def save_brief(self, save_file):
+
+        with open(save_file, 'w') as f:
+
+            bin_info = dict()
+            bin_info['inst_addrs'] = list(self.prog.Instrs.keys())
+            bin_info['jump_tables'] = []
+            tbls = self.get_table_dict()
+            for key, val in tbls.items():
+                bin_info['jump_tables'].append({'addr':hex(key), 'size':val})
+
+            data = json.dumps(bin_info, indent=1)
+            print(re.sub(r',\n\s*"([0-9])', r',"\1', data), file=f)
 

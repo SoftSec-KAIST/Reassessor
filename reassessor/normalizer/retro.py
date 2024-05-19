@@ -1,7 +1,7 @@
 import re
 import capstone
 import os
-from .tool_base import NormalizeTool
+from reassessor.normalizer.tool_base import NormalizeTool
 from reassessor.lib.parser import parse_att_asm_line, ReasmLabel, parse_set_directive
 from bitstring import BitArray
 
@@ -11,6 +11,18 @@ HUGE_BIT_ARRAY = 0x50000000
 class NormalizeRetro(NormalizeTool):
     def __init__(self, bin_path, reassem_path, supplement_file=''):
         super().__init__(bin_path, reassem_path, retro_mapper, capstone.CS_OPT_SYNTAX_ATT, label_func = retro_label_func, supplement_file=supplement_file)
+
+    def get_table_dict(self):
+        tbl_dict = dict()
+        for addr in sorted(self.prog.Data.keys()):
+            if self.prog.Data[addr].value.type == 7:
+                tbl_addr = retro_label_to_addr(self.prog.Data[addr].value.labels[1][1:])
+                if tbl_addr not in tbl_dict:
+                    tbl_dict[tbl_addr] = 0
+                tbl_dict[tbl_addr] += 1
+        return tbl_dict
+
+
 
 retro_huge_addr_set = BitArray(1)
 
@@ -103,5 +115,6 @@ if __name__ == '__main__':
     retro = NormalizeRetro(args.bin_path, args.reassem_path)
     retro.normalize_inst()
     retro.normalize_data()
-    retro.save(args.save_file)
+    #retro.save(args.save_file)
+    retro.save_brief(args.save_file)
 
