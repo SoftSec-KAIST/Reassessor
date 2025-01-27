@@ -82,8 +82,7 @@ def job(conf, reset=False):
             if(gt.instructions[key].mnemonic == 'endbr64'):
                 fd.write('%x\n'%(key))
 
-    print(gt_endbr_path)
-
+    print('[+] %s'%(conf.target))
     sys.stdout.flush()
 
 
