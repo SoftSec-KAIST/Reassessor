@@ -22,7 +22,7 @@ def gen_option(input_root, output_root, package, blacklist, whitelist):
 
                             if package in ['coreutils-9.1']:
                                 # 1 (opt) * 2 (comp) * 2 (linker) = 4
-                                if comp_set in ['gcc-11', 'gcc-13']:
+                                if comp in ['gcc-11', 'gcc-13']:
                                     if opt in ['ofast']:
                                         if filename in ['seq']:
                                             continue
