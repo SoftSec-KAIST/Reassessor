@@ -64,7 +64,6 @@ def job(conf, reset=False):
     if not reset and os.path.exists(gt_func_path):
         return
 
-    print(conf.target)
     if conf.package in ['spec_cpu2017', 'spec_cpu2006']:
         gt = NormalizeGT(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), reloc_file='', build_path = '')
     else:
@@ -76,8 +75,6 @@ def job(conf, reset=False):
     os.system('mkdir -p %s'%(norm_dir))
     gt.save(gt_norm_path)
     gt.save_func_dict(gt_func_path)
-
-    print(gt_func_path)
 
     # record ENDBR64 addresses
     with open(gt_endbr_path, 'w') as fd:
