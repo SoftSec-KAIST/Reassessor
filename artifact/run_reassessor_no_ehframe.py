@@ -28,7 +28,8 @@ def gen_option(input_root, reassem_root, output_root, package, blacklist, whitel
     ret = []
     cnt = 0
     for arch in ['x64']:
-        for comp in ['clang-10', 'gcc-11']:
+        #for comp in ['clang-13', 'gcc-11']:
+        for comp in ['clang-10', 'gcc-13']:
             for popt in ['pie']:
                 for opt in ['o0', 'o1', 'o2', 'o3', 'os', 'ofast']:
                     for lopt in ['bfd', 'gold']:
@@ -38,6 +39,8 @@ def gen_option(input_root, reassem_root, output_root, package, blacklist, whitel
 
                             filename = os.path.basename(target)
                             binpath = '%s/bin/%s'%(input_dir, filename)
+                            if filename in ['416.gamess'] and opt not in ['o0']:
+                                continue
 
                             reassem_dir = '%s/%s/%s'%(reassem_root, sub_dir, filename)
                             out_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
@@ -93,8 +96,8 @@ def job(conf, reset=False):
         return
 
     print(conf.target)
-    if conf.package in ['spec_cpu2017']:
-        gt = NormalizeGT(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), reloc_file='', build_path = conf.input_root)
+    if conf.package in ['spec_cpu2017', 'spec_cpu2006']:
+        gt = NormalizeGT(conf.target, '%s/%s/asm/%s'%(conf.input_root, conf.sub_dir, os.path.basename(conf.target)), reloc_file='', build_path = '')
     else:
         gt = NormalizeGT(conf.target, '%s/%s/asm'%(conf.input_root, conf.sub_dir), reloc_file='', build_path = conf.input_root)
 
@@ -131,11 +134,13 @@ def run(package, core=1, bDocker=False, blacklist=None, whitelist=None):
     if package not in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2017', 'spec_cpu2006']:
         return False
     #input_root = '/data4/benchmark'
-    #reassem_root = '/data4/output'
+    input_root = '/data3/3_supersetCFG/benchmark_no_ehframe'
+    reassem_root = '/data5/2024/output_no_ehframe'
     #output_root = '/data4/output'
-    input_root = '/data3/3_superset/benchmark_no_ehframe'
-    reassem_root = '/data3/3_superset/output_no_ehframe'
-    output_root = '/data3/3_superset/output_no_ehframe'
+    output_root = '/data5/2024/output_no_ehframe_gt'
+    #input_root = '/data5/benchmark_no_ehframe'
+    #reassem_root = '/data5/2024/output_no_ehframe'
+    #output_root = '/data5/2024/output_no_ehframe_gt'
     config_list = gen_option(input_root, reassem_root, output_root, package, blacklist, whitelist)
 
     if core and core > 1:
@@ -169,7 +174,7 @@ if __name__ == '__main__':
     elif args.package:
         run(args.package, args.core, args.docker, args.blacklist, args.whitelist)
     else:
-        for package in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2017']:
+        for package in ['coreutils-9.1', 'binutils-2.40', 'spec_cpu2006', 'spec_cpu2017']:
         #for package in ['coreutils-9.1', 'binutils-2.40']:
         #for package in ['binutils-2.40']:
         #for package in ['coreutils-9.1']:
