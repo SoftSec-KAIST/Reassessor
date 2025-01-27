@@ -40,9 +40,6 @@ def gen_option(input_root, output_root, package, blacklist, whitelist):
                                 if filename in ['511.povray_r'] and opt in ['ofast'] and comp in ['gcc-13']:
                                     continue
 
-                            if filename not in ['434.zeusmp']:
-                                continue
-
                             out_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
 
                             if blacklist and filename in blacklist:
