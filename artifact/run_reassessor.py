@@ -40,6 +40,9 @@ def gen_option(input_root, output_root, package, blacklist, whitelist):
                                 if filename in ['511.povray_r'] and opt in ['ofast'] and comp in ['gcc-13']:
                                     continue
 
+                            if filename not in ['434.zeusmp']:
+                                continue
+
                             out_dir = '%s/%s/%s'%(output_root, sub_dir, filename)
 
                             if blacklist and filename in blacklist:
@@ -59,6 +62,7 @@ def job(conf, reset=False):
     norm_dir = '%s/norm_db'%(conf.output_path)
     gt_norm_path = '%s/gt.db'%(norm_dir)
     gt_func_path = '%s/func.json'%(norm_dir)
+    gt_endbr_path = '%s/endbr64.json'%(norm_dir)
 
     if not reset and os.path.exists(gt_func_path):
         return
@@ -69,6 +73,7 @@ def job(conf, reset=False):
     else:
         gt = NormalizeGT(conf.target, '%s/%s/asm'%(conf.input_root, conf.sub_dir), reloc_file='', build_path = conf.input_root)
 
+
     gt.normalize_data()
 
     os.system('mkdir -p %s'%(norm_dir))
@@ -76,6 +81,14 @@ def job(conf, reset=False):
     gt.save_func_dict(gt_func_path)
 
     print(gt_func_path)
+
+    # record ENDBR64 addresses
+    with open(gt_endbr_path, 'w') as fd:
+        for key in sorted(gt.instructions.keys()):
+            if(gt.instructions[key].mnemonic == 'endbr64'):
+                fd.write('%x\n'%(key))
+
+    print(gt_endbr_path)
 
     sys.stdout.flush()
 
